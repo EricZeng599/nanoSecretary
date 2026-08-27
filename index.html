@@ -245,9 +245,9 @@
         let entryMode = 'quick';
         let pendingAiPreview = null; // AI 解析结果，用户确认后保存
 
-        // 拖拽
+        // 拖拽（增量模式：mousedown 通知主进程记起点，mousemove 只上报位移）
         let isDragging = false;
-        let startX, startY, startWindowX, startWindowY;
+        let dragStartX = 0, dragStartY = 0;
 
         // 初始化
         inputContainer.style.display = 'none';
@@ -271,23 +271,26 @@
             if (currentMode === 'ball') switchToInputMode();
         });
 
-        // 拖拽
+        // 拖拽：悬浮球
         ball.addEventListener('mousedown', (e) => {
             if (e.button === 0 && currentMode === 'ball') {
                 isDragging = true;
-                startX = e.screenX; startY = e.screenY;
-                api.getWindowPosition();
+                dragStartX = e.screenX;
+                dragStartY = e.screenY;
+                api.dragStart();
             }
         });
         document.addEventListener('mousemove', (e) => {
             if (isDragging) {
-                const nx = startWindowX + (e.screenX - startX);
-                const ny = startWindowY + (e.screenY - startY);
-                api.moveWindow(nx, ny);
+                api.dragMove(e.screenX - dragStartX, e.screenY - dragStartY);
             }
         });
-        document.addEventListener('mouseup', () => { isDragging = false; });
-        api.onWindowPosition((x, y) => { startWindowX = x; startWindowY = y; });
+        document.addEventListener('mouseup', () => {
+            if (isDragging) {
+                isDragging = false;
+                api.dragEnd();
+            }
+        });
 
         // 右键菜单
         ball.addEventListener('contextmenu', (e) => {
@@ -300,24 +303,27 @@
             if (e.key === 'Escape' && currentMode === 'input') switchToBallMode();
         });
 
-        // 输入面板拖拽
-        let isInputDragging = false, iSX, iSY, iWX, iWY;
+        // 输入面板拖拽（增量模式）
+        let isInputDragging = false, inputDragX = 0, inputDragY = 0;
         inputContainer.addEventListener('mousedown', (e) => {
             if (currentMode !== 'input') return;
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'BUTTON') return;
             isInputDragging = true;
-            iSX = e.screenX; iSY = e.screenY;
-            api.getWindowPosition();
+            inputDragX = e.screenX;
+            inputDragY = e.screenY;
+            api.dragStart();
         });
         document.addEventListener('mousemove', (e) => {
             if (isInputDragging) {
-                const nx = Math.floor(iWX + (e.screenX - iSX));
-                const ny = Math.floor(iWY + (e.screenY - iSY));
-                api.moveWindow(nx, ny);
+                api.dragMove(e.screenX - inputDragX, e.screenY - inputDragY);
             }
         });
-        document.addEventListener('mouseup', () => { isInputDragging = false; });
-        api.onWindowPosition((x, y) => { iWX = x; iWY = y; });
+        document.addEventListener('mouseup', () => {
+            if (isInputDragging) {
+                isInputDragging = false;
+                api.dragEnd();
+            }
+        });
 
         // 快速记录：输入时实时 AI 预览（防抖）
         let aiTimer = null;

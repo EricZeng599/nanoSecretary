@@ -363,17 +363,25 @@
         document.getElementById('settings-button').addEventListener('click', () => alert('设置：Ollama 模型与提醒阈值将在下一步实现'));
         document.getElementById('close-button').addEventListener('click', () => api.closeHomepage());
 
-        // 窗口拖拽（顶部区域）
-        let isDrag = false, sX, sY, wX, wY;
+        // 窗口拖拽（顶部区域，增量模式）
+        let isDrag = false, dragSX = 0, dragSY = 0;
         document.querySelector('.header').addEventListener('mousedown', (e) => {
-            isDrag = true; sX = e.screenX; sY = e.screenY;
-            api.getHomepagePosition();
+            isDrag = true;
+            dragSX = e.screenX;
+            dragSY = e.screenY;
+            api.dragHomepageStart();
         });
         document.addEventListener('mousemove', (e) => {
-            if (isDrag) { api.moveHomepage(wX + (e.screenX - sX), wY + (e.screenY - sY)); }
+            if (isDrag) {
+                api.dragHomepageMove(e.screenX - dragSX, e.screenY - dragSY);
+            }
         });
-        document.addEventListener('mouseup', () => { isDrag = false; });
-        api.onHomepagePosition((x, y) => { wX = x; wY = y; });
+        document.addEventListener('mouseup', () => {
+            if (isDrag) {
+                isDrag = false;
+                api.dragHomepageEnd();
+            }
+        });
 
         // Esc 收起
         document.addEventListener('keydown', (e) => { if (e.key === 'Escape') api.closeHomepage(); });

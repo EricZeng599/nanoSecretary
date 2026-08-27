@@ -12,7 +12,7 @@ let reminderTimer = null;
 let isDragging = false;
 let startX, startY, startWindowX, startWindowY;
 
-const BALLOON_SIZE = 50;
+const BALLOON_SIZE = 70; // 加大窗口，给呼吸动画和阴影留空间（球本身 40px）
 const INPUT_SIZE = { width: 420, height: 190 };
 
 /* ================= 配置管理 ================= */
@@ -493,7 +493,35 @@ ipcMain.on('resize-window', (event, mode) => {
   }
 });
 
-/* 移动窗口（渲染进程拖拽） */
+/* 拖拽移动窗口（主进程驱动，增量模式，避免异步取位置的时序问题）
+   renderer 在 mousedown 时发 'drag-window-start'，随后持续发 'drag-window-move' delta */
+let dragStart = null;
+
+ipcMain.on('drag-window-start', (event) => {
+  if (!mainWindow) return;
+  const [x, y] = mainWindow.getPosition();
+  dragStart = { x, y };
+});
+
+ipcMain.on('drag-window-move', (event, dx, dy) => {
+  if (!mainWindow || !dragStart) return;
+  const nx = Math.round(dragStart.x + dx);
+  const ny = Math.round(dragStart.y + dy);
+  mainWindow.setPosition(nx, ny);
+});
+
+ipcMain.on('drag-window-end', () => {
+  // 拖动结束时保存位置
+  if (mainWindow && dragStart) {
+    const [x, y] = mainWindow.getPosition();
+    const config = readConfig();
+    config.windowPosition = { x, y };
+    writeConfig(config);
+  }
+  dragStart = null;
+});
+
+/* 兼容旧接口：移动窗口 */
 ipcMain.on('move-window', (event, x, y) => {
   if (!mainWindow) return;
   const intX = Math.floor(x);
@@ -537,6 +565,26 @@ ipcMain.on('show-ball-menu', (event, x, y) => {
 ipcMain.on('open-history', () => createHistoryWindow());
 ipcMain.on('close-homepage', () => {
   if (homePageWindow) homePageWindow.hide();
+});
+
+/* 主页面窗口拖拽（增量模式） */
+let homepageDragStart = null;
+
+ipcMain.on('drag-homepage-start', () => {
+  if (!homePageWindow) return;
+  homepageDragStart = homePageWindow.getPosition();
+});
+
+ipcMain.on('drag-homepage-move', (event, dx, dy) => {
+  if (!homePageWindow || !homepageDragStart) return;
+  homePageWindow.setPosition(
+    Math.round(homepageDragStart[0] + dx),
+    Math.round(homepageDragStart[1] + dy)
+  );
+});
+
+ipcMain.on('drag-homepage-end', () => {
+  homepageDragStart = null;
 });
 
 ipcMain.on('get-homepage-position', (event) => {
