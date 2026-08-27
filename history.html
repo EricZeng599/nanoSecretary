@@ -89,6 +89,11 @@
 
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 4px; }
+
+        /* ---- 无障碍：减少动态 ---- */
+        @media (prefers-reduced-motion: reduce) {
+            .chip, .entry-card, .action-button { transition: none; }
+        }
     </style>
 </head>
 <body>

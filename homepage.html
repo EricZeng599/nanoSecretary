@@ -148,6 +148,14 @@
             -webkit-app-region: drag; cursor: grab; border-radius: 16px 16px 0 0;
         }
         body { position: relative; }
+
+        /* ---- 无障碍：减少动态 ---- */
+        @media (prefers-reduced-motion: reduce) {
+            .tab, .entry-item, .footer-button { transition: none; }
+        }
+        @media (prefers-reduced-transparency: reduce) {
+            .container { background: rgba(24, 24, 28, 0.98); backdrop-filter: blur(4px); }
+        }
     </style>
 </head>
 <body>

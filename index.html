@@ -249,6 +249,31 @@
         #overlay { position: fixed; inset: 0; background: transparent; display: none; z-index: -1; }
 
         .hint { color: rgba(255,255,255,0.5); font-size: 0.625rem; margin-top: 6px; text-align: center; }
+
+        /* ---- 无障碍：减少动态 ---- */
+        /* prefers-reduced-motion: 停用呼吸/脉冲/闪光动画，保留颜色状态提示（静态即可） */
+        @media (prefers-reduced-motion: reduce) {
+            #floating-ball.breathe #ball-core,
+            #floating-ball.due #ball-core,
+            #floating-ball.urgent #ball-core,
+            #floating-ball.saved #ball-core {
+                animation: none;
+            }
+            #floating-ball:hover { transform: none; }
+            #floating-ball:active { transform: scale(0.97); }
+            /* 面板进入改为极淡透明度过渡，不做位移缩放 */
+            #input-wrapper {
+                transition: opacity 0.15s ease-out;
+                transform: none;
+            }
+        }
+        /* prefers-reduced-transparency: 降毛玻璃模糊，提高底色不透明度，保证可读性 */
+        @media (prefers-reduced-transparency: reduce) {
+            #input-wrapper {
+                background: rgba(28, 28, 32, 0.98);
+                backdrop-filter: blur(4px);
+            }
+        }
     </style>
 </head>
 <body>
