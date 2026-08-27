@@ -97,7 +97,7 @@ function broadcastEntriesChanged() {
 }
 
 function getIconPath() {
-  const ico = path.join(__dirname, 'deepsec.ico');
+  const ico = path.join(__dirname, 'nanoSecretary.ico');
   if (fs.existsSync(ico)) return ico;
   return path.join(__dirname, 'icon.png');
 }
@@ -162,7 +162,7 @@ function createWindow() {
 /* ================= 托盘 ================= */
 function createTray() {
   tray = new Tray(loadIcon());
-  tray.setToolTip('DeepSec');
+  tray.setToolTip('nanoSecretary');
 
   const rebuildMenu = () => {
     const config = readConfig();
@@ -216,7 +216,7 @@ function createHomePageWindow() {
     width, height,
     x: Math.floor((screenSize.width - width) / 2),
     y: Math.floor((screenSize.height - height) / 2),
-    title: 'DeepSec',
+    title: 'nanoSecretary',
     frame: false,
     transparent: true,
     resizable: false, // transparent 窗口在 Windows 上不应 resizable，否则拖拽会触发尺寸异常（与悬浮球一致）
@@ -242,7 +242,7 @@ function createHistoryWindow() {
   historyWindow = new BrowserWindow({
     width: 720,
     height: 820,
-    title: '历史记录 - DeepSec',
+    title: '历史记录 - nanoSecretary',
     autoHideMenuBar: false,
     icon: getIconPath(),
     webPreferences: {
@@ -306,7 +306,7 @@ function fireReminder(entry, diffMs) {
   // 1. 系统通知
   if (Notification.isSupported()) {
     const n = new Notification({
-      title: 'DeepSec · 待办提醒',
+      title: 'nanoSecretary · 待办提醒',
       body: `${entry.title}\n${diffText}（原定 ${entry.dueDate}）`,
       icon: getIconPath(),
       silent: false,
@@ -324,9 +324,9 @@ function fireReminder(entry, diffMs) {
 
   // 3. 托盘提示
   if (tray) {
-    tray.setToolTip(`DeepSec · 待办提醒：${entry.title}`);
+    tray.setToolTip(`nanoSecretary · 待办提醒：${entry.title}`);
     tray.displayBalloon && tray.displayBalloon({
-      title: 'DeepSec · 待办提醒',
+      title: 'nanoSecretary · 待办提醒',
       content: `${entry.title}\n${diffText}`,
     });
   }

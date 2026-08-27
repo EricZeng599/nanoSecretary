@@ -3,6 +3,7 @@ node_modules/
 
 # 运行时数据（用户个人记录，不应入库）
 history_files/data.json
+history_files/config.json
 
 # 系统文件
 .DS_Store
@@ -15,4 +16,4 @@ Thumbs.db
 dist/
 out/
 release/
-DeepSec/
+nanoSecretary/
