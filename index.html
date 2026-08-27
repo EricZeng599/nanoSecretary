@@ -178,7 +178,8 @@
         .row input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.8); }
         .row label { color: rgba(255,255,255,0.6); font-size: 0.6875rem; }
 
-        #save-button {
+        #save-button,
+        #save-button-form {
             height: 30px;
             padding: 0 16px;
             background: linear-gradient(135deg, rgba(120,130,150,0.9), rgba(80,88,104,0.9));
@@ -190,7 +191,8 @@
             transition: filter 0.2s;
             margin-left: auto;
         }
-        #save-button:hover { filter: brightness(1.15); }
+        #save-button:hover,
+        #save-button-form:hover { filter: brightness(1.15); }
 
         /* AI 解析结果预览 */
         #ai-preview {
@@ -245,6 +247,12 @@
             border-radius: 6px;
             padding: 6px 8px;
             font-size: 0.75rem;
+            color-scheme: dark;
+        }
+        /* 下拉选项强制黑底白字，避免系统原生白底白字 */
+        select option {
+            background-color: #1e1e24;
+            color: white;
         }
         #overlay { position: fixed; inset: 0; background: transparent; display: none; z-index: -1; }
 
@@ -314,7 +322,7 @@
                     </select>
                 </div>
                 <div class="row">
-                    <button id="save-button-form" style="margin-left:auto;">保存</button>
+                    <button id="save-button-form">保存</button>
                 </div>
             </div>
 
@@ -551,6 +559,13 @@
                 ball.classList.remove('due');
                 ball.classList.add('breathe');
             }
+        });
+
+        // 数据变更广播：刷新角标
+        api.onEntriesChanged((entries) => {
+            const pending = (entries || []).filter((e) => e.status === 'pending').length;
+            api.onTodoCount && api.getTodoCount();
+            if (pending > 0) updateBallStatus(true);
         });
 
         function updateBallStatus(hasDue) {

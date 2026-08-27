@@ -84,6 +84,17 @@ function writeData(data) {
   }
 }
 
+/* 向所有窗口广播数据变更，确保主页面/历史/悬浮球实时刷新 */
+function broadcastEntriesChanged() {
+  const data = readData();
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.isDestroyed()) {
+      win.webContents.send('entries-changed', data);
+    }
+  }
+  sendTodoCount();
+}
+
 function getIconPath() {
   const ico = path.join(__dirname, 'cyber-secretary.ico');
   if (fs.existsSync(ico)) return ico;
@@ -363,6 +374,7 @@ ipcMain.on('save-entry', async (event, text) => {
     data.push(entry);
     writeData(data);
     event.reply('save-entry-success', { ok: true, entry });
+    broadcastEntriesChanged(); // 立即广播，主页面/历史实时出现新条目
 
     // 2. 后台用 AI 解析：提取待办/截止日期/分类，解析成功则回填
     const aiEnabled = readConfig().aiEnabled !== false;
@@ -384,6 +396,7 @@ ipcMain.on('save-entry', async (event, text) => {
           writeData(data);
           // 通知前端刷新（如果有 AI 解析结果展示）
           event.reply('entry-ai-refined', updated);
+          broadcastEntriesChanged(); // AI 解析完成后广播，主页面/历史实时更新
         }
       } catch (e) {
         console.error('AI 解析失败:', e);
@@ -432,6 +445,7 @@ ipcMain.on('delete-entry', (event, id) => {
   const newData = data.filter((e) => e.id !== id);
   writeData(newData);
   event.reply('delete-entry-success', true);
+  broadcastEntriesChanged();
 });
 
 /* 标记完成/未完成 */
@@ -442,7 +456,7 @@ ipcMain.on('mark-done', (event, id, done) => {
     entry.status = done ? 'done' : (entry.dueDate ? 'pending' : 'note');
     writeData(data);
     event.reply('entry-updated', entry);
-    sendTodoCount(); // 更新角标
+    broadcastEntriesChanged(); // 更新角标 + 广播
   }
 });
 
@@ -456,6 +470,7 @@ ipcMain.on('update-due-date', (event, id, dueDate) => {
     else entry.status = entry.status === 'pending' ? 'note' : entry.status;
     writeData(data);
     event.reply('entry-updated', entry);
+    broadcastEntriesChanged();
   }
 });
 
@@ -668,9 +683,14 @@ ipcMain.on('get-ai-status', async (event) => {
   const available = await ollama.isAvailable();
   const models = available ? await ollama.listModels() : [];
   const config = readConfig();
+  let effectiveModel = ollama.MODEL;
+  // 若配置的模型不在已安装列表里，报告第一个可用的模型（与实际对话回退一致）
+  if (available && models.length && !models.includes(ollama.MODEL)) {
+    effectiveModel = models[0];
+  }
   event.reply('ai-status', {
     available,
-    model: ollama.MODEL,
+    model: effectiveModel,
     models,
     enabled: config.aiEnabled !== false,
     remindLeadHours: getLeadHours(),

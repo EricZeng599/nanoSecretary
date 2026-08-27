@@ -184,6 +184,11 @@
             border-radius: 8px; font-size: 0.75rem; outline: none;
             color-scheme: dark;
         }
+        /* 下拉选项强制黑底白字 */
+        select option {
+            background-color: #1e1e24;
+            color: white;
+        }
         .setting-row .switch-row { display: flex; align-items: center; justify-content: space-between; }
         .setting-row .desc { font-size: 0.6875rem; color: rgba(255,255,255,0.5); margin-top: 4px; }
         .switch {
@@ -420,6 +425,12 @@
         api.onAiRefined(() => setTimeout(loadData, 400));
         api.onSaveSuccess(() => {});
         api.onEntryUpdated(() => setTimeout(loadData, 150));
+        // 任意窗口数据变更 → 刷新
+        api.onEntriesChanged((entries) => {
+            allEntries = entries || [];
+            renderTodos();
+            api.getRecentEntries();
+        });
 
         // 对话
         function sendChat() {

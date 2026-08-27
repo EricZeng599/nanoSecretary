@@ -298,6 +298,12 @@
 
         api.onEntryUpdated(() => setTimeout(loadEntries, 200));
         api.onDeleteSuccess(() => setTimeout(loadEntries, 200));
+        // 任意窗口数据变更 → 刷新
+        api.onEntriesChanged((entries) => {
+            allEntries = (entries || []).sort((a, b) => new Date(b.created) - new Date(a.created));
+            renderChips();
+            renderEntries();
+        });
 
         loadEntries();
     </script>

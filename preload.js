@@ -17,6 +17,8 @@ contextBridge.exposeInMainWorld('api', {
   // 记录查询
   getEntries: () => ipcRenderer.send('get-entries'),
   onEntries: (cb) => ipcRenderer.on('get-entries-success', (e, data) => cb(data)),
+  // 数据变更广播（任意窗口增删改后触发）
+  onEntriesChanged: (cb) => ipcRenderer.on('entries-changed', (e, data) => cb(data)),
   getRecentEntries: () => ipcRenderer.send('get-recent-entries'),
   onRecentEntries: (cb) => ipcRenderer.on('recent-entries', (e, data) => cb(data)),
   deleteEntry: (id) => ipcRenderer.send('delete-entry', id),

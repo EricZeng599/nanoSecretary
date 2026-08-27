@@ -279,15 +279,36 @@ async function chatReply(history) {
   // 只保留最近 8 条，避免超出小模型上下文
   const trimmed = messages.slice(0, 1).concat(messages.slice(-8));
 
-  try {
+  async function chatWith(model) {
     const res = await fetchWithTimeout(`${OLLAMA_HOST}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: MODEL, messages: trimmed, stream: false, temperature: 0.6 }),
+      body: JSON.stringify({ model, messages: trimmed, stream: false, temperature: 0.6 }),
     });
-    if (!res.ok) return null;
+    if (!res.ok) return { ok: false, status: res.status };
     const data = await res.json();
-    return (data.message && data.message.content || '').trim() || null;
+    const text = (data.message && data.message.content || '').trim();
+    return { ok: true, text };
+  }
+
+  try {
+    // 1. 先用当前配置的模型
+    const first = await chatWith(MODEL);
+    if (first.ok) return first.text || null;
+
+    // 2. 当前模型不可用（可能没安装/名字不对）→ 自动切到已安装的第一个模型
+    const models = await listModels();
+    if (models.length) {
+      const fallback = models.find((m) => m !== MODEL) || models[0];
+      if (fallback && fallback !== MODEL) {
+        const second = await chatWith(fallback);
+        if (second.ok) {
+          MODEL = fallback; // 记住，后续对话直接用这个模型
+          return second.text || null;
+        }
+      }
+    }
+    return null;
   } catch {
     return null;
   }
