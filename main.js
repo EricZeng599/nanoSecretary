@@ -123,6 +123,24 @@ function createWindow() {
 
   // 渲染进程通过 IPC 请求移动窗口，这里统一处理（去掉主进程自己的拖拽逻辑）
   mainWindow.loadFile('index.html');
+
+  // —— 诊断日志：捕获渲染进程是否正常执行（定位"拖不动/不呼吸"根因）——
+  mainWindow.webContents.on('console-message', (e, level, message, line, sourceId) => {
+    console.log(`[renderer:${level}] ${message} (${sourceId}:${line})`);
+  });
+  mainWindow.webContents.on('preload-error', (e, preloadPath, error) => {
+    console.error('[preload-error]', preloadPath, error);
+  });
+  mainWindow.webContents.on('did-fail-load', (e, code, desc) => {
+    console.error('[did-fail-load]', code, desc);
+  });
+  mainWindow.webContents.once('did-finish-load', () => {
+    mainWindow.webContents
+      .executeJavaScript('typeof window.api')
+      .then((r) => console.log('[diag] window.api typeof =', r))
+      .catch((err) => console.log('[diag] executeJavaScript error:', err.message));
+  });
+
   createTray();
 }
 

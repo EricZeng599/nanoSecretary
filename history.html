@@ -116,7 +116,7 @@
     </div>
 
     <script>
-        const api = window.api;
+        // 直接使用全局 api（contextBridge 注入），不要用 const api = window.api 重复声明
         let allEntries = [];
         const filters = { status: 'all', category: 'all', tag: 'all' };
 

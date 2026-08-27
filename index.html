@@ -238,7 +238,10 @@
     <div id="overlay"></div>
 
     <script>
-        const api = window.api;
+        // 注意：不要用 const api = window.api 重新声明！
+        // contextBridge.exposeInMainWorld('api', ...) 已在全局创建 api，
+        // 重复 const 声明会抛 "Identifier 'api' has already been declared" 导致整个脚本不执行。
+        // 直接通过全局标识符 api 访问。
         const ball = document.getElementById('floating-ball');
         const badge = document.getElementById('badge');
         const inputContainer = document.getElementById('input-container');
