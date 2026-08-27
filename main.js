@@ -552,7 +552,9 @@ ipcMain.on('drag-window-move', (event, dx, dy) => {
   if (!mainWindow || !dragStart) return;
   const nx = Math.round(dragStart.x + dx);
   const ny = Math.round(dragStart.y + dy);
-  mainWindow.setPosition(nx, ny);
+  // 用 setBounds 显式带上当前宽高，避免 Windows 高缩放下 setPosition 反复调用导致窗口变大
+  const [w, h] = mainWindow.getSize();
+  mainWindow.setBounds({ x: nx, y: ny, width: w, height: h });
 });
 
 ipcMain.on('drag-window-end', () => {
@@ -571,7 +573,8 @@ ipcMain.on('move-window', (event, x, y) => {
   if (!mainWindow) return;
   const intX = Math.floor(x);
   const intY = Math.floor(y);
-  mainWindow.setPosition(intX, intY);
+  const [w, h] = mainWindow.getSize();
+  mainWindow.setBounds({ x: intX, y: intY, width: w, height: h });
   const config = readConfig();
   config.windowPosition = { x: intX, y: intY };
   writeConfig(config);
@@ -622,10 +625,14 @@ ipcMain.on('drag-homepage-start', () => {
 
 ipcMain.on('drag-homepage-move', (event, dx, dy) => {
   if (!homePageWindow || !homepageDragStart) return;
-  homePageWindow.setPosition(
-    Math.round(homepageDragStart[0] + dx),
-    Math.round(homepageDragStart[1] + dy)
-  );
+  // 用 setBounds 显式带上当前宽高，避免 Windows 高缩放下 setPosition 反复调用导致窗口变大
+  const [w, h] = homePageWindow.getSize();
+  homePageWindow.setBounds({
+    x: Math.round(homepageDragStart[0] + dx),
+    y: Math.round(homepageDragStart[1] + dy),
+    width: w,
+    height: h,
+  });
 });
 
 ipcMain.on('drag-homepage-end', () => {
