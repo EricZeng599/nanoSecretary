@@ -192,7 +192,7 @@ function fallbackParse(text) {
 
 /* ---------------- 智能解析：待办 + 截止日期 + 优先级 ---------------- */
 
-const PARSE_SYSTEM = `你是"赛博秘书"的意图解析器。用户会随手记录一段话，可能包含待办事项和截止时间。
+const PARSE_SYSTEM = `你是"DeepSec"的意图解析器。用户会随手记录一段话，可能包含待办事项和截止时间。
 请从文本中提取结构化信息，只输出 JSON，格式：
 {"title":"简短的任务标题(去除时间词)","dueDate":"YYYY-MM-DD 或 null(没有截止日期)","priority":"高|中|低","type":"task|note"}
 规则：
@@ -244,7 +244,7 @@ async function classifyEntry(text) {
 
 /* ---------------- 提醒文案生成 ---------------- */
 
-const REMIND_SYSTEM = `你是"赛博秘书"，一个贴心的私人助理。根据一条待办事项生成一句简洁、自然的中文提醒。
+const REMIND_SYSTEM = `你是"DeepSec"，一个贴心的私人助理。根据一条待办事项生成一句简洁、自然的中文提醒。
 要求：不超过25字，口语化，像真人助理在说话，别用感叹号和"亲爱的"，直接说重点。只输出提醒文案本身。`;
 
 async function generateReminder(entry) {
@@ -256,7 +256,7 @@ async function generateReminder(entry) {
 
 /* ---------------- 对话式交互 ---------------- */
 
-const CHAT_SYSTEM = `你是"赛博秘书"，运行在本地的轻量私人助理。性格简洁、靠谱、有点贴心。
+const CHAT_SYSTEM = `你是"DeepSec"，运行在本地的轻量私人助理。性格简洁、靠谱、有点贴心。
 用户可能会问你日程安排、待办事项，或闲聊。用中文回答，控制在两三句话以内。
 如果用户说"我有什么待办"，你会在上下文里看到他的记录列表，据此回答。
 不要说你是AI模型，就以"秘书"自称。`;
@@ -290,7 +290,7 @@ async function extractTaskFromMessage(text) {
  */
 async function chatReply(history) {
   if (!Array.isArray(history) || history.length === 0) {
-    return '你好，我是你的赛博秘书。记下想做的事情，我会在截止前提醒你。';
+    return '你好，我是 DeepSec。记下想做的事情，我会在截止前提醒你。';
   }
   // 组装成 Ollama 的 chat 消息格式
   const messages = [{ role: 'system', content: CHAT_SYSTEM }];

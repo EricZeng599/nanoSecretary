@@ -1,7 +1,7 @@
 {
-  "name": "cyber-secretary",
+  "name": "deepsec",
   "version": "1.0.0",
-  "description": "赛博秘书应用",
+  "description": "DeepSec 本地 AI 秘书",
   "main": "main.js",
   "scripts": {
     "start": "electron ."
@@ -10,6 +10,6 @@
     "electron": "^28.0.0"
   },
   "build": {
-    "icon": "cyber-secretary.ico"
+    "icon": "deepsec.ico"
   }
 }
