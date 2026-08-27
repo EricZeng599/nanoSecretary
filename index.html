@@ -40,9 +40,14 @@
             inset: 0;
             border-radius: 50%;
             pointer-events: none;
-            background: linear-gradient(135deg, rgba(120,130,150,0.92), rgba(80,88,104,0.92));
-            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25),
-                        inset 0 1px 0 rgba(255,255,255,0.25);
+            /* 基础材质：垂直渐变 + 左上径向高光，模拟有光泽的玻璃球 */
+            background:
+                radial-gradient(circle at 32% 28%, rgba(255,255,255,0.55), rgba(255,255,255,0) 42%),
+                linear-gradient(135deg, rgba(135,145,165,0.95), rgba(75,85,105,0.95));
+            box-shadow:
+                0 3px 14px rgba(0, 0, 0, 0.3),
+                inset 0 1px 0 rgba(255,255,255,0.35),
+                inset 0 -2px 6px rgba(0,0,0,0.18);
             transition: background 0.5s ease, box-shadow 0.5s ease;
             will-change: transform;
         }
@@ -54,12 +59,16 @@
         }
         /* 有截止提醒：常驻橙色呼吸（内层背景平滑过渡到橙色） */
         #floating-ball.due #ball-core {
-            background: linear-gradient(135deg, rgba(255,160,60,0.95), rgba(230,110,40,0.95));
+            background:
+                radial-gradient(circle at 32% 28%, rgba(255,255,255,0.5), rgba(255,255,255,0) 42%),
+                linear-gradient(135deg, rgba(255,168,68,0.98), rgba(228,112,42,0.98));
             animation: breathe 1.8s ease-in-out infinite;
         }
         /* 临近截止：红色急促脉冲 */
         #floating-ball.urgent #ball-core {
-            background: linear-gradient(135deg, rgba(255,90,80,0.95), rgba(220,50,50,0.95));
+            background:
+                radial-gradient(circle at 32% 28%, rgba(255,255,255,0.5), rgba(255,255,255,0) 42%),
+                linear-gradient(135deg, rgba(255,100,88,0.98), rgba(218,52,52,0.98));
             animation: pulse 1.2s ease-in-out infinite;
         }
         @keyframes pulse {
@@ -87,7 +96,9 @@
         }
         /* 保存成功：内层材质绿色闪光 */
         #floating-ball.saved #ball-core {
-            background: linear-gradient(135deg, rgba(80,200,130,0.95), rgba(50,160,100,0.95));
+            background:
+                radial-gradient(circle at 32% 28%, rgba(255,255,255,0.5), rgba(255,255,255,0) 42%),
+                linear-gradient(135deg, rgba(80,200,130,0.98), rgba(50,160,100,0.98));
             animation: flash-save 0.5s ease-out;
         }
         @keyframes flash-save {
@@ -124,7 +135,7 @@
         #input-wrapper.show {
             opacity: 1;
             transform: scale(1);
-            backdrop-filter: blur(18px) saturate(160%);
+            backdrop-filter: blur(18px) saturate(180%);
         }
         #text-input {
             flex: 1;
@@ -138,7 +149,7 @@
             outline: none;
             margin-bottom: 8px;
         }
-        #text-input::placeholder { color: rgba(255,255,255,0.45); }
+        #text-input::placeholder { color: rgba(255,255,255,0.55); }
 
         /* 保存失败内联提示 */
         #save-error {
@@ -163,7 +174,7 @@
             color-scheme: dark;
         }
         .row input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.8); }
-        .row label { color: rgba(255,255,255,0.5); font-size: 11px; }
+        .row label { color: rgba(255,255,255,0.6); font-size: 11px; }
 
         #save-button {
             height: 30px;
@@ -208,7 +219,7 @@
             font-size: 11px;
             border-radius: 20px;
             background: rgba(255,255,255,0.08);
-            color: rgba(255,255,255,0.55);
+            color: rgba(255,255,255,0.65);
             border: none;
             cursor: pointer;
         }
@@ -235,7 +246,7 @@
         }
         #overlay { position: fixed; inset: 0; background: transparent; display: none; z-index: -1; }
 
-        .hint { color: rgba(255,255,255,0.35); font-size: 10px; margin-top: 6px; text-align: center; }
+        .hint { color: rgba(255,255,255,0.5); font-size: 10px; margin-top: 6px; text-align: center; }
     </style>
 </head>
 <body>
