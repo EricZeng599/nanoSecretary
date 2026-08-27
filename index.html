@@ -348,6 +348,7 @@
         inputContainer.style.display = 'none';
         ball.style.display = 'flex';
         ball.classList.add('breathe'); // 常驻呼吸动画
+        api.getTodoCount(); // 初始化角标（待办数）
 
         // Tab 切换
         document.getElementById('tab-quick').addEventListener('click', () => setEntryMode('quick'));
@@ -531,11 +532,25 @@
 
         api.onAiRefined((entry) => {
             if (entry && entry.status === 'pending') updateBallStatus(true);
+            api.getTodoCount(); // 刷新角标
         });
 
         // 提醒状态（主进程推送）
         api.onReminderAlert((data) => {
             if (data && data.hasDue) updateBallStatus(true);
+        });
+
+        // 待办数角标（F2：显示真实待办数，无待办则隐藏）
+        api.onTodoCount((count) => {
+            const n = count || 0;
+            badge.textContent = n > 99 ? '99+' : String(n);
+            badge.style.display = n > 0 ? 'flex' : 'none';
+            if (n > 0) {
+                ball.classList.add('due');
+            } else {
+                ball.classList.remove('due');
+                ball.classList.add('breathe');
+            }
         });
 
         function updateBallStatus(hasDue) {

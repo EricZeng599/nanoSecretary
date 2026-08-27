@@ -55,6 +55,10 @@ contextBridge.exposeInMainWorld('api', {
   getAiStatus: () => ipcRenderer.send('get-ai-status'),
   onAiStatus: (cb) => ipcRenderer.on('ai-status', (e, data) => cb(data)),
 
+  // 待办数（角标）
+  getTodoCount: () => ipcRenderer.send('get-todo-count'),
+  onTodoCount: (cb) => ipcRenderer.on('todo-count', (e, count) => cb(count)),
+
   // 对话
   sendChat: (history) => ipcRenderer.send('chat-message', history),
   onChatReply: (cb) => ipcRenderer.on('chat-reply', (e, text) => cb(text)),

@@ -245,8 +245,14 @@ function createHistoryWindow() {
 }
 
 /* ================= 提醒调度器 ================= */
-const REMIND_LEAD_HOURS = 24; // 提前 24 小时提醒
+const DEFAULT_LEAD_HOURS = 24; // 默认提前 24 小时提醒
 const CHECK_INTERVAL = 60 * 1000; // 每 60 秒扫一次
+
+function getLeadHours() {
+  const config = readConfig();
+  const h = parseInt(config.remindLeadHours, 10);
+  return (isNaN(h) || h < 0 || h > 168) ? DEFAULT_LEAD_HOURS : h;
+}
 
 function startReminderScheduler() {
   if (reminderTimer) clearInterval(reminderTimer);
@@ -259,7 +265,7 @@ function scanReminders() {
   try {
     const data = readData();
     const now = new Date();
-    const leadMs = REMIND_LEAD_HOURS * 3600 * 1000;
+    const leadMs = getLeadHours() * 3600 * 1000;
     let changed = false;
 
     for (const entry of data) {
@@ -267,7 +273,7 @@ function scanReminders() {
       const due = new Date(entry.dueDate + 'T00:00:00');
       if (isNaN(due.getTime())) continue;
       const diff = due - now;
-      // 提醒窗口：截止前 24 小时内，或已过期但不超过 8 天（只提醒一次）
+      // 提醒窗口：截止前 N 小时内，或已过期但不超过 8 天（只提醒一次）
       if (diff <= leadMs && diff > -8 * 24 * 3600 * 1000) {
         entry.reminded = true;
         changed = true;
@@ -383,6 +389,7 @@ ipcMain.on('save-entry', async (event, text) => {
         console.error('AI 解析失败:', e);
       }
     }
+    sendTodoCount(); // 保存后更新角标
   } catch (e) {
     console.error('保存记录失败:', e);
     event.reply('save-entry-success', { ok: false });
@@ -435,6 +442,7 @@ ipcMain.on('mark-done', (event, id, done) => {
     entry.status = done ? 'done' : (entry.dueDate ? 'pending' : 'note');
     writeData(data);
     event.reply('entry-updated', entry);
+    sendTodoCount(); // 更新角标
   }
 });
 
@@ -659,12 +667,28 @@ ipcMain.on('move-homepage', (event, x, y) => {
 ipcMain.on('get-ai-status', async (event) => {
   const available = await ollama.isAvailable();
   const models = available ? await ollama.listModels() : [];
+  const config = readConfig();
   event.reply('ai-status', {
     available,
     model: ollama.MODEL,
     models,
-    enabled: readConfig().aiEnabled !== false,
+    enabled: config.aiEnabled !== false,
+    remindLeadHours: getLeadHours(),
   });
+});
+
+/* 推送当前待办数给渲染进程（角标用） */
+function sendTodoCount() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  const data = readData();
+  const count = data.filter((e) => e.status === 'pending').length;
+  mainWindow.webContents.send('todo-count', count);
+}
+
+ipcMain.on('get-todo-count', (event) => {
+  const data = readData();
+  const count = data.filter((e) => e.status === 'pending').length;
+  event.reply('todo-count', count);
 });
 
 /* ================= 生命周期 ================= */
