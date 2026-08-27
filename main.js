@@ -207,6 +207,7 @@ function createHomePageWindow() {
     title: '赛博秘书',
     frame: false,
     transparent: true,
+    resizable: false, // transparent 窗口在 Windows 上不应 resizable，否则拖拽会触发尺寸异常（与悬浮球一致）
     autoHideMenuBar: true,
     icon: getIconPath(),
     webPreferences: {
@@ -541,20 +542,21 @@ ipcMain.on('resize-window', (event, mode) => {
 /* 拖拽移动窗口（主进程驱动，增量模式，避免异步取位置的时序问题）
    renderer 在 mousedown 时发 'drag-window-start'，随后持续发 'drag-window-move' delta */
 let dragStart = null;
+let dragSize = null;
 
 ipcMain.on('drag-window-start', (event) => {
   if (!mainWindow) return;
   const [x, y] = mainWindow.getPosition();
   dragStart = { x, y };
+  dragSize = mainWindow.getSize(); // 记住拖拽开始时的尺寸
 });
 
 ipcMain.on('drag-window-move', (event, dx, dy) => {
-  if (!mainWindow || !dragStart) return;
+  if (!mainWindow || !dragStart || !dragSize) return;
   const nx = Math.round(dragStart.x + dx);
   const ny = Math.round(dragStart.y + dy);
-  // 用 setBounds 显式带上当前宽高，避免 Windows 高缩放下 setPosition 反复调用导致窗口变大
-  const [w, h] = mainWindow.getSize();
-  mainWindow.setBounds({ x: nx, y: ny, width: w, height: h });
+  // setBounds 显式带上拖拽开始时的尺寸，避免 Windows 高缩放下窗口逐次变大
+  mainWindow.setBounds({ x: nx, y: ny, width: dragSize[0], height: dragSize[1] });
 });
 
 ipcMain.on('drag-window-end', () => {
@@ -566,6 +568,7 @@ ipcMain.on('drag-window-end', () => {
     writeConfig(config);
   }
   dragStart = null;
+  dragSize = null;
 });
 
 /* 兼容旧接口：移动窗口 */
@@ -617,26 +620,29 @@ ipcMain.on('close-homepage', () => {
 
 /* 主页面窗口拖拽（增量模式） */
 let homepageDragStart = null;
+let homepageDragSize = null;
 
 ipcMain.on('drag-homepage-start', () => {
   if (!homePageWindow) return;
   homepageDragStart = homePageWindow.getPosition();
+  // 记住拖拽开始时的尺寸，全程用初始值，避免 getSize() 返回已放大值形成正反馈
+  homepageDragSize = homePageWindow.getSize();
 });
 
 ipcMain.on('drag-homepage-move', (event, dx, dy) => {
-  if (!homePageWindow || !homepageDragStart) return;
-  // 用 setBounds 显式带上当前宽高，避免 Windows 高缩放下 setPosition 反复调用导致窗口变大
-  const [w, h] = homePageWindow.getSize();
+  if (!homePageWindow || !homepageDragStart || !homepageDragSize) return;
+  // setBounds 显式带上拖拽开始时的尺寸，位置+尺寸一起设置
   homePageWindow.setBounds({
     x: Math.round(homepageDragStart[0] + dx),
     y: Math.round(homepageDragStart[1] + dy),
-    width: w,
-    height: h,
+    width: homepageDragSize[0],
+    height: homepageDragSize[1],
   });
 });
 
 ipcMain.on('drag-homepage-end', () => {
   homepageDragStart = null;
+  homepageDragSize = null;
 });
 
 ipcMain.on('get-homepage-position', (event) => {
