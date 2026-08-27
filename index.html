@@ -36,21 +36,21 @@
             transition: background 0.3s ease;
             touch-action: none;
         }
-        #floating-ball:hover { transform: scale(1.15); }
+        #floating-ball:hover { transform: scale(1.08); }
         #floating-ball:active { transform: scale(0.95); }
         /* 常驻呼吸动画 */
-        #floating-ball.breathe { animation: breathe 2s ease-in-out infinite; }
+        #floating-ball.breathe { animation: breathe 2.4s ease-in-out infinite; }
         @keyframes breathe {
             0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.08); }
+            50% { transform: scale(1.05); }
         }
         /* 有截止提醒：常驻橙色呼吸 */
-        #floating-ball.due { background: linear-gradient(135deg, rgba(255,160,60,0.95), rgba(230,110,40,0.95)); animation: breathe 1.6s ease-in-out infinite; }
+        #floating-ball.due { background: linear-gradient(135deg, rgba(255,160,60,0.95), rgba(230,110,40,0.95)); animation: breathe 1.8s ease-in-out infinite; }
         /* 临近截止：红色急促脉冲 */
-        #floating-ball.urgent { background: linear-gradient(135deg, rgba(255,90,80,0.95), rgba(220,50,50,0.95)); animation: pulse 1.1s ease-in-out infinite; }
+        #floating-ball.urgent { background: linear-gradient(135deg, rgba(255,90,80,0.95), rgba(220,50,50,0.95)); animation: pulse 1.2s ease-in-out infinite; }
         @keyframes pulse {
             0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255,90,80,0.55); }
-            50% { transform: scale(1.12); box-shadow: 0 0 0 12px rgba(255,90,80,0); }
+            50% { transform: scale(1.08); box-shadow: 0 0 0 10px rgba(255,90,80,0); }
         }
 
         /* 角标：待办数量 */

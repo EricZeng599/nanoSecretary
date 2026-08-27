@@ -12,7 +12,7 @@ let reminderTimer = null;
 let isDragging = false;
 let startX, startY, startWindowX, startWindowY;
 
-const BALLOON_SIZE = 90; // 加大窗口：球 40px + hover 放大 + 阴影余量，保证永不越界
+const BALLOON_SIZE = 120; // 加大窗口，给 hover/呼吸/阴影留足余量（球 40px 居中）
 const INPUT_SIZE = { width: 420, height: 190 };
 
 /* ================= 配置管理 ================= */
@@ -139,6 +139,9 @@ function createWindow() {
       .executeJavaScript('typeof window.api')
       .then((r) => console.log('[diag] window.api typeof =', r))
       .catch((err) => console.log('[diag] executeJavaScript error:', err.message));
+    // 打印实际窗口尺寸，验证是否真的是 BALLOON_SIZE
+    const [w, h] = mainWindow.getSize();
+    console.log('[diag] window size =', w, 'x', h, '(期望', BALLOON_SIZE, 'x', BALLOON_SIZE + ')');
   });
 
   createTray();
