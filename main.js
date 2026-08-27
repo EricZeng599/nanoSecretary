@@ -490,29 +490,51 @@ ipcMain.on('save-config', (event, patch) => {
 });
 
 /* 窗口操作 */
+let ballPosBeforeInput = null;  // 进入输入模式前的球位置
+let inputWindowPosAtOpen = null; // 输入面板初始放置位置
+
 ipcMain.on('resize-window', (event, mode) => {
   if (!mainWindow) return;
-  const screenSize = screen.getPrimaryDisplay().workAreaSize;
+  const work = screen.getPrimaryDisplay().workArea;
+
   if (mode === 'input') {
-    mainWindow.setSize(INPUT_SIZE.width, INPUT_SIZE.height);
-    mainWindow.setPosition(
-      Math.floor((screenSize.width - INPUT_SIZE.width) / 2),
-      Math.floor((screenSize.height - INPUT_SIZE.height) / 2)
-    );
+    // 记录球位置，把输入面板放到球附近（优先球上方，空间不够则下方）
+    const [bx, by] = mainWindow.getPosition();
+    ballPosBeforeInput = { x: bx, y: by };
+    const inputW = INPUT_SIZE.width;
+    const inputH = INPUT_SIZE.height;
+    const ballCenterX = bx + BALLOON_SIZE / 2;
+    let x = Math.round(ballCenterX - inputW / 2);
+    let y = by - inputH - 10;
+    if (y < work.y) y = by + BALLOON_SIZE + 10;
+    x = Math.max(work.x, Math.min(x, work.x + work.width - inputW));
+    y = Math.max(work.y, Math.min(y, work.y + work.height - inputH));
+    inputWindowPosAtOpen = { x, y };
+    mainWindow.setSize(inputW, inputH);
+    mainWindow.setPosition(x, y);
     // 确保输入框窗口能获得焦点，否则键盘事件收不到
     mainWindow.focus();
   } else {
+    // 回到小球：若面板被拖过，保持相对位移
     const config = readConfig();
     let x, y;
-    if (config.windowPosition && typeof config.windowPosition.x === 'number') {
+    if (ballPosBeforeInput && inputWindowPosAtOpen) {
+      const [px, py] = mainWindow.getPosition();
+      x = ballPosBeforeInput.x + (px - inputWindowPosAtOpen.x);
+      y = ballPosBeforeInput.y + (py - inputWindowPosAtOpen.y);
+    } else if (config.windowPosition && typeof config.windowPosition.x === 'number') {
       x = config.windowPosition.x;
       y = config.windowPosition.y;
     } else {
-      x = screenSize.width - BALLOON_SIZE - 20;
-      y = screenSize.height - BALLOON_SIZE - 20;
+      x = work.x + work.width - BALLOON_SIZE - 20;
+      y = work.y + work.height - BALLOON_SIZE - 20;
     }
+    x = Math.max(work.x, Math.min(x, work.x + work.width - BALLOON_SIZE));
+    y = Math.max(work.y, Math.min(y, work.y + work.height - BALLOON_SIZE));
     mainWindow.setSize(BALLOON_SIZE, BALLOON_SIZE);
     mainWindow.setPosition(x, y);
+    ballPosBeforeInput = null;
+    inputWindowPosAtOpen = null;
   }
 });
 
