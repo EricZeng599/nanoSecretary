@@ -9,6 +9,9 @@ history_files/config.json
 .DS_Store
 Thumbs.db
 
+# npm 镜像配置（本地使用，不进公共仓库）
+.npmrc
+
 # 日志
 *.log
 
