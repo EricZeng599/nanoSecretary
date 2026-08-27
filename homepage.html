@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>赛博秘书</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: transparent;
+            color: white;
+            font-family: system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .container {
+            flex: 1;
+            background: rgba(24, 24, 28, 0.9);
+            backdrop-filter: blur(18px);
+            border-radius: 16px;
+            margin: 14px;
+            padding: 18px;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid rgba(255,255,255,0.07);
+            box-shadow: 0 8px 40px rgba(0,0,0,0.4);
+            overflow: hidden;
+        }
+        .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+        .header h1 { font-size: 20px; font-weight: 700; letter-spacing: 0.5px; }
+        .header .ai-status {
+            font-size: 11px; color: rgba(255,255,255,0.5);
+            padding: 4px 10px; border-radius: 20px;
+            background: rgba(255,255,255,0.06);
+        }
+        .header .ai-status.online { color: #7ee2a8; background: rgba(80,200,120,0.12); }
+        .header .ai-status.offline { color: rgba(255,255,255,0.45); }
+
+        /* 顶部 Tab */
+        .tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+        .tab {
+            flex: 1;
+            padding: 8px 0;
+            font-size: 13px;
+            border-radius: 10px;
+            background: rgba(255,255,255,0.06);
+            color: rgba(255,255,255,0.6);
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .tab.active { background: rgba(120,180,255,0.22); color: white; }
+        .tab .count { opacity: 0.6; font-size: 11px; margin-left: 4px; }
+
+        /* 记录 Tab */
+        .input-section { margin-bottom: 10px; }
+        .input-section textarea {
+            width: 100%; height: 70px;
+            background: rgba(255,255,255,0.07);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px;
+            color: white; padding: 10px 12px;
+            font-size: 13px; resize: none;
+            outline: none; font-family: inherit;
+        }
+        .input-section textarea:focus { border-color: rgba(120,180,255,0.4); }
+        .input-section .save-row { display: flex; gap: 8px; margin-top: 8px; align-items: center; }
+        .save-btn {
+            padding: 7px 18px;
+            background: linear-gradient(135deg, rgba(120,180,255,0.9), rgba(90,140,255,0.9));
+            color: white; border: none; border-radius: 8px;
+            cursor: pointer; font-size: 13px;
+        }
+        .save-btn:hover { filter: brightness(1.12); }
+        #ai-preview-box {
+            margin-top: 8px; padding: 8px 10px;
+            background: rgba(120,180,255,0.1); border: 1px solid rgba(120,180,255,0.2);
+            border-radius: 8px; font-size: 12px; display: none;
+            color: rgba(255,255,255,0.85);
+        }
+
+        /* 待办列表 */
+        .list-section { flex: 1; overflow-y: auto; }
+        .list-section h2 { font-size: 13px; color: rgba(255,255,255,0.55); margin: 6px 0 8px; font-weight: 600; }
+        .entry-list { display: flex; flex-direction: column; gap: 8px; }
+        .entry-item {
+            background: rgba(255,255,255,0.05);
+            border-radius: 10px; padding: 10px 12px;
+            border-left: 3px solid transparent;
+            transition: background 0.2s;
+        }
+        .entry-item:hover { background: rgba(255,255,255,0.09); }
+        .entry-item.overdue { border-left-color: #e5484d; }
+        .entry-item.today { border-left-color: #ff8c42; }
+        .entry-item.note { border-left-color: #888; }
+        .entry-title { font-size: 13px; margin-bottom: 4px; font-weight: 600; }
+        .entry-meta { display: flex; gap: 8px; font-size: 11px; color: rgba(255,255,255,0.55); align-items: center; flex-wrap: wrap; }
+        .entry-meta .due { color: #ff8c42; }
+        .entry-meta .due.overdue { color: #e5484d; }
+        .entry-meta .priority-high { color: #e5484d; }
+        .entry-meta .priority-mid { color: #ff8c42; }
+        .entry-meta .cat { padding: 1px 8px; border-radius: 10px; background: rgba(255,255,255,0.1); }
+        .entry-actions { margin-top: 6px; display: flex; gap: 8px; }
+        .entry-actions button {
+            background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.8);
+            border: none; padding: 3px 10px; border-radius: 6px;
+            font-size: 11px; cursor: pointer;
+        }
+        .entry-actions button:hover { background: rgba(255,255,255,0.16); }
+        .entry-actions .done-btn:hover { background: rgba(80,200,120,0.3); }
+        .empty { text-align: center; color: rgba(255,255,255,0.3); padding: 30px 0; font-size: 13px; }
+
+        /* 对话 Tab */
+        .chat-section { flex: 1; display: none; flex-direction: column; overflow: hidden; }
+        .chat-messages { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 4px; }
+        .chat-msg { max-width: 85%; padding: 8px 12px; border-radius: 12px; font-size: 13px; line-height: 1.5; white-space: pre-wrap; }
+        .chat-msg.user { align-self: flex-end; background: rgba(120,180,255,0.25); border-bottom-right-radius: 4px; }
+        .chat-msg.ai { align-self: flex-start; background: rgba(255,255,255,0.08); border-bottom-left-radius: 4px; }
+        .chat-input-row { display: flex; gap: 8px; margin-top: 10px; }
+        .chat-input-row input {
+            flex: 1; background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.1); border-radius: 10px;
+            color: white; padding: 9px 12px; font-size: 13px; outline: none;
+        }
+        .chat-input-row input:focus { border-color: rgba(120,180,255,0.4); }
+        .chat-input-row button {
+            padding: 8px 16px; background: linear-gradient(135deg, rgba(120,180,255,0.9), rgba(90,140,255,0.9));
+            color: white; border: none; border-radius: 10px; cursor: pointer; font-size: 13px;
+        }
+
+        .footer { display: flex; gap: 8px; margin-top: 12px; }
+        .footer-button {
+            flex: 1; padding: 8px 0;
+            background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.75);
+            border: none; border-radius: 8px; cursor: pointer; font-size: 12px;
+        }
+        .footer-button:hover { background: rgba(255,255,255,0.14); }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
+
+        /* 拖拽条 */
+        .drag-bar {
+            position: absolute; top: 0; left: 0; right: 0; height: 24px;
+            -webkit-app-region: drag; cursor: grab; border-radius: 16px 16px 0 0;
+        }
+        body { position: relative; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>赛博秘书</h1>
+            <span class="ai-status" id="ai-status">AI 连接中…</span>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" data-view="records">📋 记录<span class="count" id="record-count"></span></button>
+            <button class="tab" data-view="chat">💬 对话</button>
+        </div>
+
+        <!-- 记录视图 -->
+        <div id="view-records">
+            <div class="input-section">
+                <textarea id="input-text" placeholder="随手记：比如「下周三交季度报告 #工作」，AI 会自动识别截止日期…"></textarea>
+                <div class="save-row">
+                    <button class="save-btn" id="save-button">保存</button>
+                    <span style="font-size:11px;color:rgba(255,255,255,0.35)">Ctrl+Enter 保存</span>
+                </div>
+                <div id="ai-preview-box"></div>
+            </div>
+
+            <div class="list-section">
+                <h2>待办事项</h2>
+                <div class="entry-list" id="todo-list"></div>
+                <h2 style="margin-top:12px;">最近记录</h2>
+                <div class="entry-list" id="recent-list"></div>
+            </div>
+        </div>
+
+        <!-- 对话视图 -->
+        <div class="chat-section" id="view-chat">
+            <div class="chat-messages" id="chat-messages"></div>
+            <div class="chat-input-row">
+                <input type="text" id="chat-input" placeholder="问你的赛博秘书…（如：我今天有什么安排？）">
+                <button id="chat-send">发送</button>
+            </div>
+        </div>
+
+        <div class="footer">
+            <button class="footer-button" id="history-button">历史记录</button>
+            <button class="footer-button" id="settings-button">设置</button>
+            <button class="footer-button" id="close-button">收起</button>
+        </div>
+    </div>
+
+    <script>
+        const api = window.api;
+        let allEntries = [];
+        let chatHistory = [];
+
+        // Tab 切换
+        document.querySelectorAll('.tab').forEach((tab) => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.tab').forEach((t) => t.classList.remove('active'));
+                tab.classList.add('active');
+                const view = tab.dataset.view;
+                document.getElementById('view-records').style.display = view === 'records' ? 'block' : 'none';
+                document.getElementById('view-chat').style.display = view === 'chat' ? 'flex' : 'none';
+                if (view === 'chat') document.getElementById('chat-input').focus();
+            });
+        });
+
+        // 加载数据
+        function loadData() {
+            api.getRecentEntries();
+            api.getEntries();
+        }
+
+        // 保存
+        function saveEntry() {
+            const text = document.getElementById('input-text').value.trim();
+            if (!text) return;
+            api.saveEntry(text);
+            document.getElementById('input-text').value = '';
+            document.getElementById('ai-preview-box').style.display = 'none';
+            loadData();
+        }
+        document.getElementById('save-button').addEventListener('click', saveEntry);
+        document.getElementById('input-text').addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key === 'Enter') saveEntry();
+        });
+
+        // 渲染待办
+        function renderTodos() {
+            const list = document.getElementById('todo-list');
+            const todos = allEntries
+                .filter((e) => e.status === 'pending')
+                .sort((a, b) => (a.dueDate || '9999') < (b.dueDate || '9999') ? -1 : 1);
+            document.getElementById('record-count').textContent = todos.length ? '(' + todos.length + ')' : '';
+
+            if (!todos.length) {
+                list.innerHTML = '<div class="empty">没有待办，记点什么吧 ✨</div>';
+                return;
+            }
+            const today = new Date().toISOString().slice(0, 10);
+            list.innerHTML = todos.map((e) => {
+                const overdue = e.dueDate && e.dueDate < today;
+                const todayDue = e.dueDate === today;
+                const cls = overdue ? 'overdue' : todayDue ? 'today' : '';
+                const dueText = e.dueDate
+                    ? (overdue ? '已逾期' : todayDue ? '今天截止' : '截止 ' + e.dueDate)
+                    : '';
+                return `<div class="entry-item ${cls}">
+                    <div class="entry-title">${esc(e.title)}</div>
+                    <div class="entry-meta">
+                        ${dueText ? `<span class="due ${overdue ? 'overdue' : ''}">⏰ ${esc(dueText)}</span>` : ''}
+                        ${e.priority === '高' ? '<span class="priority-high">🔥 高优先级</span>' : e.priority === '中' ? '<span class="priority-mid">· 中</span>' : ''}
+                        ${e.category ? `<span class="cat">${esc(e.category)}</span>` : ''}
+                    </div>
+                    <div class="entry-actions">
+                        <button class="done-btn" onclick="markDone('${e.id}', true)">✓ 完成</button>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        // 渲染最近记录
+        function renderRecent(entries) {
+            const list = document.getElementById('recent-list');
+            if (!entries.length) {
+                list.innerHTML = '<div class="empty">暂无记录</div>';
+                return;
+            }
+            list.innerHTML = entries.map((e) => {
+                const cls = e.status === 'pending' ? (e.dueDate && e.dueDate < new Date().toISOString().slice(0,10) ? 'overdue' : 'today') : 'note';
+                return `<div class="entry-item ${e.status === 'pending' ? cls : 'note'}">
+                    <div class="entry-title">${esc(e.title || e.content)}</div>
+                    <div class="entry-meta">
+                        ${e.dueDate ? `<span class="due">截止 ${esc(e.dueDate)}</span>` : ''}
+                        <span>${esc(formatTime(e.created))}</span>
+                        ${e.category ? `<span class="cat">${esc(e.category)}</span>` : ''}
+                    </div>
+                    <div class="entry-actions">
+                        <button class="done-btn" onclick="markDone('${e.id}', ${e.status === 'pending'})">${e.status === 'pending' ? '✓ 完成' : '↩ 恢复'}</button>
+                        <button onclick="delEntry('${e.id}')">删除</button>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function markDone(id, done) {
+            api.markDone(id, done);
+            setTimeout(loadData, 150);
+        }
+        function delEntry(id) {
+            if (confirm('确定删除这条记录？')) { api.deleteEntry(id); setTimeout(loadData, 150); }
+        }
+
+        function esc(str) {
+            return String(str || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        }
+        function formatTime(iso) {
+            const d = new Date(iso), now = new Date();
+            const diff = now - d;
+            if (diff < 60000) return '刚刚';
+            if (diff < 3600000) return Math.floor(diff / 60000) + '分钟前';
+            if (diff < 86400000) return Math.floor(diff / 3600000) + '小时前';
+            if (diff < 7 * 86400000) return Math.floor(diff / 86400000) + '天前';
+            return d.toLocaleDateString();
+        }
+
+        // IPC 回调
+        api.onRecentEntries((entries) => { renderRecent(entries || []); });
+        api.onEntries((entries) => { allEntries = entries || []; renderTodos(); });
+        api.onAiRefined(() => setTimeout(loadData, 400));
+        api.onSaveSuccess(() => {});
+        api.onEntryUpdated(() => setTimeout(loadData, 150));
+
+        // 对话
+        function sendChat() {
+            const input = document.getElementById('chat-input');
+            const text = input.value.trim();
+            if (!text) return;
+            chatHistory.push({ role: 'user', content: text });
+            appendChat('user', text);
+            input.value = '';
+            const aiStatus = document.getElementById('ai-status');
+            aiStatus.textContent = '思考中…';
+            api.sendChat(chatHistory);
+        }
+        api.onChatReply((reply) => {
+            chatHistory.push({ role: 'assistant', content: reply });
+            appendChat('ai', reply);
+            document.getElementById('ai-status').textContent = '在线';
+        });
+        function appendChat(role, content) {
+            const box = document.getElementById('chat-messages');
+            const div = document.createElement('div');
+            div.className = 'chat-msg ' + role;
+            div.textContent = content;
+            box.appendChild(div);
+            box.scrollTop = box.scrollHeight;
+        }
+        document.getElementById('chat-send').addEventListener('click', sendChat);
+        document.getElementById('chat-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') sendChat(); });
+
+        // AI 状态
+        api.getAiStatus();
+        api.onAiStatus((status) => {
+            const el = document.getElementById('ai-status');
+            if (status.available) {
+                el.textContent = 'AI 在线 · ' + status.model;
+                el.className = 'ai-status online';
+            } else {
+                el.textContent = 'AI 离线（Ollama 未启动）';
+                el.className = 'ai-status offline';
+            }
+        });
+
+        // 底部按钮
+        document.getElementById('history-button').addEventListener('click', () => api.openHistory());
+        document.getElementById('settings-button').addEventListener('click', () => alert('设置：Ollama 模型与提醒阈值将在下一步实现'));
+        document.getElementById('close-button').addEventListener('click', () => api.closeHomepage());
+
+        // 窗口拖拽（顶部区域）
+        let isDrag = false, sX, sY, wX, wY;
+        document.querySelector('.header').addEventListener('mousedown', (e) => {
+            isDrag = true; sX = e.screenX; sY = e.screenY;
+            api.getHomepagePosition();
+        });
+        document.addEventListener('mousemove', (e) => {
+            if (isDrag) { api.moveHomepage(wX + (e.screenX - sX), wY + (e.screenY - sY)); }
+        });
+        document.addEventListener('mouseup', () => { isDrag = false; });
+        api.onHomepagePosition((x, y) => { wX = x; wY = y; });
+
+        // Esc 收起
+        document.addEventListener('keydown', (e) => { if (e.key === 'Escape') api.closeHomepage(); });
+
+        loadData();
+    </script>
+</body>
+</html>

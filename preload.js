@@ -1,0 +1,56 @@
+/**
+ * preload.js — 通过 contextBridge 安全地向渲染进程暴露受控 IPC 接口
+ * 渲染进程不再直接 require('electron')，降低安全风险。
+ */
+const { contextBridge, ipcRenderer } = require('electron');
+
+contextBridge.exposeInMainWorld('api', {
+  // 保存记录（渲染进程只发消息，不等待阻塞）
+  saveEntry: (text) => ipcRenderer.send('save-entry', text),
+  onSaveSuccess: (cb) => ipcRenderer.on('save-entry-success', (e, data) => cb(data)),
+  onAiRefined: (cb) => ipcRenderer.on('entry-ai-refined', (e, entry) => cb(entry)),
+
+  // 输入时实时 AI 预览（不保存）
+  saveEntryPreview: (text) => ipcRenderer.send('save-entry-preview', text),
+  onAiPreview: (cb) => ipcRenderer.on('entry-ai-preview', (e, preview) => cb(preview)),
+
+  // 记录查询
+  getEntries: () => ipcRenderer.send('get-entries'),
+  onEntries: (cb) => ipcRenderer.on('get-entries-success', (e, data) => cb(data)),
+  getRecentEntries: () => ipcRenderer.send('get-recent-entries'),
+  onRecentEntries: (cb) => ipcRenderer.on('recent-entries', (e, data) => cb(data)),
+  deleteEntry: (id) => ipcRenderer.send('delete-entry', id),
+  onDeleteSuccess: (cb) => ipcRenderer.on('delete-entry-success', (e, ok) => cb(ok)),
+  markDone: (id, done) => ipcRenderer.send('mark-done', id, done),
+  updateDueDate: (id, dueDate) => ipcRenderer.send('update-due-date', id, dueDate),
+  onEntryUpdated: (cb) => ipcRenderer.on('entry-updated', (e, entry) => cb(entry)),
+
+  // 窗口操作
+  resizeWindow: (mode) => ipcRenderer.send('resize-window', mode),
+  moveWindow: (x, y) => ipcRenderer.send('move-window', x, y),
+  getWindowPosition: () => ipcRenderer.send('get-window-position'),
+  onWindowPosition: (cb) => ipcRenderer.on('window-position', (e, x, y) => cb(x, y)),
+  showBallMenu: (x, y) => ipcRenderer.send('show-ball-menu', x, y),
+  openHistory: () => ipcRenderer.send('open-history'),
+  closeHomepage: () => ipcRenderer.send('close-homepage'),
+  moveHomepage: (x, y) => ipcRenderer.send('move-homepage', x, y),
+  getHomepagePosition: () => ipcRenderer.send('get-homepage-position'),
+  onHomepagePosition: (cb) => ipcRenderer.on('homepage-position', (e, x, y) => cb(x, y)),
+
+  // 配置
+  getConfig: () => ipcRenderer.send('get-config'),
+  onConfig: (cb) => ipcRenderer.on('config-data', (e, data) => cb(data)),
+  saveConfig: (patch) => ipcRenderer.send('save-config', patch),
+  onConfigSaved: (cb) => ipcRenderer.on('config-saved', (e, data) => cb(data)),
+
+  // AI 状态
+  getAiStatus: () => ipcRenderer.send('get-ai-status'),
+  onAiStatus: (cb) => ipcRenderer.on('ai-status', (e, data) => cb(data)),
+
+  // 对话
+  sendChat: (history) => ipcRenderer.send('chat-message', history),
+  onChatReply: (cb) => ipcRenderer.on('chat-reply', (e, text) => cb(text)),
+
+  // 提醒（悬浮球收到待办提醒时）
+  onReminderAlert: (cb) => ipcRenderer.on('reminder-alert', (e, data) => cb(data)),
+});
