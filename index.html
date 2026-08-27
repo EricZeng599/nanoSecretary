@@ -249,6 +249,12 @@
             font-size: 0.75rem;
             color-scheme: dark;
         }
+        /* 输入面板子面板：内容多时内部滚动，防溢出窗口 */
+        #quick-panel, #form-panel {
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+        }
         /* 下拉选项强制黑底白字，避免系统原生白底白字 */
         select option {
             background-color: #1e1e24;
