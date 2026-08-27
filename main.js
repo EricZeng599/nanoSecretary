@@ -12,7 +12,7 @@ let reminderTimer = null;
 let isDragging = false;
 let startX, startY, startWindowX, startWindowY;
 
-const BALLOON_SIZE = 70; // 加大窗口，给呼吸动画和阴影留空间（球本身 40px）
+const BALLOON_SIZE = 90; // 加大窗口：球 40px + hover 放大 + 阴影余量，保证永不越界
 const INPUT_SIZE = { width: 420, height: 190 };
 
 /* ================= 配置管理 ================= */
@@ -478,6 +478,8 @@ ipcMain.on('resize-window', (event, mode) => {
       Math.floor((screenSize.width - INPUT_SIZE.width) / 2),
       Math.floor((screenSize.height - INPUT_SIZE.height) / 2)
     );
+    // 确保输入框窗口能获得焦点，否则键盘事件收不到
+    mainWindow.focus();
   } else {
     const config = readConfig();
     let x, y;
