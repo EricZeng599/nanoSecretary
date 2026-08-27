@@ -258,8 +258,31 @@ async function generateReminder(entry) {
 
 const CHAT_SYSTEM = `你是"赛博秘书"，运行在本地的轻量私人助理。性格简洁、靠谱、有点贴心。
 用户可能会问你日程安排、待办事项，或闲聊。用中文回答，控制在两三句话以内。
-如果用户问"我有什么待办"，你会在上下文里看到他的记录列表，据此回答。
+如果用户说"我有什么待办"，你会在上下文里看到他的记录列表，据此回答。
 不要说你是AI模型，就以"秘书"自称。`;
+
+/* 创建任务意图检测 + 提取 */
+const TASK_EXTRACT_SYSTEM = `判断用户这句话是不是"要我创建一个待办/任务/提醒"。判断依据：包含"创建/新建/添加/记一下/帮我记/安排/提醒我/记得/要做"等表示要记录任务意图的动词。
+只输出 JSON，格式：{"isTask":true/false,"title":"任务内容","dueDate":"YYYY-MM-DD 或 null","priority":"高|中|低","time":"HH:MM 或 null"}
+规则：
+- isTask：仅当用户明确要你创建一个新任务/待办时才为 true；闲聊、提问、查询待办一律 false
+- title：任务内容，去除时间词和"帮我/请/记得"等前缀
+- dueDate：从"明天/后天/下周X/N月X日/X天后"等提取；提到具体时间(如"下午3点")时，若是"明天下午3点"这种，dueDate 取对应日期
+- time：如有具体时刻（如"下午3点""15:00"）则填 HH:MM，否则 null
+- 无法确定时 dueDate/time 用 null，不要瞎编`;
+
+async function extractTaskFromMessage(text) {
+  const raw = await generate(TASK_EXTRACT_SYSTEM, String(text || ''), { temperature: 0 });
+  const parsed = extractJson(raw);
+  if (!parsed || parsed.isTask !== true) return null;
+  const due = parsed.dueDate && parsed.dueDate !== 'null' ? toISODate(parsed.dueDate) : null;
+  return {
+    title: (parsed.title || String(text || '')).slice(0, 200),
+    dueDate: due,
+    time: parsed.time && parsed.time !== 'null' ? parsed.time : null,
+    priority: ['高', '中', '低'].includes(parsed.priority) ? parsed.priority : '低',
+  };
+}
 
 /**
  * 对话回复。history 形如 [{role:'user'|'assistant', content:'...'}]。
@@ -344,6 +367,7 @@ module.exports = {
   classifyEntry,
   generateReminder,
   chatReply,
+  extractTaskFromMessage,
   pullModel,
   parseChineseDate,
   toISODate,

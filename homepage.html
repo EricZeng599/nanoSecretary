@@ -357,8 +357,8 @@
                 const todayDue = e.dueDate === today;
                 const cls = overdue ? 'overdue' : todayDue ? 'today' : '';
                 const dueText = e.dueDate
-                    ? (overdue ? '已逾期' : todayDue ? '今天截止' : '截止 ' + e.dueDate)
-                    : '';
+                    ? (overdue ? '已逾期' : todayDue ? '今天截止' : '截止 ' + e.dueDate) + (e.time ? ' ' + e.time : '')
+                    : (e.time ? '今天 ' + e.time : '');
                 return `<div class="entry-item ${cls}" data-id="${e.id}">
                     <div class="entry-title">${esc(e.title)}</div>
                     <div class="entry-meta">

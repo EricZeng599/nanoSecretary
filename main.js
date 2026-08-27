@@ -60,6 +60,7 @@ function readData() {
         content: e.content || '',
         title: e.title || e.content || '',
         dueDate: e.dueDate || null,
+        time: e.time || null,
         priority: e.priority || '低',
         status: e.status || (e.dueDate ? 'pending' : 'note'),
         category: e.category || '其他',
@@ -477,18 +478,64 @@ ipcMain.on('update-due-date', (event, id, dueDate) => {
 /* 对话 */
 ipcMain.on('chat-message', async (event, history) => {
   try {
+    const userMsg = history.length ? history[history.length - 1].content : '';
+    let actionNote = ''; // 实际执行的动作，注入上下文让 AI 基于事实回答
+
+    // 检测创建任务意图 → 真实保存
+    try {
+      const task = await ollama.extractTaskFromMessage(userMsg);
+      if (task) {
+        const entry = {
+          id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
+          content: task.title,
+          title: task.title,
+          dueDate: task.dueDate,
+          time: task.time || null,
+          priority: task.priority || '低',
+          status: task.dueDate ? 'pending' : 'pending',
+          category: '其他',
+          tags: [],
+          reminded: false,
+          created: new Date().toISOString(),
+        };
+        // 截止日期：若有时间，拼到 dueDate 上（用于提醒文案更精确）
+        const data = readData();
+        data.push(entry);
+        writeData(data);
+        broadcastEntriesChanged();
+        // 尝试自动分类（后台）
+        ollama.classifyEntry(task.title).then((cat) => {
+          const d = readData();
+          const idx = d.findIndex((e) => e.id === entry.id);
+          if (idx !== -1) {
+            d[idx].category = cat;
+            d[idx].tags = [cat];
+            writeData(d);
+            broadcastEntriesChanged();
+          }
+        }).catch(() => {});
+
+        const whenText = task.dueDate
+          ? (task.time ? ` ${task.dueDate} ${task.time}` : ` ${task.dueDate}`)
+          : (task.time ? ` 今天 ${task.time}` : '');
+        actionNote = `\n\n[系统] 用户要求创建任务，你已经成功创建了任务「${task.title}」${whenText ? '，时间' + whenText : ''}。请在回复中明确告知用户已创建成功，并复述任务内容和时间。`;
+      }
+    } catch (e) {
+      console.error('对话创建任务失败:', e);
+    }
+
     // 附加待办上下文
     const entries = readData();
     const pending = entries
       .filter((e) => e.status === 'pending' && e.dueDate)
       .sort((a, b) => (a.dueDate < b.dueDate ? -1 : 1))
       .slice(0, 10)
-      .map((e) => `${e.title}（截止${e.dueDate}）`);
+      .map((e) => `${e.title}（截止${e.dueDate}${e.time ? ' ' + e.time : ''}）`);
     const ctx = pending.length ? `\n\n我的待办清单：\n- ${pending.join('\n- ')}` : '';
-    const userMsg = history.length ? history[history.length - 1].content : '';
+
     const reply = await ollama.chatReply([
       ...history.slice(0, -1),
-      { role: 'user', content: userMsg + ctx },
+      { role: 'user', content: userMsg + actionNote + ctx },
     ]);
     event.reply('chat-reply', reply || '（本地模型暂时不可用，请确认 Ollama 已启动）');
   } catch (e) {
