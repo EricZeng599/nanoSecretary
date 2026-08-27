@@ -2,5 +2,8 @@
   "windowPosition": {
     "x": 1418,
     "y": 718
-  }
+  },
+  "model": "glm-4-9b-chat-1m-Q4_K_M:latest",
+  "remindLeadHours": 24,
+  "aiEnabled": true
 }
