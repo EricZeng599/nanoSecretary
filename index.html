@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <title>赛博秘书</title>
     <style>
+        /* 根字号基准：1rem = 16px，布局随系统字号缩放 */
+        html { font-size: 100%; }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             background: transparent;
@@ -87,7 +89,7 @@
             border-radius: 8px;
             background: #e5484d;
             color: white;
-            font-size: 10px;
+            font-size: 0.625rem;
             font-weight: 700;
             display: none;
             align-items: center;
@@ -145,7 +147,7 @@
             color: white;
             padding: 0 12px;
             border-radius: 8px;
-            font-size: 14px;
+            font-size: 0.875rem;
             outline: none;
             margin-bottom: 8px;
         }
@@ -155,7 +157,7 @@
         #save-error {
             display: none;
             color: #ff8b8b;
-            font-size: 11px;
+            font-size: 0.6875rem;
             margin-top: 6px;
             padding: 5px 8px;
             border-radius: 6px;
@@ -169,12 +171,12 @@
             border: none;
             border-radius: 6px;
             padding: 5px 8px;
-            font-size: 12px;
+            font-size: 0.75rem;
             outline: none;
             color-scheme: dark;
         }
         .row input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.8); }
-        .row label { color: rgba(255,255,255,0.6); font-size: 11px; }
+        .row label { color: rgba(255,255,255,0.6); font-size: 0.6875rem; }
 
         #save-button {
             height: 30px;
@@ -184,7 +186,7 @@
             border: none;
             border-radius: 8px;
             cursor: pointer;
-            font-size: 13px;
+            font-size: 0.8125rem;
             transition: filter 0.2s;
             margin-left: auto;
         }
@@ -197,7 +199,7 @@
             border: 1px solid rgba(120,180,255,0.25);
             border-radius: 8px;
             padding: 8px 10px;
-            font-size: 12px;
+            font-size: 0.75rem;
             color: rgba(255,255,255,0.85);
             margin-bottom: 8px;
             line-height: 1.5;
@@ -209,14 +211,14 @@
             border: none;
             color: rgba(120,180,255,0.9);
             cursor: pointer;
-            font-size: 11px;
+            font-size: 0.6875rem;
         }
 
         /* 模式切换 Tab */
         .tabs { display: flex; gap: 4px; margin-bottom: 8px; }
         .tab {
             padding: 3px 10px;
-            font-size: 11px;
+            font-size: 0.6875rem;
             border-radius: 20px;
             background: rgba(255,255,255,0.08);
             color: rgba(255,255,255,0.65);
@@ -233,7 +235,7 @@
             border: none;
             border-radius: 6px;
             padding: 6px 10px;
-            font-size: 12px;
+            font-size: 0.75rem;
             outline: none;
         }
         .form-row select {
@@ -242,17 +244,17 @@
             border: none;
             border-radius: 6px;
             padding: 6px 8px;
-            font-size: 12px;
+            font-size: 0.75rem;
         }
         #overlay { position: fixed; inset: 0; background: transparent; display: none; z-index: -1; }
 
-        .hint { color: rgba(255,255,255,0.5); font-size: 10px; margin-top: 6px; text-align: center; }
+        .hint { color: rgba(255,255,255,0.5); font-size: 0.625rem; margin-top: 6px; text-align: center; }
     </style>
 </head>
 <body>
     <div id="floating-ball" title="双击输入">
         <div id="ball-core"></div>
-        <span id="ball-icon" style="position:relative;color:white;font-size:18px;pointer-events:none;">◆</span>
+        <span id="ball-icon" style="position:relative;color:white;font-size: 1.125rem;pointer-events:none;">◆</span>
         <span id="badge">0</span>
     </div>
 

@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <title>历史记录 - 赛博秘书</title>
     <style>
+        /* 根字号基准：1rem = 16px，布局随系统字号缩放 */
+        html { font-size: 100%; }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             background: #16161a;
@@ -18,16 +20,17 @@
             border-bottom: 1px solid rgba(255,255,255,0.07);
             position: sticky; top: 0; z-index: 10;
         }
-        .header h1 { font-size: 18px; margin-bottom: 12px; }
+        /* 大标题：负字距收紧 */
+        .header h1 { font-size: 1.125rem; font-weight: 700; letter-spacing: -0.015em; margin-bottom: 12px; }
         .filter-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
         .filter-group { display: flex; flex-wrap: wrap; gap: 6px; margin-right: 12px; }
-        .filter-group .label { font-size: 11px; color: rgba(255,255,255,0.55); align-self: center; margin-right: 2px; }
+        .filter-group .label { font-size: 0.6875rem; color: rgba(255,255,255,0.55); align-self: center; margin-right: 2px; }
         .chip {
             padding: 5px 12px;
             background: rgba(255,255,255,0.07);
             color: rgba(255,255,255,0.7);
             border: none; border-radius: 16px;
-            cursor: pointer; font-size: 12px; transition: all 0.2s;
+            cursor: pointer; font-size: 0.75rem; transition: all 0.2s;
         }
         .chip:hover { background: rgba(255,255,255,0.14); }
         .chip.active { background: rgba(120,180,255,0.3); color: white; }
@@ -46,9 +49,9 @@
         .entry-card.done { border-left-color: #4caf50; opacity: 0.65; }
         .entry-card.note { border-left-color: #888; }
 
-        .entry-title { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
-        .entry-content { font-size: 13px; color: rgba(255,255,255,0.85); line-height: 1.5; margin-bottom: 8px; }
-        .entry-meta { display: flex; flex-wrap: wrap; gap: 8px; font-size: 11px; color: rgba(255,255,255,0.68); align-items: center; margin-bottom: 10px; }
+        .entry-title { font-size: 0.875rem; font-weight: 600; margin-bottom: 6px; }
+        .entry-content { font-size: 0.8125rem; color: rgba(255,255,255,0.85); line-height: 1.5; margin-bottom: 8px; }
+        .entry-meta { display: flex; flex-wrap: wrap; gap: 8px; font-size: 0.6875rem; color: rgba(255,255,255,0.68); align-items: center; margin-bottom: 10px; }
         .entry-meta .due { color: #ff8c42; }
         .entry-meta .due.overdue { color: #e5484d; }
         .entry-meta .cat { padding: 2px 8px; border-radius: 10px; background: rgba(255,255,255,0.1); }
@@ -61,7 +64,7 @@
             background: rgba(255,255,255,0.09);
             color: rgba(255,255,255,0.85);
             border: none; border-radius: 6px;
-            cursor: pointer; font-size: 11px; transition: all 0.2s;
+            cursor: pointer; font-size: 0.6875rem; transition: all 0.2s;
         }
         .action-button:hover { background: rgba(255,255,255,0.18); }
         .action-button.done { background: rgba(80,200,120,0.2); }
@@ -73,16 +76,16 @@
         .due-edit-row { display: flex; gap: 6px; align-items: center; margin-top: 8px; }
         .due-edit-row input[type="date"] {
             background: rgba(255,255,255,0.1); color: white;
-            border: none; border-radius: 6px; padding: 5px 8px; font-size: 12px;
+            border: none; border-radius: 6px; padding: 5px 8px; font-size: 0.75rem;
             color-scheme: dark;
         }
         .due-edit-row button {
             padding: 4px 10px; background: rgba(120,180,255,0.25); color: white;
-            border: none; border-radius: 6px; font-size: 11px; cursor: pointer;
+            border: none; border-radius: 6px; font-size: 0.6875rem; cursor: pointer;
         }
 
-        .empty-state { text-align: center; color: rgba(255,255,255,0.45); padding: 50px 0; font-size: 14px; }
-        .count-line { font-size: 11px; color: rgba(255,255,255,0.55); margin-bottom: 10px; }
+        .empty-state { text-align: center; color: rgba(255,255,255,0.45); padding: 50px 0; font-size: 0.875rem; }
+        .count-line { font-size: 0.6875rem; color: rgba(255,255,255,0.55); margin-bottom: 10px; }
 
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 4px; }
@@ -279,7 +282,7 @@
             if (!t) {
                 t = document.createElement('div');
                 t.id = 'toast';
-                t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:rgba(40,40,48,0.95);color:white;padding:8px 18px;border-radius:8px;font-size:13px;z-index:999;transition:opacity 0.3s;';
+                t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:rgba(40,40,48,0.95);color:white;padding:8px 18px;border-radius:8px;font-size: 0.8125rem;z-index:999;transition:opacity 0.3s;';
                 document.body.appendChild(t);
             }
             t.textContent = msg;

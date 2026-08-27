@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <title>赛博秘书</title>
     <style>
+        /* 根字号基准：1rem = 16px，布局随系统字号缩放 */
+        html { font-size: 100%; }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             background: transparent;
@@ -27,9 +29,10 @@
             overflow: hidden;
         }
         .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
-        .header h1 { font-size: 20px; font-weight: 700; letter-spacing: 0.5px; }
+        /* 大标题：负字距收紧，更精致（Apple 排版 §15） */
+        .header h1 { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.02em; }
         .header .ai-status {
-            font-size: 11px; color: rgba(255,255,255,0.65);
+            font-size: 0.6875rem; color: rgba(255,255,255,0.65);
             padding: 4px 10px; border-radius: 20px;
             background: rgba(255,255,255,0.08);
         }
@@ -41,7 +44,7 @@
         .tab {
             flex: 1;
             padding: 8px 0;
-            font-size: 13px;
+            font-size: 0.8125rem;
             border-radius: 10px;
             background: rgba(255,255,255,0.06);
             color: rgba(255,255,255,0.6);
@@ -50,7 +53,7 @@
             transition: all 0.2s;
         }
         .tab.active { background: rgba(120,180,255,0.22); color: white; }
-        .tab .count { opacity: 0.6; font-size: 11px; margin-left: 4px; }
+        .tab .count { opacity: 0.6; font-size: 0.6875rem; margin-left: 4px; }
 
         /* 记录 Tab */
         .input-section { margin-bottom: 10px; }
@@ -60,7 +63,7 @@
             border: 1px solid rgba(255,255,255,0.1);
             border-radius: 10px;
             color: white; padding: 10px 12px;
-            font-size: 13px; resize: none;
+            font-size: 0.8125rem; resize: none;
             outline: none; font-family: inherit;
         }
         .input-section textarea:focus { border-color: rgba(120,180,255,0.4); }
@@ -69,19 +72,19 @@
             padding: 7px 18px;
             background: linear-gradient(135deg, rgba(120,180,255,0.9), rgba(90,140,255,0.9));
             color: white; border: none; border-radius: 8px;
-            cursor: pointer; font-size: 13px;
+            cursor: pointer; font-size: 0.8125rem;
         }
         .save-btn:hover { filter: brightness(1.12); }
         #ai-preview-box {
             margin-top: 8px; padding: 8px 10px;
             background: rgba(120,180,255,0.1); border: 1px solid rgba(120,180,255,0.2);
-            border-radius: 8px; font-size: 12px; display: none;
+            border-radius: 8px; font-size: 0.75rem; display: none;
             color: rgba(255,255,255,0.85);
         }
 
         /* 待办列表 */
         .list-section { flex: 1; overflow-y: auto; }
-        .list-section h2 { font-size: 13px; color: rgba(255,255,255,0.7); margin: 6px 0 8px; font-weight: 600; }
+        .list-section h2 { font-size: 0.8125rem; color: rgba(255,255,255,0.7); margin: 6px 0 8px; font-weight: 600; }
         .entry-list { display: flex; flex-direction: column; gap: 8px; }
         .entry-item {
             background: rgba(255,255,255,0.05);
@@ -93,8 +96,8 @@
         .entry-item.overdue { border-left-color: #e5484d; }
         .entry-item.today { border-left-color: #ff8c42; }
         .entry-item.note { border-left-color: #888; }
-        .entry-title { font-size: 13px; margin-bottom: 4px; font-weight: 600; }
-        .entry-meta { display: flex; gap: 8px; font-size: 11px; color: rgba(255,255,255,0.7); align-items: center; flex-wrap: wrap; }
+        .entry-title { font-size: 0.8125rem; margin-bottom: 4px; font-weight: 600; }
+        .entry-meta { display: flex; gap: 8px; font-size: 0.6875rem; color: rgba(255,255,255,0.7); align-items: center; flex-wrap: wrap; }
         .entry-meta .due { color: #ff8c42; }
         .entry-meta .due.overdue { color: #e5484d; }
         .entry-meta .priority-high { color: #e5484d; }
@@ -104,35 +107,35 @@
         .entry-actions button {
             background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.8);
             border: none; padding: 3px 10px; border-radius: 6px;
-            font-size: 11px; cursor: pointer;
+            font-size: 0.6875rem; cursor: pointer;
         }
         .entry-actions button:hover { background: rgba(255,255,255,0.16); }
         .entry-actions .done-btn:hover { background: rgba(80,200,120,0.3); }
-        .empty { text-align: center; color: rgba(255,255,255,0.45); padding: 30px 0; font-size: 13px; }
+        .empty { text-align: center; color: rgba(255,255,255,0.45); padding: 30px 0; font-size: 0.8125rem; }
 
         /* 对话 Tab */
         .chat-section { flex: 1; display: none; flex-direction: column; overflow: hidden; }
         .chat-messages { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 4px; }
-        .chat-msg { max-width: 85%; padding: 8px 12px; border-radius: 12px; font-size: 13px; line-height: 1.5; white-space: pre-wrap; }
+        .chat-msg { max-width: 85%; padding: 8px 12px; border-radius: 12px; font-size: 0.8125rem; line-height: 1.5; white-space: pre-wrap; }
         .chat-msg.user { align-self: flex-end; background: rgba(120,180,255,0.25); border-bottom-right-radius: 4px; }
         .chat-msg.ai { align-self: flex-start; background: rgba(255,255,255,0.08); border-bottom-left-radius: 4px; }
         .chat-input-row { display: flex; gap: 8px; margin-top: 10px; }
         .chat-input-row input {
             flex: 1; background: rgba(255,255,255,0.08);
             border: 1px solid rgba(255,255,255,0.1); border-radius: 10px;
-            color: white; padding: 9px 12px; font-size: 13px; outline: none;
+            color: white; padding: 9px 12px; font-size: 0.8125rem; outline: none;
         }
         .chat-input-row input:focus { border-color: rgba(120,180,255,0.4); }
         .chat-input-row button {
             padding: 8px 16px; background: linear-gradient(135deg, rgba(120,180,255,0.9), rgba(90,140,255,0.9));
-            color: white; border: none; border-radius: 10px; cursor: pointer; font-size: 13px;
+            color: white; border: none; border-radius: 10px; cursor: pointer; font-size: 0.8125rem;
         }
 
         .footer { display: flex; gap: 8px; margin-top: 12px; }
         .footer-button {
             flex: 1; padding: 8px 0;
             background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.75);
-            border: none; border-radius: 8px; cursor: pointer; font-size: 12px;
+            border: none; border-radius: 8px; cursor: pointer; font-size: 0.75rem;
         }
         .footer-button:hover { background: rgba(255,255,255,0.14); }
 
@@ -165,7 +168,7 @@
                 <textarea id="input-text" placeholder="随手记：比如「下周三交季度报告 #工作」，AI 会自动识别截止日期…"></textarea>
                 <div class="save-row">
                     <button class="save-btn" id="save-button">保存</button>
-                    <span style="font-size:11px;color:rgba(255,255,255,0.5)">Ctrl+Enter 保存</span>
+                    <span style="font-size: 0.6875rem;color:rgba(255,255,255,0.5)">Ctrl+Enter 保存</span>
                 </div>
                 <div id="ai-preview-box"></div>
             </div>
