@@ -5,15 +5,12 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "pack": "electron-packager . nanoSecretary --platform=win32 --arch=x64 --icon=nanoSecretary.ico --out=release --overwrite --no-prune"
+    "pack": "pack.bat"
   },
   "dependencies": {
     "electron": "^28.0.0"
   },
   "build": {
     "icon": "nanoSecretary.ico"
-  },
-  "devDependencies": {
-    "electron-packager": "^17.1.2"
   }
 }
