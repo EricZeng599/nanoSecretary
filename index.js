@@ -16,12 +16,10 @@ const tabQuick = document.getElementById('tab-quick');
 const tabForm = document.getElementById('tab-form');
 const ballIcon = document.getElementById('ball-icon');
 
-// 悬浮球图标（统一线性图标；pointer-events 在 SVG 上同样关闭）
+// 悬浮球图标（统一线性图标；SVG 不可用时留空而非退回 Unicode 符号）
 function setBallIcon(name) {
     if (window.nanoIcons) {
         ballIcon.innerHTML = window.nanoIcons.ic(name);
-    } else {
-        ballIcon.textContent = name === 'check' ? '✓' : '◆';
     }
 }
 
