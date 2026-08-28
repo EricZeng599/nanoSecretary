@@ -89,6 +89,44 @@
     --dur-fast: 0.18s;
     --dur-med: 0.25s;
     --dur-slow: 0.4s;
+
+    /* ---- 滚动条（华为设计指南 Scrollbar 样式） ----
+       暗色主题：浅色半透明滑块 #FFFFFF40 + 深灰胶囊轨道；
+       轨道比滑块宽 4px 形成内边距，滑块两端圆角完全吻合 */
+    --scrollbar-track: rgba(255, 255, 255, 0.06);
+    --scrollbar-thumb: rgba(255, 255, 255, 0.25);
+    --scrollbar-thumb-hover: rgba(255, 255, 255, 0.4);
+    --scrollbar-thumb-active: rgba(255, 255, 255, 0.5);
+    --scrollbar-track-width: 10px;
+    --scrollbar-thumb-width: 6px;
+}
+
+/* ---- 全局滚动条：华为设计指南样式（胶囊轨道 + 半透明滑块 + 内边距） ---- */
+::-webkit-scrollbar {
+    width: var(--scrollbar-track-width);
+    height: var(--scrollbar-track-width);
+}
+::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+    border-radius: calc(var(--scrollbar-track-width) / 2);
+}
+::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: calc(var(--scrollbar-thumb-width) / 2);
+    /* 轨道 10px / 滑块 6px：上下各留 2px 内边距，滑块视觉居中 */
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-hover);
+    background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:active {
+    background: var(--scrollbar-thumb-active);
+    background-clip: padding-box;
+}
+::-webkit-scrollbar-corner {
+    background: transparent;
 }
 
 /* 高缩放 / 弱视：正文级下限 12px，元信息下限 11px */
