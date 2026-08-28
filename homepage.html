@@ -145,7 +145,14 @@
         .confirm-bar button.confirm-no { background: var(--button-secondary); color: var(--text-secondary); }
 
         /* 对话 Tab */
-        .chat-section { flex: 1; display: none; flex-direction: column; overflow: hidden; }
+        .chat-section {
+            flex: 1;
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+            /* 左右留 6px：给 :focus-visible outline（2px + offset 2px）让位，避免输入框焦点框左右被裁 */
+            padding: 0 6px;
+        }
         .chat-messages { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 4px; }
         .chat-msg { max-width: 85%; padding: 8px 12px; border-radius: 12px; font-size: var(--text-body); line-height: 1.5; white-space: pre-wrap; }
         .chat-msg.user { align-self: flex-end; background: rgba(120,180,255,0.25); border-bottom-right-radius: 4px; }
