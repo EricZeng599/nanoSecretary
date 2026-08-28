@@ -1,87 +1,84 @@
 /* ============================================================
    tokens.css — 赛博秘书 · 设计 token（无构建工具链，三页共享）
+   视觉世界：暖暗色 editorial（移植自 deeptutor 的暖色界面语言）
    语义命名：surface / text / action / status / border
    ============================================================ */
 
 :root {
-    /* ---- 表面（glass） ---- */
+    /* ---- 表面（暖色阶） ---- */
     --surface-ball-window: transparent;
-    --surface-main: rgba(24, 24, 28, 0.9);         /* 主页面卡片 */
-    --surface-panel: rgba(28, 28, 32, 0.9);        /* 输入面板 */
-    --surface-card: rgba(255, 255, 255, 0.05);     /* 列表卡片底 */
-    --surface-card-hover: rgba(255, 255, 255, 0.09);
-    --surface-raised: rgba(30, 30, 36, 0.97);      /* 弹层（设置） */
-    --surface-header: rgba(28, 28, 34, 0.9);       /* 历史页顶栏 */
-    --surface-entry: rgba(28, 28, 34, 0.85);       /* 历史页记录卡 */
-    --surface-entry-hover: rgba(40, 40, 48, 0.9);
-    --surface-field: rgba(255, 255, 255, 0.08);    /* 输入/选择底 */
-    --surface-field-hover: rgba(255, 255, 255, 0.1);
-    --surface-chip: rgba(255, 255, 255, 0.08);
-    --surface-tab: rgba(255, 255, 255, 0.06);
-    --surface-scroll: rgba(255, 255, 255, 0.15);
-    --surface-scroll-thin: rgba(255, 255, 255, 0.12);
-    --surface-scrim: rgba(0, 0, 0, 0.4);           /* 遮罩 */
-    /* reduced-transparency 覆盖：去模糊时提高不透明度 */
-    --surface-main-solid: rgba(24, 24, 28, 0.98);
-    --surface-panel-solid: rgba(28, 28, 32, 0.98);
-    --surface-raised-solid: rgba(30, 30, 36, 0.99);
+    --surface-main: #1a1918;                     /* 主页面底（暖近黑） */
+    --surface-panel: #201e1c;                    /* 输入面板底（略升） */
+    --surface-card: #242220;                     /* 列表卡片底 */
+    --surface-card-hover: #2c2926;
+    --surface-raised: #2a2725;                   /* 弹层（设置） */
+    --surface-header: #242220;                   /* 历史页顶栏 */
+    --surface-field: rgba(255, 255, 255, 0.04);  /* 输入/选择底（近透明） */
+    --surface-field-hover: rgba(255, 255, 255, 0.07);
+    --surface-chip: rgba(255, 255, 255, 0.06);
+    --surface-tab: rgba(255, 255, 255, 0.04);
+    --surface-scroll: rgba(232, 228, 222, 0.18);
+    --surface-scroll-thin: rgba(232, 228, 222, 0.14);
+    --surface-scrim: rgba(0, 0, 0, 0.55);        /* 遮罩 */
+    --surface-active: #302d2a;                   /* 激活导航/选中项（deeptutor 导航激活态） */
+    --surface-ball: linear-gradient(135deg, #3a3734, #262421); /* 悬浮球（暖灰） */
 
-    /* ---- 文字（对玻璃底均 ≥ 4.5:1） ---- */
-    --text-primary: rgba(255, 255, 255, 0.95);
-    --text-secondary: rgba(255, 255, 255, 0.75);
-    --text-tertiary: rgba(255, 255, 255, 0.6);
-    --text-faint: rgba(255, 255, 255, 0.5);
-    --text-strong: #ffffff;
+    /* ---- 文字（暖色，弱化 ≥ 4.5:1） ---- */
+    --text-primary: #e8e4de;                     /* 暖白 */
+    --text-secondary: #c2bbb2;                   /* 暖灰 */
+    --text-tertiary: #a39c93;                    /* 弱化 */
+    --text-faint: #8a837a;                       /* 更弱 */
+    --text-strong: #f5f2ec;                      /* 强调 */
 
-    /* ---- 动作（primary CTA） ---- */
-    /* 深蓝渐变：白字对比 ≥ 4.5:1（原 #78b4ff 系 2.6:1 不达标） */
-    --action-primary: #5a8dff;
-    --action-primary-strong: #3f6ae0;
-    --action-gradient: linear-gradient(135deg, var(--action-primary), var(--action-primary-strong));
-    --action-focus: rgba(120, 180, 255, 0.9);
-    --action-on: rgba(120, 180, 255, 0.7);         /* switch 开启 */
-    --action-on-strong: #7ab0ff;
+    /* ---- 动作（赭橙，deeptutor 主色） ---- */
+    --action-primary: #d4734b;
+    --action-primary-hover: #e08a5e;             /* hover 提亮，深字 6.66:1 */
+    --action-focus: #d4734b;                     /* focus ring */
+    --action-on: rgba(212, 115, 75, 0.85);       /* switch 开启 */
+    --action-on-strong: #d4734b;
+    --action-on-text: #1a1918;                   /* 赭橙按钮上的深字（默认 5.31:1 / hover 6.66:1） */
 
     /* ---- 中性按钮（次级） ---- */
-    --button-secondary: rgba(255, 255, 255, 0.08);
-    --button-secondary-hover: rgba(255, 255, 255, 0.16);
-    --button-secondary-text: rgba(255, 255, 255, 0.85);
+    --button-secondary: rgba(255, 255, 255, 0.06);
+    --button-secondary-hover: rgba(255, 255, 255, 0.12);
+    --button-secondary-text: #e8e4de;
 
-    /* ---- 状态语义 ---- */
-    --status-danger: #d63c42;                       /* 白字徽标 4.58:1（原 #e5484d 3.9:1） */
-    --status-danger-text: #ff8f92;                  /* 玻璃底上的红色小字 */
-    --status-danger-bg: rgba(255, 90, 90, 0.2);
-    --status-warning: #ffb46b;                      /* 今天/到期（玻璃底可读） */
-    --status-warning-strong: #ff8c42;               /* 原值，用于渐变/强调 */
-    --status-success: #4caf50;
-    --status-success-text: #7ee2a0;
-    --status-success-bg: rgba(80, 200, 120, 0.2);
-    --status-note: #9aa4b2;
-    --status-ai-online: #8be8b2;
+    /* ---- 状态语义（暖色化） ---- */
+    --status-danger: #c53a2c;                    /* 逾期/删除（deeptutor destructive） */
+    --status-danger-text: #e2716a;               /* 玻璃底上的红色小字（暖） */
+    --status-danger-bg: rgba(197, 58, 44, 0.22);
+    --status-warning: #e0a06c;                   /* 今天/到期（暖橙） */
+    --status-warning-strong: #d4734b;            /* 强调 */
+    --status-success: #6fa86b;                   /* 完成（暖绿） */
+    --status-success-text: #8cc488;
+    --status-success-bg: rgba(111, 168, 107, 0.2);
+    --status-note: #8a847c;                      /* 备忘（暖灰） */
+    --status-ai-online: #8cc488;
 
-    /* ---- 分隔 / 描边 ---- */
-    --border-subtle: rgba(255, 255, 255, 0.07);
-    --border-soft: rgba(255, 255, 255, 0.1);
-    --border-strong: rgba(255, 255, 255, 0.16);
-    --border-card: rgba(255, 255, 255, 0.05);
-    --border-field: rgba(120, 180, 255, 0.4);       /* 输入聚焦 */
+    /* ---- 分隔 / 描边（暖） ---- */
+    --border-subtle: #2e2b28;
+    --border-soft: #3a3634;                      /* deeptutor 边框 */
+    --border-strong: #4a453f;
+    --border-card: #2e2b28;
+    --border-field: #d4734b;                     /* 输入聚焦（赭橙） */
 
-    /* ---- 深度 ---- */
-    --shadow-panel: 0 8px 30px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.08);
-    --shadow-card: 0 8px 40px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.07);
-    --shadow-dialog: 0 12px 40px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
-    --shadow-ball: 0 3px 14px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.35), inset 0 -2px 6px rgba(0, 0, 0, 0.18);
+    /* ---- 深度（柔和，非玻璃） ---- */
+    --shadow-panel: 0 8px 30px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    --shadow-card: 0 8px 40px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    --shadow-dialog: 0 12px 40px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    --shadow-ball: 0 3px 14px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.18);
 
-    /* ---- 圆角（层级从内到外递增） ---- */
-    --radius-field: 6px;
-    --radius-btn: 8px;
-    --radius-card: 10px;
-    --radius-panel: 14px;
-    --radius-chip: 20px;
+    /* ---- 圆角（极简 editorial，接近 0） ---- */
+    --radius-field: 2px;
+    --radius-btn: 6px;
+    --radius-card: 8px;
+    --radius-panel: 10px;
+    --radius-chip: 6px;
 
-    /* ---- 排版尺度（4 档：标题 / 正文 / 元信息 / 辅助，比例 ≥ 1.25） ---- */
+    /* ---- 排版尺度 ---- */
     --font-stack: system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
-    --text-title: 1.125rem;      /* 18px · 700 */
+    --font-display: Georgia, "Times New Roman", "Songti SC", "SimSun", serif; /* Lora 的 Windows 回退 */
+    --text-title: 1.125rem;      /* 18px · 500 serif */
     --text-body: 0.8125rem;      /* 13px · 400 */
     --text-meta: 0.75rem;        /* 12px · 400 */
     --text-tiny: 0.6875rem;      /* 11px · 400 */

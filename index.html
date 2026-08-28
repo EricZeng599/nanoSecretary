@@ -22,11 +22,11 @@
             font-family: var(--font-stack);
         }
 
-        /* 无障碍：键盘焦点指示（全局，浅色描边 + 外发光） */
+        /* 无障碍：键盘焦点指示（赭橙） */
         :focus-visible {
             outline: 2px solid var(--action-focus);
             outline-offset: 2px;
-            border-radius: 4px;
+            border-radius: 2px;
         }
         .tab:focus-visible,
         #save-button:focus-visible,
@@ -38,7 +38,7 @@
         .icon { display: inline-block; vertical-align: -2px; }
 
         /* ---- 悬浮球 ---- */
-        /* 外层：透明点击区，负责 hover/按下反馈（transform 不被动画占用） */
+        /* 外层：透明点击区，负责 hover/按下反馈 */
         #floating-ball {
             width: 40px;
             height: 40px;
@@ -58,46 +58,38 @@
         }
         #floating-ball:hover { transform: scale(1.08); }
         #floating-ball:active { transform: scale(0.94); }
-        /* 内层：承载全部可视材质 + 呼吸/脉冲动画；透明背景时靠 box-shadow 形成点击区 */
+        /* 内层：暖灰玻璃球（无冷蓝） */
         #ball-core {
             position: absolute;
             inset: 0;
             border-radius: 50%;
             pointer-events: none;
-            /* 基础材质：垂直渐变 + 左上径向高光，模拟有光泽的玻璃球 */
-            background:
-                radial-gradient(circle at 32% 28%, rgba(255,255,255,0.55), rgba(255,255,255,0) 42%),
-                linear-gradient(135deg, rgba(135,145,165,0.95), rgba(75,85,105,0.95));
+            background: var(--surface-ball);
             box-shadow: var(--shadow-ball);
             transition: background 0.5s ease, box-shadow 0.5s ease;
-            will-change: transform;
         }
-        /* 常驻呼吸动画（缩放内层材质） */
+        /* 常驻呼吸动画 */
         #floating-ball.breathe #ball-core { animation: breathe 2.4s ease-in-out infinite; }
         @keyframes breathe {
             0%, 100% { transform: scale(1); }
             50% { transform: scale(1.05); }
         }
-        /* 有截止提醒：常驻橙色呼吸（内层背景平滑过渡到橙色） */
+        /* 有截止提醒：暖橙呼吸 */
         #floating-ball.due #ball-core {
-            background:
-                radial-gradient(circle at 32% 28%, rgba(255,255,255,0.5), rgba(255,255,255,0) 42%),
-                linear-gradient(135deg, rgba(255,168,68,0.98), rgba(228,112,42,0.98));
+            background: linear-gradient(135deg, #d4734b, #b05e38);
             animation: breathe 1.8s ease-in-out infinite;
         }
-        /* 临近截止：红色急促脉冲 */
+        /* 临近截止：红脉冲 */
         #floating-ball.urgent #ball-core {
-            background:
-                radial-gradient(circle at 32% 28%, rgba(255,255,255,0.5), rgba(255,255,255,0) 42%),
-                linear-gradient(135deg, rgba(255,100,88,0.98), rgba(218,52,52,0.98));
+            background: linear-gradient(135deg, #c53a2c, #9e2d22);
             animation: pulse 1.2s ease-in-out infinite;
         }
         @keyframes pulse {
-            0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255,90,80,0.55); }
-            50% { transform: scale(1.08); box-shadow: 0 0 0 10px rgba(255,90,80,0); }
+            0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(197,58,44,0.5); }
+            50% { transform: scale(1.08); box-shadow: 0 0 0 10px rgba(197,58,44,0); }
         }
 
-        /* 角标：待办数量（白字 4.5:1） */
+        /* 角标：待办数量 */
         #badge {
             position: absolute;
             top: -2px;
@@ -107,19 +99,17 @@
             padding: 0 4px;
             border-radius: 8px;
             background: var(--status-danger);
-            color: white;
+            color: #fff;
             font-size: var(--text-tiny);
             font-weight: 700;
             display: none;
             align-items: center;
             justify-content: center;
-            border: 1px solid rgba(255,255,255,0.6);
+            border: 1px solid rgba(255,255,255,0.5);
         }
-        /* 保存成功：内层材质绿色闪光 */
+        /* 保存成功：暖绿闪光 */
         #floating-ball.saved #ball-core {
-            background:
-                radial-gradient(circle at 32% 28%, rgba(255,255,255,0.5), rgba(255,255,255,0) 42%),
-                linear-gradient(135deg, rgba(80,200,130,0.98), rgba(50,160,100,0.98));
+            background: linear-gradient(135deg, #6fa86b, #4c8048);
             animation: flash-save 0.5s ease-out;
         }
         @keyframes flash-save {
@@ -128,12 +118,12 @@
             100% { transform: scale(1); opacity: 1; }
         }
 
-        /* ---- 输入面板 ---- */
+        /* ---- 输入面板（极简 editorial） ---- */
         #input-container {
             display: none;
             width: 100%;
             height: 100%;
-            padding: 8px;
+            padding: 6px;
         }
         #input-wrapper {
             width: 100%;
@@ -141,34 +131,34 @@
             display: flex;
             flex-direction: column;
             background: var(--surface-panel);
-            backdrop-filter: blur(18px) saturate(160%);
             border-radius: var(--radius-panel);
-            padding: 10px;
+            padding: 12px;
             box-shadow: var(--shadow-panel);
             border: 1px solid var(--border-soft);
-            transform-origin: 50% 100%; /* 从底部(球的方向)展开 */
+            transform-origin: 50% 100%;
             opacity: 0;
-            transform: scale(0.92);
-            transition: opacity 0.18s ease-out, transform 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.2), backdrop-filter 0.22s ease-out;
+            transform: scale(0.96);
+            transition: opacity 0.18s ease-out, transform 0.22s var(--ease-out);
         }
         #input-wrapper.show {
             opacity: 1;
             transform: scale(1);
-            backdrop-filter: blur(18px) saturate(180%);
         }
         #text-input {
             flex: 1;
             width: 100%;
             border: none;
-            background: var(--surface-field);
+            border-bottom: 1px solid var(--border-soft);
+            background: transparent;
             color: var(--text-primary);
-            padding: 0 12px;
-            border-radius: var(--radius-field);
+            padding: 4px 2px 8px;
+            border-radius: 0;
             font-size: var(--text-body);
             outline: none;
             margin-bottom: 8px;
         }
-        #text-input::placeholder { color: var(--text-tertiary); }
+        #text-input:focus { border-bottom-color: var(--border-field); }
+        #text-input::placeholder { color: var(--text-faint); }
 
         /* 保存失败内联提示 */
         #save-error {
@@ -176,48 +166,49 @@
             color: var(--status-danger-text);
             font-size: var(--text-meta);
             margin-top: 6px;
-            padding: 5px 8px;
+            padding: 4px 8px;
             border-radius: var(--radius-field);
             background: var(--status-danger-bg);
         }
 
         .row { display: flex; gap: 6px; align-items: center; }
         .row select, .row input[type="date"] {
-            background: var(--surface-field-hover);
+            background: var(--surface-field);
             color: var(--text-primary);
-            border: none;
+            border: 1px solid var(--border-soft);
             border-radius: var(--radius-field);
             padding: 5px 8px;
             font-size: var(--text-meta);
             outline: none;
             color-scheme: dark;
         }
-        .row input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.8); }
-        .row label { color: var(--text-secondary); font-size: var(--text-meta); }
+        .row input[type="date"]:focus { border-color: var(--border-field); }
+        .row input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.75); }
+        .row label { color: var(--text-tertiary); font-size: var(--text-meta); }
 
-        /* 次级保存按钮（输入面板）：中性渐变，与主页面主 CTA 区分但语义一致 */
+        /* 次级保存按钮（输入面板）：极简描边 */
         #save-button,
         #save-button-form {
             height: 30px;
             padding: 0 16px;
-            background: var(--button-secondary);
-            color: var(--button-secondary-text);
+            background: var(--action-primary);
+            color: var(--action-on-text);
             border: none;
             border-radius: var(--radius-btn);
             cursor: pointer;
             font-size: var(--text-body);
-            transition: filter var(--dur-fast);
+            font-weight: 600;
             margin-left: auto;
         }
         #save-button:hover,
-        #save-button-form:hover { background: var(--button-secondary-hover); }
+        #save-button-form:hover { background: var(--action-primary-hover); }
 
         /* AI 解析结果预览 */
         #ai-preview {
             display: none;
-            background: rgba(120,180,255,0.1);
-            border: 1px solid rgba(120,180,255,0.25);
-            border-radius: var(--radius-btn);
+            background: rgba(212,115,75,0.08);
+            border: 1px solid rgba(212,115,75,0.22);
+            border-radius: var(--radius-field);
             padding: 8px 10px;
             font-size: var(--text-meta);
             color: var(--text-primary);
@@ -234,55 +225,58 @@
             font-size: var(--text-meta);
         }
 
-        /* 模式切换 Tab */
-        .tabs { display: flex; gap: 4px; margin-bottom: 8px; }
+        /* 模式切换 Tab（极简下划线式） */
+        .tabs { display: flex; gap: 4px; margin-bottom: 8px; border-bottom: 1px solid var(--border-subtle); }
         .tab {
-            padding: 3px 10px;
+            padding: 3px 10px 6px;
             font-size: var(--text-meta);
-            border-radius: var(--radius-chip);
-            background: var(--surface-chip);
-            color: var(--text-secondary);
             border: none;
+            background: transparent;
+            color: var(--text-tertiary);
+            border-bottom: 2px solid transparent;
+            margin-bottom: -1px;
             cursor: pointer;
+            transition: color var(--dur-fast), border-color var(--dur-fast);
         }
-        .tab.active { background: rgba(120,180,255,0.25); color: var(--text-strong); }
+        .tab:hover { color: var(--text-secondary); }
+        .tab.active { color: var(--text-strong); border-bottom-color: var(--action-primary); }
 
         .form-row { display: flex; gap: 6px; margin-bottom: 6px; align-items: center; }
         .form-row input[type="text"], .form-row input[type="date"] {
             flex: 1;
             background: var(--surface-field);
             color: var(--text-primary);
-            border: none;
+            border: 1px solid var(--border-soft);
             border-radius: var(--radius-field);
             padding: 6px 10px;
             font-size: var(--text-meta);
             outline: none;
         }
+        .form-row input:focus { border-color: var(--border-field); }
         .form-row select {
-            background: var(--surface-field-hover);
+            background: var(--surface-field);
             color: var(--text-primary);
-            border: none;
+            border: 1px solid var(--border-soft);
             border-radius: var(--radius-field);
             padding: 6px 8px;
             font-size: var(--text-meta);
             color-scheme: dark;
         }
-        /* 输入面板子面板：内容多时内部滚动，防溢出窗口 */
+        /* 输入面板子面板 */
         #quick-panel, #form-panel {
             flex: 1;
             min-height: 0;
             overflow-y: auto;
         }
-        /* 下拉选项强制黑底白字，避免系统原生白底白字 */
+        /* 下拉选项强制暖黑底 */
         select option {
-            background-color: #1e1e24;
-            color: white;
+            background-color: #201e1c;
+            color: #e8e4de;
         }
 
         .hint { color: var(--text-faint); font-size: var(--text-meta); margin-top: 6px; text-align: center; }
 
         /* ---- 无障碍：减少动态 ---- */
-        /* prefers-reduced-motion: 停用呼吸/脉冲/闪光动画，保留颜色状态提示（静态即可） */
         @media (prefers-reduced-motion: reduce) {
             #floating-ball.breathe #ball-core,
             #floating-ball.due #ball-core,
@@ -292,23 +286,15 @@
             }
             #floating-ball:hover { transform: none; }
             #floating-ball:active { transform: scale(0.97); }
-            /* 面板进入改为极淡透明度过渡，不做位移缩放 */
             #input-wrapper {
                 transition: opacity 0.15s ease-out;
                 transform: none;
             }
         }
-        /* prefers-reduced-transparency: 降毛玻璃模糊，提高底色不透明度，保证可读性 */
-        @media (prefers-reduced-transparency: reduce) {
-            #input-wrapper {
-                background: var(--surface-panel-solid);
-                backdrop-filter: blur(4px);
-            }
-        }
     </style>
 </head>
 <body>
-    <!-- 悬浮球：role="button" + tabindex，键盘可操作（Enter/Space 打开输入面板） -->
+    <!-- 悬浮球：role="button" + tabindex，键盘可操作 -->
     <div id="floating-ball" role="button" tabindex="0" aria-label="打开速记输入" title="双击输入">
         <div id="ball-core"></div>
         <span id="ball-icon" style="position:relative;color:white;font-size: 1.125rem;pointer-events:none;line-height:0;"></span>

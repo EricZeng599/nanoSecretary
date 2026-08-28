@@ -9,17 +9,17 @@
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            background: #16161a;
+            background: #1a1918;
             color: var(--text-strong);
             font-family: var(--font-stack);
             height: 100vh;
             overflow: hidden;
         }
-        /* 无障碍：键盘焦点指示（全局） */
+        /* 无障碍：键盘焦点指示（赭橙） */
         :focus-visible {
             outline: 2px solid var(--action-focus);
             outline-offset: 2px;
-            border-radius: 4px;
+            border-radius: 2px;
         }
         /* 统一线性图标 */
         .icon { display: inline-block; vertical-align: -2px; }
@@ -27,93 +27,104 @@
 
         .container { width: 100%; height: 100vh; display: flex; flex-direction: column; }
         .header {
-            padding: 18px 20px;
+            padding: 16px 20px;
             background: var(--surface-header);
             border-bottom: 1px solid var(--border-subtle);
             position: sticky; top: 0; z-index: 10;
         }
-        /* 大标题：负字距收紧 */
-        .header h1 { font-size: var(--text-title); font-weight: 700; letter-spacing: -0.015em; margin-bottom: 12px; }
+        /* 大标题：serif editorial */
+        .header h1 {
+            font-family: var(--font-display);
+            font-size: var(--text-title);
+            font-weight: 500;
+            letter-spacing: -0.015em;
+            margin-bottom: 12px;
+            color: var(--text-strong);
+        }
         .filter-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-        .filter-group { display: flex; flex-wrap: wrap; gap: 6px; margin-right: 12px; }
+        .filter-group { display: flex; flex-wrap: wrap; gap: 4px; margin-right: 8px; }
         .filter-group .label { font-size: var(--text-meta); color: var(--text-faint); align-self: center; margin-right: 2px; }
         .chip {
-            padding: 5px 12px;
-            background: var(--surface-chip);
-            color: var(--text-secondary);
-            border: none; border-radius: var(--radius-chip);
-            cursor: pointer; font-size: var(--text-meta); transition: background var(--dur-fast), color var(--dur-fast);
+            padding: 4px 12px;
+            background: transparent;
+            color: var(--text-tertiary);
+            border: 1px solid var(--border-soft);
+            border-radius: var(--radius-chip);
+            cursor: pointer; font-size: var(--text-meta); transition: all var(--dur-fast);
         }
-        .chip:hover { background: var(--button-secondary-hover); }
-        .chip.active { background: rgba(120,180,255,0.3); color: var(--text-strong); }
+        .chip:hover { background: var(--button-secondary-hover); color: var(--text-strong); }
+        .chip.active { background: var(--surface-active); border-color: var(--border-strong); color: var(--text-strong); }
 
-        .content { flex: 1; min-height: 0; overflow-y: auto; padding: 18px 20px; }
-        .entries-list { display: flex; flex-direction: column; gap: 12px; }
+        .content { flex: 1; min-height: 0; overflow-y: auto; padding: 16px 20px; }
+        .entries-list { display: flex; flex-direction: column; gap: 8px; }
         .entry-card {
-            background: var(--surface-entry);
-            border-radius: 12px; padding: 14px 16px;
-            border-left: 3px solid var(--status-note);
+            background: var(--surface-card);
+            border-radius: var(--radius-card); padding: 12px 14px;
+            border-left: 2px solid var(--status-note);
+            border-bottom: 1px solid var(--border-subtle);
             transition: background var(--dur-fast);
         }
-        .entry-card:hover { background: var(--surface-entry-hover); }
+        .entry-card:hover { background: var(--surface-card-hover); }
         .entry-card.overdue { border-left-color: var(--status-danger); }
         .entry-card.today { border-left-color: var(--status-warning-strong); }
-        .entry-card.done { border-left-color: var(--status-success); opacity: 0.65; }
+        .entry-card.done { border-left-color: var(--status-success); opacity: 0.6; }
         .entry-card.note { border-left-color: var(--status-note); }
 
-        .entry-title { font-size: 0.875rem; font-weight: var(--weight-strong); margin-bottom: 6px; }
-        .entry-content { font-size: var(--text-body); color: var(--text-primary); line-height: 1.5; margin-bottom: 8px; }
-        .entry-meta { display: flex; flex-wrap: wrap; gap: 8px; font-size: var(--text-meta); color: var(--text-secondary); align-items: center; margin-bottom: 10px; }
+        .entry-title { font-size: 0.875rem; font-weight: var(--weight-strong); margin-bottom: 6px; color: var(--text-strong); }
+        .entry-content { font-size: var(--text-body); color: var(--text-secondary); line-height: 1.5; margin-bottom: 8px; }
+        .entry-meta { display: flex; flex-wrap: wrap; gap: 8px; font-size: var(--text-meta); color: var(--text-tertiary); align-items: center; margin-bottom: 10px; }
         .entry-meta .due { color: var(--status-warning-strong); }
         .entry-meta .due.overdue { color: var(--status-danger-text); }
-        .entry-meta .cat { padding: 2px 8px; border-radius: var(--radius-chip); background: var(--surface-chip); }
+        .entry-meta .cat { padding: 1px 8px; border-radius: var(--radius-chip); background: var(--surface-chip); color: var(--text-secondary); }
         .entry-meta .priority-high { color: var(--status-danger-text); }
         .entry-meta .tag { color: var(--action-on-strong); }
 
-        .entry-actions { display: flex; gap: 8px; }
+        .entry-actions { display: flex; gap: 6px; }
         .action-button {
-            padding: 5px 12px;
-            background: var(--button-secondary);
-            color: var(--text-primary);
-            border: none; border-radius: var(--radius-field);
-            cursor: pointer; font-size: var(--text-meta); transition: background var(--dur-fast);
+            padding: 4px 12px;
+            background: transparent;
+            color: var(--text-secondary);
+            border: 1px solid var(--border-soft); border-radius: var(--radius-field);
+            cursor: pointer; font-size: var(--text-meta); transition: all var(--dur-fast);
         }
-        .action-button:hover { background: var(--button-secondary-hover); }
-        .action-button.done { background: var(--status-success-bg); }
-        .action-button.done:hover { background: rgba(80,200,120,0.35); }
-        .action-button.delete { background: var(--status-danger-bg); }
-        .action-button.delete:hover { background: rgba(255,90,90,0.35); }
-        .action-button.due-edit { background: rgba(255,180,80,0.18); }
+        .action-button:hover { background: var(--button-secondary-hover); color: var(--text-strong); }
+        .action-button.done { background: rgba(111,168,107,0.14); border-color: rgba(111,168,107,0.35); color: var(--status-success-text); }
+        .action-button.done:hover { background: rgba(111,168,107,0.25); }
+        .action-button.delete { background: rgba(197,58,44,0.12); border-color: rgba(197,58,44,0.35); color: var(--status-danger-text); }
+        .action-button.delete:hover { background: rgba(197,58,44,0.22); }
+        .action-button.due-edit { background: rgba(212,115,75,0.1); border-color: rgba(212,115,75,0.3); color: var(--status-warning-strong); }
 
         .due-edit-row { display: flex; gap: 6px; align-items: center; margin-top: 8px; }
         .due-edit-row input[type="date"] {
             background: var(--surface-field); color: var(--text-primary);
-            border: none; border-radius: var(--radius-field); padding: 5px 8px; font-size: var(--text-meta);
+            border: 1px solid var(--border-soft); border-radius: var(--radius-field); padding: 5px 8px; font-size: var(--text-meta);
             color-scheme: dark;
         }
         .due-edit-row button {
-            padding: 4px 10px; background: rgba(120,180,255,0.25); color: var(--text-strong);
-            border: none; border-radius: var(--radius-field); font-size: var(--text-meta); cursor: pointer;
+            padding: 4px 10px; background: var(--action-primary); color: var(--action-on-text);
+            border: none; border-radius: var(--radius-field); font-size: var(--text-meta); cursor: pointer; font-weight: 600;
         }
+        .due-edit-row button:last-child { background: transparent; color: var(--text-secondary); border: 1px solid var(--border-soft); font-weight: 400; }
 
         .empty-state { text-align: center; color: var(--text-faint); padding: 50px 0; font-size: 0.875rem; }
         .count-line { font-size: var(--text-meta); color: var(--text-faint); margin-bottom: 10px; }
 
-        /* 删除确认条（内联，替代系统 confirm） */
+        /* 删除确认条 */
         .confirm-bar {
             margin-top: 8px; display: flex; gap: 8px; align-items: center;
             font-size: var(--text-meta); color: var(--text-secondary);
         }
         .confirm-bar .confirm-btns { display: flex; gap: 6px; }
         .confirm-bar button {
-            background: var(--status-danger-bg); color: var(--text-strong);
+            background: var(--status-danger); color: var(--text-strong);
             border: none; padding: 4px 10px; border-radius: var(--radius-field);
             font-size: var(--text-meta); cursor: pointer;
         }
-        .confirm-bar button.confirm-no { background: var(--button-secondary); color: var(--text-secondary); }
+        .confirm-bar button.confirm-no { background: transparent; color: var(--text-secondary); border: 1px solid var(--border-soft); }
 
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-thumb { background: var(--surface-scroll-thin); border-radius: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
 
         /* ---- 无障碍：减少动态 ---- */
         @media (prefers-reduced-motion: reduce) {
