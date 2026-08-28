@@ -20,3 +20,8 @@ dist/
 out/
 release/
 nanoSecretary/
+
+# /implement 开发产物（不追踪）
+implement/
+.impeccable/
+.impeccable.local.json
