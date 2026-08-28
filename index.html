@@ -1,7 +1,9 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
+    <!-- 内容安全策略：仅本机脚本；样式允许内联（无构建工具链） -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'">
     <title>nanoSecretary</title>
     <style>
         /* 根字号基准：1rem = 16px，布局随系统字号缩放 */
@@ -16,6 +18,18 @@
             justify-content: center;
             overflow: hidden;
             font-family: system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+        }
+
+        /* 无障碍：键盘焦点指示（全局，浅色描边 + 外发光） */
+        :focus-visible {
+            outline: 2px solid rgba(120, 180, 255, 0.9);
+            outline-offset: 2px;
+            border-radius: 4px;
+        }
+        .tab:focus-visible,
+        #save-button:focus-visible,
+        #save-button-form:focus-visible {
+            outline-offset: 1px;
         }
 
         /* ---- 悬浮球 ---- */
@@ -33,6 +47,9 @@
             -webkit-app-region: no-drag;
             transition: transform 0.2s ease-out;
             touch-action: none;
+            background: transparent;
+            border: none;
+            padding: 0;
         }
         #floating-ball:hover { transform: scale(1.08); }
         #floating-ball:active { transform: scale(0.94); }
@@ -291,36 +308,40 @@
     </style>
 </head>
 <body>
-    <div id="floating-ball" title="双击输入">
+    <!-- 悬浮球：role="button" + tabindex，键盘可操作（Enter/Space 打开输入面板） -->
+    <div id="floating-ball" role="button" tabindex="0" aria-label="打开速记输入" title="双击输入">
         <div id="ball-core"></div>
         <span id="ball-icon" style="position:relative;color:white;font-size: 1.125rem;pointer-events:none;">◆</span>
         <span id="badge">0</span>
     </div>
 
     <div id="input-container">
-        <div id="input-wrapper">
-            <div class="tabs">
-                <button class="tab active" id="tab-quick" data-mode="quick">快速记录</button>
-                <button class="tab" id="tab-form" data-mode="form">结构化</button>
+        <div id="input-wrapper" role="group" aria-label="速记输入面板">
+            <div class="tabs" role="tablist" aria-label="输入方式">
+                <button class="tab active" id="tab-quick" data-mode="quick" role="tab" aria-selected="true">快速记录</button>
+                <button class="tab" id="tab-form" data-mode="form" role="tab" aria-selected="false">结构化</button>
             </div>
 
             <!-- 快速记录模式 -->
-            <div id="quick-panel">
+            <div id="quick-panel" role="tabpanel" aria-labelledby="tab-quick">
                 <div id="ai-preview"></div>
                 <input type="text" id="text-input" placeholder="随手记，AI 会自动识别截止日期 #标签" autocomplete="off">
                 <div class="row">
-                    <button id="save-button">保存</button>
+                    <button id="save-button" type="button">保存</button>
                 </div>
-                <div id="save-error">保存失败，请重试</div>
+                <div id="save-error" role="status">保存失败，请重试</div>
             </div>
 
             <!-- 结构化表单模式 -->
-            <div id="form-panel" style="display:none;">
+            <div id="form-panel" style="display:none;" role="tabpanel" aria-labelledby="tab-form">
                 <div class="form-row">
+                    <label for="f-title" class="visually-hidden" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);">要做什么</label>
                     <input type="text" id="f-title" placeholder="要做什么？" autocomplete="off">
                 </div>
                 <div class="form-row">
+                    <label for="f-due" class="visually-hidden" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);">截止日期</label>
                     <input type="date" id="f-due">
+                    <label for="f-priority" class="visually-hidden" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);">优先级</label>
                     <select id="f-priority">
                         <option value="低">低</option>
                         <option value="中" selected>中</option>
@@ -328,7 +349,7 @@
                     </select>
                 </div>
                 <div class="row">
-                    <button id="save-button-form">保存</button>
+                    <button id="save-button-form" type="button">保存</button>
                 </div>
             </div>
 
@@ -337,288 +358,6 @@
     </div>
     <div id="overlay"></div>
 
-    <script>
-        // 注意：不要用 const api = window.api 重新声明！
-        // contextBridge.exposeInMainWorld('api', ...) 已在全局创建 api，
-        // 重复 const 声明会抛 "Identifier 'api' has already been declared" 导致整个脚本不执行。
-        // 直接通过全局标识符 api 访问。
-        const ball = document.getElementById('floating-ball');
-        const badge = document.getElementById('badge');
-        const inputContainer = document.getElementById('input-container');
-        const quickPanel = document.getElementById('quick-panel');
-        const formPanel = document.getElementById('form-panel');
-        const textInput = document.getElementById('text-input');
-        const saveButton = document.getElementById('save-button');
-        const saveButtonForm = document.getElementById('save-button-form');
-        const aiPreview = document.getElementById('ai-preview');
-        const saveError = document.getElementById('save-error');
-        const overlay = document.getElementById('overlay');
-
-        let currentMode = 'ball';
-        let entryMode = 'quick';
-        let pendingAiPreview = null; // AI 解析结果，用户确认后保存
-
-        // 初始化
-        inputContainer.style.display = 'none';
-        ball.style.display = 'flex';
-        ball.classList.add('breathe'); // 常驻呼吸动画
-        api.getTodoCount(); // 初始化角标（待办数）
-
-        // Tab 切换
-        document.getElementById('tab-quick').addEventListener('click', () => setEntryMode('quick'));
-        document.getElementById('tab-form').addEventListener('click', () => setEntryMode('form'));
-        function setEntryMode(mode) {
-            entryMode = mode;
-            document.getElementById('tab-quick').classList.toggle('active', mode === 'quick');
-            document.getElementById('tab-form').classList.toggle('active', mode === 'form');
-            quickPanel.style.display = mode === 'quick' ? 'block' : 'none';
-            formPanel.style.display = mode === 'form' ? 'block' : 'none';
-            if (mode === 'quick') textInput.focus();
-            else document.getElementById('f-title').focus();
-        }
-
-        // 双击进入输入模式（阈值判定：拖拽距离超过 5px 不视为双击）
-        let lastClickTime = 0, lastClickX = 0, lastClickY = 0;
-        ball.addEventListener('click', (e) => {
-            if (currentMode !== 'ball') return;
-            const now = Date.now();
-            const moved = Math.hypot(e.clientX - lastClickX, e.clientY - lastClickY);
-            if (now - lastClickTime < 350 && moved < 6) {
-                switchToInputMode();
-                lastClickTime = 0;
-            } else {
-                lastClickTime = now;
-                lastClickX = e.clientX;
-                lastClickY = e.clientY;
-            }
-        });
-
-        // ---- 通用指针拖拽（Pointer Events + setPointerCapture）----
-        // 指针捕获后，即使光标移出窗口，move/up 事件也持续发给目标元素，
-        // 彻底解决小窗口拖拽过程中事件丢失的问题。
-        function setupDrag(elm, onStart, onMove, onEnd) {
-            let dragging = false;
-            let startPX = 0, startPY = 0;
-
-            elm.addEventListener('pointerdown', (e) => {
-                if (e.button !== 0) return; // 只响应左键
-                dragging = true;
-                startPX = e.screenX;
-                startPY = e.screenY;
-                try { elm.setPointerCapture(e.pointerId); } catch (_) {}
-                if (onStart) onStart();
-            });
-
-            elm.addEventListener('pointermove', (e) => {
-                if (!dragging) return;
-                const dx = e.screenX - startPX;
-                const dy = e.screenY - startPY;
-                // 位移超过阈值才算拖动，避免轻微抖动触发（Apple 建议 ~10px 滞回）
-                if (onMove && (Math.abs(dx) > 10 || Math.abs(dy) > 10)) {
-                    if (onMove(dx, dy) === false) return; // 回调返回 false 表示不消费
-                }
-            });
-
-            const endDrag = (e) => {
-                if (!dragging) return;
-                dragging = false;
-                try { elm.releasePointerCapture(e.pointerId); } catch (_) {}
-                if (onEnd) onEnd();
-            };
-            elm.addEventListener('pointerup', endDrag);
-            elm.addEventListener('pointercancel', endDrag);
-        }
-
-        // 悬浮球拖拽
-        setupDrag(ball,
-            () => api.dragStart(),
-            (dx, dy) => { api.dragMove(dx, dy); },
-            () => api.dragEnd()
-        );
-
-        // 右键菜单
-        ball.addEventListener('contextmenu', (e) => {
-            e.preventDefault();
-            api.showBallMenu(e.clientX, e.clientY);
-        });
-
-        // Esc 返回小球
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && currentMode === 'input') switchToBallMode();
-        });
-
-        // 输入面板拖拽（排除输入控件）
-        setupDrag(inputContainer,
-            () => api.dragStart(),
-            (dx, dy) => { api.dragMove(dx, dy); },
-            () => api.dragEnd()
-        );
-        // 输入面板只在空白区域开始拖拽
-        inputContainer.addEventListener('pointerdown', (e) => {
-            const tag = e.target.tagName;
-            if (tag === 'INPUT' || tag === 'SELECT' || tag === 'BUTTON' || tag === 'TEXTAREA') {
-                e.stopPropagation();
-            }
-        }, true);
-
-        // 快速记录：输入时实时 AI 预览（防抖 300ms）
-        let aiTimer = null;
-        textInput.addEventListener('input', () => {
-            clearTimeout(aiTimer);
-            const text = textInput.value.trim();
-            if (!text) { aiPreview.style.display = 'none'; pendingAiPreview = null; return; }
-            aiTimer = setTimeout(() => {
-                // 调主进程做 AI 解析预览
-                api.saveEntryPreview && api.saveEntryPreview(text);
-            }, 300);
-        });
-        api.onAiPreview && api.onAiPreview((preview) => {
-            if (!preview) return;
-            pendingAiPreview = preview;
-            aiPreview.innerHTML = '';
-            const title = document.createElement('div');
-            title.className = 'ai-title';
-            title.textContent = (preview.type === 'task' ? '📌 ' : '📝 ') + (preview.title || '');
-            const meta = document.createElement('div');
-            meta.textContent = [preview.dueDate ? ('截止 ' + preview.dueDate) : '', preview.priority ? '优先级·' + preview.priority : '', preview.category ? preview.category : ''].filter(Boolean).join(' · ');
-            aiPreview.appendChild(title);
-            if (meta.textContent) aiPreview.appendChild(meta);
-            aiPreview.style.display = 'block';
-        });
-
-        // 保存（快速记录）
-        saveButton.addEventListener('click', saveQuick);
-        textInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') saveQuick(); });
-        function saveQuick() {
-            const text = textInput.value.trim();
-            if (!text) return;
-            hideSaveError();
-            api.saveEntry(text);
-            textInput.value = '';
-            aiPreview.style.display = 'none';
-            pendingAiPreview = null;
-            switchToBallMode();
-        }
-
-        // 保存（结构化表单）
-        saveButtonForm.addEventListener('click', saveForm);
-        function saveForm() {
-            const title = document.getElementById('f-title').value.trim();
-            const due = document.getElementById('f-due').value;
-            const priority = document.getElementById('f-priority').value;
-            if (!title) { document.getElementById('f-title').focus(); return; }
-            hideSaveError();
-            let payload = title;
-            if (due) payload += ' 截止' + due;
-            payload += ' 优先级' + priority;
-            api.saveEntry(payload);
-            document.getElementById('f-title').value = '';
-            document.getElementById('f-due').value = '';
-            switchToBallMode();
-        }
-
-        // 保存结果
-        api.onSaveSuccess((data) => {
-            if (!data || !data.ok) {
-                showSaveError();
-                return;
-            }
-            // 保存成功：球打勾闪光反馈
-            showSaveSuccess();
-        });
-
-        function showSaveSuccess() {
-            ball.classList.add('saved');
-            const icon = document.getElementById('ball-icon');
-            icon.textContent = '✓';
-            setTimeout(() => {
-                ball.classList.remove('saved');
-                icon.textContent = '◆';
-            }, 650);
-        }
-        function showSaveError() {
-            saveError.style.display = 'block';
-            setTimeout(hideSaveError, 2500);
-        }
-        function hideSaveError() {
-            saveError.style.display = 'none';
-        }
-
-        api.onAiRefined((entry) => {
-            if (entry && entry.status === 'pending') updateBallStatus(true);
-            api.getTodoCount(); // 刷新角标
-        });
-
-        // 提醒状态（主进程推送）
-        api.onReminderAlert((data) => {
-            if (data && data.hasDue) updateBallStatus(true);
-        });
-
-        // 待办数角标（F2：显示真实待办数，无待办则隐藏）
-        api.onTodoCount((count) => {
-            const n = count || 0;
-            badge.textContent = n > 99 ? '99+' : String(n);
-            badge.style.display = n > 0 ? 'flex' : 'none';
-            if (n > 0) {
-                ball.classList.add('due');
-            } else {
-                ball.classList.remove('due');
-                ball.classList.add('breathe');
-            }
-        });
-
-        // 数据变更广播：刷新角标
-        api.onEntriesChanged((entries) => {
-            const pending = (entries || []).filter((e) => e.status === 'pending').length;
-            api.onTodoCount && api.getTodoCount();
-            if (pending > 0) updateBallStatus(true);
-        });
-
-        function updateBallStatus(hasDue) {
-            ball.classList.add('due');
-            badge.style.display = 'flex';
-        }
-
-        // 模式切换
-        function switchToInputMode() {
-            currentMode = 'input';
-            ball.classList.remove('breathe', 'due', 'urgent');
-            ball.style.transform = 'scale(0)';
-            ball.style.opacity = '0';
-            api.resizeWindow('input');
-            // 面板材质化进入
-            const wrapper = document.getElementById('input-wrapper');
-            wrapper.classList.remove('show');
-            void wrapper.offsetWidth; // 强制回流，重置过渡起点
-            inputContainer.style.display = 'flex';
-            requestAnimationFrame(() => requestAnimationFrame(() => {
-                wrapper.classList.add('show');
-            }));
-            setEntryMode(entryMode);
-            setTimeout(() => {
-                if (entryMode === 'quick') textInput.focus();
-                else document.getElementById('f-title').focus();
-            }, 160);
-        }
-        function switchToBallMode() {
-            currentMode = 'ball';
-            const wrapper = document.getElementById('input-wrapper');
-            wrapper.classList.remove('show'); // 先淡出，再切回球
-            setTimeout(() => {
-                if (currentMode !== 'ball') return;
-                inputContainer.style.display = 'none';
-                api.resizeWindow('ball');
-                ball.style.display = 'flex';
-                // 球 pop 出现
-                ball.style.transform = 'scale(0.8)';
-                ball.style.opacity = '0';
-                requestAnimationFrame(() => requestAnimationFrame(() => {
-                    ball.style.transform = '';
-                    ball.style.opacity = '';
-                }));
-                ball.classList.add('breathe');
-            }, 180);
-        }
-    </script>
+    <script src="index.js"></script>
 </body>
 </html>
