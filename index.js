@@ -12,9 +12,18 @@ const saveButton = document.getElementById('save-button');
 const saveButtonForm = document.getElementById('save-button-form');
 const aiPreview = document.getElementById('ai-preview');
 const saveError = document.getElementById('save-error');
-const overlay = document.getElementById('overlay');
 const tabQuick = document.getElementById('tab-quick');
 const tabForm = document.getElementById('tab-form');
+const ballIcon = document.getElementById('ball-icon');
+
+// 悬浮球图标（统一线性图标；pointer-events 在 SVG 上同样关闭）
+function setBallIcon(name) {
+    if (window.nanoIcons) {
+        ballIcon.innerHTML = window.nanoIcons.ic(name);
+    } else {
+        ballIcon.textContent = name === 'check' ? '✓' : '◆';
+    }
+}
 
 let currentMode = 'ball';
 let entryMode = 'quick';
@@ -26,6 +35,7 @@ const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-re
 // 初始化
 inputContainer.style.display = 'none';
 ball.style.display = 'flex';
+setBallIcon('diamond'); // 初始球图标
 if (!prefersReducedMotion) ball.classList.add('breathe'); // 常驻呼吸动画
 api.getTodoCount(); // 初始化角标（待办数）
 
@@ -155,7 +165,9 @@ api.onAiPreview && api.onAiPreview((preview) => {
     aiPreview.innerHTML = '';
     const title = document.createElement('div');
     title.className = 'ai-title';
-    title.textContent = (preview.type === 'task' ? '📌 ' : '📝 ') + (preview.title || '');
+    const ic = window.nanoIcons ? window.nanoIcons.ic(preview.type === 'task' ? 'pin' : 'note', 'inline') : '';
+    title.innerHTML = ic + '<span></span>';
+    title.lastChild.textContent = preview.title || '';
     const meta = document.createElement('div');
     meta.textContent = [preview.dueDate ? ('截止 ' + preview.dueDate) : '', preview.priority ? '优先级·' + preview.priority : '', preview.category ? preview.category : ''].filter(Boolean).join(' · ');
     aiPreview.appendChild(title);
@@ -206,11 +218,10 @@ api.onSaveSuccess((data) => {
 
 function showSaveSuccess() {
     ball.classList.add('saved');
-    const icon = document.getElementById('ball-icon');
-    icon.textContent = '✓';
+    setBallIcon('check');
     setTimeout(() => {
         ball.classList.remove('saved');
-        icon.textContent = '◆';
+        setBallIcon('diamond');
     }, 650);
 }
 function showSaveError() {

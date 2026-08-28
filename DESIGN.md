@@ -11,6 +11,20 @@
 
 **深色玻璃拟态（Dark Glass）**：所有窗口为无边框透明 Electron 窗口，承载半透明毛玻璃卡片。核心语言是「一层深色玻璃浮在桌面上」，用 `backdrop-filter: blur + saturate`、半透明白色边框、内高光/外投影制造材质感。
 
+## 设计 token（2026-08 起，`tokens.css` 统一维护）
+
+> 三个页面 `<link>` 共享 `tokens.css`。语义命名（surface/text/action/status/border）；调色必须改 token，不再逐文件手写。
+
+- **主 CTA**：`--action-gradient` = `linear-gradient(135deg,#5a8dff,#3f6ae0)`（深蓝，白字 ≥ 4.5:1，替代原 2.6:1 不达标值）
+- **红色徽标**：`--status-danger` `#f2555a`（白字 4.5:1，替代原 `#e5484d` 3.9:1）
+- 文字：primary 0.95 / secondary 0.75 / tertiary 0.6 / faint 0.5（对玻璃底均 ≥ 4.5:1）
+- 圆角 / 阴影 / 动效时长均有 token；类型尺度收敛为 4 档（title 18 / body 13 / meta 12 / tiny 11）
+
+## 图标系统（2026-08 起）
+
+- `icons.js` 暴露 `window.nanoIcons.ic(name)`：统一 24×24 线性 SVG（1.8px 描边、`currentColor` 继承），替代散落 emoji（📋💬📌⏰🔥 等已清除）
+- 图标名：note/pin/todo/fire/clock/calendar/tag/chat/book/check/check-circle/restore/trash/edit/copy/close/diamond/chevron-right/settings/dots
+
 ## 色彩 token（手工值，未抽变量）
 
 | Token | 值 | 用途 |
@@ -71,8 +85,9 @@
 
 ## 已知不一致（供后续 critique 引用）
 
-1. 无统一设计 token —— 色值/圆角/间距在三个 HTML 中重复手写，各自微偏
-2. 主页面 CTA 为蓝渐变，输入面板保存按钮为灰蓝渐变，语义不一致
-3. 空态文案风格不一（「没有待办，记点什么吧 ✨」「暂无记录」）
-4. 删除确认用系统 `confirm()`，与整体毛玻璃质感脱节
-5. 状态表达有 emoji 混排（📌 📝 ⏰ 🔥 📋 💬），系统性不足
+1. ~~无统一设计 token~~ → 已由 `tokens.css` 统一（2026-08）
+2. ~~主页面 CTA 蓝渐变 vs 输入面板灰蓝渐变~~ → 已统一语义：主 CTA 用 `--action-gradient`；输入面板保存为中性次级按钮（不同层级，非不同色相）
+3. 空态文案风格不一（「没有待办，记点什么吧」「暂无记录」）
+4. ~~删除确认用系统 `confirm()`~~ → 已改内联双步确认条
+5. ~~状态表达有 emoji 混排~~ → 已换统一线性 SVG 图标
+6. 待补：设置页仍为占位实现（模型选择/提前量可读写，交互偏简陋）；真实 Ollama 联调未做

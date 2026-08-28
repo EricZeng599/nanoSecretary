@@ -75,6 +75,7 @@ function renderEntries() {
         return;
     }
     const today = new Date().toISOString().slice(0, 10);
+    const ic = (name, cls) => (window.nanoIcons ? window.nanoIcons.ic(name, cls) : '');
     list.innerHTML = filtered.map((e) => {
         const overdue = e.status === 'pending' && e.dueDate && e.dueDate < today;
         const todayDue = e.status === 'pending' && e.dueDate === today;
@@ -83,26 +84,26 @@ function renderEntries() {
             ? (overdue ? '已逾期 ' + e.dueDate : todayDue ? '今天截止' : '截止 ' + e.dueDate)
             : '';
         const doneBtn = e.status === 'pending'
-            ? '<button class="action-button done" type="button" data-action="done" data-id="' + e.id + '">✓ 完成</button>'
+            ? '<button class="action-button done" type="button" data-action="done" data-id="' + e.id + '">' + ic('check', 'inline') + '完成</button>'
             : e.status === 'done'
-                ? '<button class="action-button" type="button" data-action="restore" data-id="' + e.id + '">↩ 恢复</button>'
+                ? '<button class="action-button" type="button" data-action="restore" data-id="' + e.id + '">' + ic('restore', 'inline') + '恢复</button>'
                 : '';
         return `<div class="entry-card ${cls}" data-id="${e.id}">
             <div class="entry-title">${esc(e.title || '(无标题)')}</div>
             <div class="entry-content">${esc(e.content)}</div>
             <div class="entry-meta">
-                ${dueText ? `<span class="due ${overdue ? 'overdue' : ''}">⏰ ${esc(dueText)}</span>` : ''}
-                ${e.priority === '高' ? '<span class="priority-high">🔥 高</span>' : e.priority === '中' ? '<span>中</span>' : ''}
+                ${dueText ? `<span class="due ${overdue ? 'overdue' : ''}">${ic('clock', 'inline')}${esc(dueText)}</span>` : ''}
+                ${e.priority === '高' ? '<span class="priority-high">' + ic('fire', 'inline') + '高</span>' : e.priority === '中' ? '<span>中</span>' : ''}
                 ${e.category ? `<span class="cat">${esc(e.category)}</span>` : ''}
-                ${(e.tags || []).map((t) => `<span class="tag">#${esc(t)}</span>`).join('')}
+                ${(e.tags || []).map((t) => `<span class="tag">${ic('tag', 'inline')}#${esc(t)}</span>`).join('')}
                 <span>${esc(formatTime(e.created))}</span>
                 ${e.status === 'pending' ? '<span style="color:#ff8c42">待办</span>' : e.status === 'done' ? '<span style="color:#4caf50">已完成</span>' : '<span>备忘</span>'}
             </div>
             <div class="entry-actions">
                 ${doneBtn}
-                <button class="action-button due-edit" type="button" data-action="reschedule" data-id="${e.id}">改期</button>
-                <button class="action-button" type="button" data-action="copy" data-id="${e.id}">复制</button>
-                <button class="action-button delete" type="button" data-action="delete" data-id="${e.id}">删除</button>
+                <button class="action-button due-edit" type="button" data-action="reschedule" data-id="${e.id}">${ic('edit', 'inline')}改期</button>
+                <button class="action-button" type="button" data-action="copy" data-id="${e.id}">${ic('copy', 'inline')}复制</button>
+                <button class="action-button delete" type="button" data-action="delete" data-id="${e.id}">${ic('trash', 'inline')}删除</button>
             </div>
         </div>`;
     }).join('');
@@ -160,7 +161,19 @@ function copyContent(id) {
     });
 }
 function deleteEntry(id) {
-    if (confirm('确定删除这条记录？')) { api.deleteEntry(id); setTimeout(loadEntries, 200); }
+    const card = document.querySelector(`.entry-card[data-id="${id}"]`);
+    if (!card || card.querySelector('.confirm-bar')) return;
+    const bar = document.createElement('div');
+    bar.className = 'confirm-bar';
+    bar.innerHTML = '<span>确认删除？</span><span class="confirm-btns"><button type="button" data-confirm="yes">删除</button><button type="button" class="confirm-no" data-confirm="no">取消</button></span>';
+    bar.querySelector('[data-confirm="yes"]').addEventListener('click', () => {
+        api.deleteEntry(id);
+        bar.remove();
+        setTimeout(loadEntries, 200);
+    });
+    bar.querySelector('[data-confirm="no"]').addEventListener('click', () => bar.remove());
+    card.appendChild(bar);
+    bar.querySelector('[data-confirm="yes"]').focus();
 }
 
 function esc(str) {
@@ -173,7 +186,8 @@ function formatTime(iso) {
     if (diff < 3600000) return Math.floor(diff / 60000) + '分钟前';
     if (diff < 86400000) return Math.floor(diff / 3600000) + '小时前';
     if (diff < 7 * 86400000) return Math.floor(diff / 86400000) + '天前';
-    return d.toLocaleDateString();
+    // 本地化日期（中文环境为 2026/8/28 形式）
+    return d.toLocaleDateString('zh-CN', { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
 // 轻量 toast

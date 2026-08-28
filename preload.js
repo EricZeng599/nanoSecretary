@@ -29,13 +29,10 @@ contextBridge.exposeInMainWorld('api', {
 
   // 窗口操作
   resizeWindow: (mode) => ipcRenderer.send('resize-window', mode),
-  moveWindow: (x, y) => ipcRenderer.send('move-window', x, y),
   // 增量拖拽（主进程驱动）
   dragStart: () => ipcRenderer.send('drag-window-start'),
   dragMove: (dx, dy) => ipcRenderer.send('drag-window-move', dx, dy),
   dragEnd: () => ipcRenderer.send('drag-window-end'),
-  getWindowPosition: () => ipcRenderer.send('get-window-position'),
-  onWindowPosition: (cb) => ipcRenderer.on('window-position', (e, x, y) => cb(x, y)),
   showBallMenu: (x, y) => ipcRenderer.send('show-ball-menu', x, y),
   openHistory: () => ipcRenderer.send('open-history'),
   closeHomepage: () => ipcRenderer.send('close-homepage'),
@@ -43,13 +40,8 @@ contextBridge.exposeInMainWorld('api', {
   dragHomepageStart: () => ipcRenderer.send('drag-homepage-start'),
   dragHomepageMove: (dx, dy) => ipcRenderer.send('drag-homepage-move', dx, dy),
   dragHomepageEnd: () => ipcRenderer.send('drag-homepage-end'),
-  moveHomepage: (x, y) => ipcRenderer.send('move-homepage', x, y),
-  getHomepagePosition: () => ipcRenderer.send('get-homepage-position'),
-  onHomepagePosition: (cb) => ipcRenderer.on('homepage-position', (e, x, y) => cb(x, y)),
 
   // 配置
-  getConfig: () => ipcRenderer.send('get-config'),
-  onConfig: (cb) => ipcRenderer.on('config-data', (e, data) => cb(data)),
   saveConfig: (patch) => ipcRenderer.send('save-config', patch),
   onConfigSaved: (cb) => ipcRenderer.on('config-saved', (e, data) => cb(data)),
 

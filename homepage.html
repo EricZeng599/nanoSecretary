@@ -5,63 +5,66 @@
     <!-- 内容安全策略：仅本机脚本；样式允许内联（无构建工具链） -->
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'">
     <title>nanoSecretary</title>
+    <link rel="stylesheet" href="tokens.css">
     <style>
-        /* 根字号基准：1rem = 16px，布局随系统字号缩放 */
-        html { font-size: 100%; }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             background: transparent;
-            color: white;
-            font-family: system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+            color: var(--text-strong);
+            font-family: var(--font-stack);
             height: 100vh;
             display: flex;
             flex-direction: column;
         }
         /* 无障碍：键盘焦点指示（全局） */
         :focus-visible {
-            outline: 2px solid rgba(120, 180, 255, 0.9);
+            outline: 2px solid var(--action-focus);
             outline-offset: 2px;
             border-radius: 4px;
         }
+        /* 统一线性图标 */
+        .icon { display: inline-block; vertical-align: -2px; }
+        .icon.inline { margin-right: 5px; }
+
         .container {
             flex: 1;
-            background: rgba(24, 24, 28, 0.9);
+            background: var(--surface-main);
             backdrop-filter: blur(18px) saturate(170%);
             border-radius: 16px;
             margin: 14px;
             padding: 18px;
             display: flex;
             flex-direction: column;
-            border: 1px solid rgba(255,255,255,0.07);
-            box-shadow: 0 8px 40px rgba(0,0,0,0.4);
+            border: 1px solid var(--border-subtle);
+            box-shadow: var(--shadow-card);
             overflow: hidden;
         }
         .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
         /* 大标题：负字距收紧，更精致（Apple 排版 §15） */
         .header h1 { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.02em; }
         .header .ai-status {
-            font-size: 0.6875rem; color: rgba(255,255,255,0.65);
-            padding: 4px 10px; border-radius: 20px;
-            background: rgba(255,255,255,0.08);
+            font-size: var(--text-meta); color: var(--text-secondary);
+            padding: 4px 10px; border-radius: var(--radius-chip);
+            background: var(--surface-chip);
         }
-        .header .ai-status.online { color: #8be8b2; background: rgba(80,200,120,0.15); }
-        .header .ai-status.offline { color: rgba(255,255,255,0.6); }
+        .header .ai-status.online { color: var(--status-ai-online); background: rgba(80,200,120,0.15); }
+        .header .ai-status.offline { color: var(--text-secondary); }
 
         /* 顶部 Tab */
         .tabs { display: flex; gap: 6px; margin-bottom: 12px; }
         .tab {
             flex: 1;
             padding: 8px 0;
-            font-size: 0.8125rem;
-            border-radius: 10px;
-            background: rgba(255,255,255,0.06);
-            color: rgba(255,255,255,0.6);
+            font-size: var(--text-body);
+            border-radius: var(--radius-card);
+            background: var(--surface-tab);
+            color: var(--text-tertiary);
             border: none;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: background var(--dur-fast), color var(--dur-fast);
         }
-        .tab.active { background: rgba(120,180,255,0.22); color: white; }
-        .tab .count { opacity: 0.6; font-size: 0.6875rem; margin-left: 4px; }
+        .tab.active { background: rgba(120,180,255,0.22); color: var(--text-strong); }
+        .tab .count { opacity: 0.6; font-size: var(--text-meta); margin-left: 4px; }
 
         /* 记录 Tab */
         #view-records {
@@ -73,88 +76,103 @@
         .input-section { margin-bottom: 10px; flex-shrink: 0; }
         .input-section textarea {
             width: 100%; height: 70px;
-            background: rgba(255,255,255,0.07);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 10px;
-            color: white; padding: 10px 12px;
-            font-size: 0.8125rem; resize: none;
+            background: var(--surface-field);
+            border: 1px solid var(--border-soft);
+            border-radius: var(--radius-card);
+            color: var(--text-primary); padding: 10px 12px;
+            font-size: var(--text-body); resize: none;
             font-family: inherit;
         }
-        .input-section textarea:focus { border-color: rgba(120,180,255,0.4); }
+        .input-section textarea:focus { border-color: var(--border-field); }
         .input-section .save-row { display: flex; gap: 8px; margin-top: 8px; align-items: center; }
+        /* 主 CTA：深蓝渐变，白字对比 ≥ 4.5:1 */
         .save-btn {
             padding: 7px 18px;
-            background: linear-gradient(135deg, rgba(120,180,255,0.9), rgba(90,140,255,0.9));
-            color: white; border: none; border-radius: 8px;
-            cursor: pointer; font-size: 0.8125rem;
+            background: var(--action-gradient);
+            color: var(--text-strong); border: none; border-radius: var(--radius-btn);
+            cursor: pointer; font-size: var(--text-body);
         }
         .save-btn:hover { filter: brightness(1.12); }
         #ai-preview-box {
             margin-top: 8px; padding: 8px 10px;
             background: rgba(120,180,255,0.1); border: 1px solid rgba(120,180,255,0.2);
-            border-radius: 8px; font-size: 0.75rem; display: none;
-            color: rgba(255,255,255,0.85);
+            border-radius: var(--radius-btn); font-size: var(--text-meta); display: none;
+            color: var(--text-primary);
         }
 
         /* 待办列表 */
         .list-section { flex: 1; min-height: 0; overflow-y: auto; }
-        .list-section h2 { font-size: 0.8125rem; color: rgba(255,255,255,0.7); margin: 6px 0 8px; font-weight: 600; }
+        .list-section h2 { font-size: var(--text-body); color: var(--text-secondary); margin: 6px 0 8px; font-weight: var(--weight-strong); }
         .entry-list { display: flex; flex-direction: column; gap: 8px; }
         .entry-item {
-            background: rgba(255,255,255,0.05);
-            border-radius: 10px; padding: 10px 12px;
+            background: var(--surface-card);
+            border-radius: var(--radius-card); padding: 10px 12px;
             border-left: 3px solid transparent;
-            transition: background 0.2s;
+            transition: background var(--dur-fast);
         }
-        .entry-item:hover { background: rgba(255,255,255,0.09); }
-        .entry-item.overdue { border-left-color: #e5484d; }
-        .entry-item.today { border-left-color: #ff8c42; }
-        .entry-item.note { border-left-color: #888; }
-        .entry-title { font-size: 0.8125rem; margin-bottom: 4px; font-weight: 600; }
-        .entry-meta { display: flex; gap: 8px; font-size: 0.6875rem; color: rgba(255,255,255,0.7); align-items: center; flex-wrap: wrap; }
-        .entry-meta .due { color: #ff8c42; }
-        .entry-meta .due.overdue { color: #e5484d; }
-        .entry-meta .priority-high { color: #e5484d; }
-        .entry-meta .priority-mid { color: #ff8c42; }
-        .entry-meta .cat { padding: 1px 8px; border-radius: 10px; background: rgba(255,255,255,0.1); }
+        .entry-item:hover { background: var(--surface-card-hover); }
+        .entry-item.overdue { border-left-color: var(--status-danger); }
+        .entry-item.today { border-left-color: var(--status-warning-strong); }
+        .entry-item.note { border-left-color: var(--status-note); }
+        .entry-title { font-size: var(--text-body); margin-bottom: 4px; font-weight: var(--weight-strong); }
+        .entry-meta { display: flex; gap: 8px; font-size: var(--text-meta); color: var(--text-secondary); align-items: center; flex-wrap: wrap; }
+        .entry-meta .due { color: var(--status-warning-strong); }
+        .entry-meta .due.overdue { color: var(--status-danger-text); }
+        .entry-meta .priority-high { color: var(--status-danger-text); }
+        .entry-meta .priority-mid { color: var(--status-warning-strong); }
+        .entry-meta .cat { padding: 1px 8px; border-radius: var(--radius-chip); background: var(--surface-chip); }
         .entry-actions { margin-top: 6px; display: flex; gap: 8px; }
         .entry-actions button {
-            background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.8);
-            border: none; padding: 3px 10px; border-radius: 6px;
-            font-size: 0.6875rem; cursor: pointer;
+            background: var(--button-secondary); color: var(--text-primary);
+            border: none; padding: 3px 10px; border-radius: var(--radius-field);
+            font-size: var(--text-meta); cursor: pointer;
         }
-        .entry-actions button:hover { background: rgba(255,255,255,0.16); }
-        .entry-actions .done-btn:hover { background: rgba(80,200,120,0.3); }
-        .empty { text-align: center; color: rgba(255,255,255,0.45); padding: 30px 0; font-size: 0.8125rem; }
+        .entry-actions button:hover { background: var(--button-secondary-hover); }
+        .entry-actions .done-btn:hover { background: var(--status-success-bg); }
+        .empty { text-align: center; color: var(--text-tertiary); padding: 30px 0; font-size: var(--text-body); }
+
+        /* 删除确认条（内联，替代系统 confirm） */
+        .confirm-bar {
+            margin-top: 6px; display: flex; gap: 8px; align-items: center;
+            font-size: var(--text-meta); color: var(--text-secondary);
+        }
+        .confirm-bar .confirm-btns { display: flex; gap: 6px; }
+        .confirm-bar button {
+            background: var(--status-danger-bg); color: var(--text-strong);
+            border: none; padding: 3px 10px; border-radius: var(--radius-field);
+            font-size: var(--text-meta); cursor: pointer;
+        }
+        .confirm-bar button.confirm-no { background: var(--button-secondary); color: var(--text-secondary); }
 
         /* 对话 Tab */
         .chat-section { flex: 1; display: none; flex-direction: column; overflow: hidden; }
         .chat-messages { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 4px; }
-        .chat-msg { max-width: 85%; padding: 8px 12px; border-radius: 12px; font-size: 0.8125rem; line-height: 1.5; white-space: pre-wrap; }
+        .chat-msg { max-width: 85%; padding: 8px 12px; border-radius: 12px; font-size: var(--text-body); line-height: 1.5; white-space: pre-wrap; }
         .chat-msg.user { align-self: flex-end; background: rgba(120,180,255,0.25); border-bottom-right-radius: 4px; }
-        .chat-msg.ai { align-self: flex-start; background: rgba(255,255,255,0.08); border-bottom-left-radius: 4px; }
+        .chat-msg.ai { align-self: flex-start; background: var(--surface-chip); border-bottom-left-radius: 4px; }
         .chat-input-row { display: flex; gap: 8px; margin-top: 10px; }
         .chat-input-row input {
-            flex: 1; background: rgba(255,255,255,0.08);
-            border: 1px solid rgba(255,255,255,0.1); border-radius: 10px;
-            color: white; padding: 9px 12px; font-size: 0.8125rem;
+            flex: 1; background: var(--surface-field);
+            border: 1px solid var(--border-soft); border-radius: var(--radius-card);
+            color: var(--text-primary); padding: 9px 12px; font-size: var(--text-body);
         }
-        .chat-input-row input:focus { border-color: rgba(120,180,255,0.4); }
+        .chat-input-row input:focus { border-color: var(--border-field); }
         .chat-input-row button {
-            padding: 8px 16px; background: linear-gradient(135deg, rgba(120,180,255,0.9), rgba(90,140,255,0.9));
-            color: white; border: none; border-radius: 10px; cursor: pointer; font-size: 0.8125rem;
+            padding: 8px 16px; background: var(--action-gradient);
+            color: var(--text-strong); border: none; border-radius: var(--radius-card); cursor: pointer; font-size: var(--text-body);
         }
+        .chat-input-row button:hover { filter: brightness(1.12); }
 
         .footer { display: flex; gap: 8px; margin-top: 12px; }
         .footer-button {
             flex: 1; padding: 8px 0;
-            background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.75);
-            border: none; border-radius: 8px; cursor: pointer; font-size: 0.75rem;
+            background: var(--button-secondary); color: var(--text-secondary);
+            border: none; border-radius: var(--radius-btn); cursor: pointer; font-size: var(--text-meta);
         }
-        .footer-button:hover { background: rgba(255,255,255,0.14); }
+        .footer-button:hover { background: var(--button-secondary-hover); }
 
         ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb { background: var(--surface-scroll); border-radius: 3px; }
 
         /* 拖拽条 */
         .drag-bar {
@@ -166,7 +184,7 @@
         /* 设置面板 */
         #settings-overlay {
             position: fixed; inset: 0; z-index: 20;
-            background: rgba(0,0,0,0.4);
+            background: var(--surface-scrim);
             display: none;
             align-items: center;
             justify-content: center;
@@ -175,12 +193,12 @@
         #settings-panel {
             width: 80%;
             max-width: 320px;
-            background: rgba(30,30,36,0.97);
+            background: var(--surface-raised);
             backdrop-filter: blur(18px) saturate(160%);
-            border-radius: 14px;
+            border-radius: var(--radius-panel);
             padding: 18px;
-            border: 1px solid rgba(255,255,255,0.1);
-            box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+            border: 1px solid var(--border-soft);
+            box-shadow: var(--shadow-dialog);
             transform-origin: center;
             animation: settings-in 0.2s ease-out;
         }
@@ -188,14 +206,14 @@
             from { transform: scale(0.95); opacity: 0; }
             to { transform: scale(1); opacity: 1; }
         }
-        #settings-panel h3 { font-size: 0.9375rem; margin-bottom: 14px; }
+        #settings-panel h3 { font-size: var(--text-title); margin-bottom: 14px; }
         .setting-row { margin-bottom: 14px; }
-        .setting-row .label { font-size: 0.75rem; color: rgba(255,255,255,0.7); margin-bottom: 6px; display: block; }
+        .setting-row .label { font-size: var(--text-meta); color: var(--text-secondary); margin-bottom: 6px; display: block; }
         .setting-row select, .setting-row input[type="number"] {
             width: 100%; padding: 7px 10px;
-            background: rgba(255,255,255,0.08);
-            color: white; border: 1px solid rgba(255,255,255,0.12);
-            border-radius: 8px; font-size: 0.75rem;
+            background: var(--surface-field);
+            color: var(--text-primary); border: 1px solid var(--border-soft);
+            border-radius: var(--radius-btn); font-size: var(--text-meta);
             color-scheme: dark;
         }
         /* 下拉选项强制黑底白字 */
@@ -204,27 +222,27 @@
             color: white;
         }
         .setting-row .switch-row { display: flex; align-items: center; justify-content: space-between; }
-        .setting-row .desc { font-size: 0.6875rem; color: rgba(255,255,255,0.5); margin-top: 4px; }
+        .setting-row .desc { font-size: var(--text-meta); color: var(--text-faint); margin-top: 4px; }
         .switch {
             position: relative; width: 40px; height: 22px;
             background: rgba(255,255,255,0.15); border-radius: 11px;
-            cursor: pointer; transition: background 0.2s;
+            cursor: pointer; transition: background var(--dur-fast);
         }
-        .switch.on { background: rgba(120,180,255,0.7); }
+        .switch.on { background: var(--action-on); }
         .switch::after {
             content: ''; position: absolute; top: 2px; left: 2px;
             width: 18px; height: 18px; border-radius: 50%;
-            background: white; transition: transform 0.2s;
+            background: white; transition: transform var(--dur-fast);
         }
         .switch.on::after { transform: translateX(18px); }
         .switch:focus-visible { outline-offset: 3px; }
         .settings-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
         .settings-actions button {
-            padding: 6px 14px; border-radius: 8px;
-            border: none; cursor: pointer; font-size: 0.75rem;
-            background: rgba(255,255,255,0.1); color: white;
+            padding: 6px 14px; border-radius: var(--radius-btn);
+            border: none; cursor: pointer; font-size: var(--text-meta);
+            background: var(--button-secondary); color: var(--text-strong);
         }
-        .settings-actions button.primary { background: rgba(120,180,255,0.8); color: #111; }
+        .settings-actions button.primary { background: var(--action-on-strong); color: #111; }
 
         /* 无障碍：减少动态 */
         @media (prefers-reduced-motion: reduce) {
@@ -232,7 +250,8 @@
             #settings-panel { animation: none; }
         }
         @media (prefers-reduced-transparency: reduce) {
-            .container { background: rgba(24, 24, 28, 0.98); backdrop-filter: blur(4px); }
+            .container { background: var(--surface-main-solid); backdrop-filter: blur(4px); }
+            #settings-panel { background: var(--surface-raised-solid); backdrop-filter: blur(4px); }
         }
     </style>
 </head>
@@ -244,8 +263,8 @@
         </div>
 
         <div class="tabs" role="tablist" aria-label="主视图">
-            <button class="tab active" data-view="records" id="view-tab-records" role="tab" aria-selected="true">📋 记录<span class="count" id="record-count"></span></button>
-            <button class="tab" data-view="chat" id="view-tab-chat" role="tab" aria-selected="false">💬 对话</button>
+            <button class="tab active" data-view="records" id="view-tab-records" role="tab" aria-selected="true"><span id="tab-records-icon"></span>记录<span class="count" id="record-count"></span></button>
+            <button class="tab" data-view="chat" id="view-tab-chat" role="tab" aria-selected="false"><span id="tab-chat-icon"></span>对话</button>
         </div>
 
         <!-- 记录视图 -->
@@ -255,7 +274,7 @@
                 <textarea id="input-text" placeholder="随手记：比如「下周三交季度报告 #工作」，AI 会自动识别截止日期…"></textarea>
                 <div class="save-row">
                     <button class="save-btn" id="save-button" type="button">保存</button>
-                    <span style="font-size: 0.6875rem;color:rgba(255,255,255,0.5)">Ctrl+Enter 保存</span>
+                    <span style="font-size: var(--text-meta);color: var(--text-faint)">Ctrl+Enter 保存</span>
                 </div>
                 <div id="ai-preview-box"></div>
             </div>
@@ -313,6 +332,7 @@
         </div>
     </div>
 
+    <script src="icons.js"></script>
     <script src="homepage.js"></script>
 </body>
 </html>

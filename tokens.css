@@ -1,0 +1,102 @@
+/* ============================================================
+   tokens.css — 赛博秘书 · 设计 token（无构建工具链，三页共享）
+   语义命名：surface / text / action / status / border
+   ============================================================ */
+
+:root {
+    /* ---- 表面（glass） ---- */
+    --surface-ball-window: transparent;
+    --surface-main: rgba(24, 24, 28, 0.9);         /* 主页面卡片 */
+    --surface-panel: rgba(28, 28, 32, 0.9);        /* 输入面板 */
+    --surface-card: rgba(255, 255, 255, 0.05);     /* 列表卡片底 */
+    --surface-card-hover: rgba(255, 255, 255, 0.09);
+    --surface-raised: rgba(30, 30, 36, 0.97);      /* 弹层（设置） */
+    --surface-header: rgba(28, 28, 34, 0.9);       /* 历史页顶栏 */
+    --surface-entry: rgba(28, 28, 34, 0.85);       /* 历史页记录卡 */
+    --surface-entry-hover: rgba(40, 40, 48, 0.9);
+    --surface-field: rgba(255, 255, 255, 0.08);    /* 输入/选择底 */
+    --surface-field-hover: rgba(255, 255, 255, 0.1);
+    --surface-chip: rgba(255, 255, 255, 0.08);
+    --surface-tab: rgba(255, 255, 255, 0.06);
+    --surface-scroll: rgba(255, 255, 255, 0.15);
+    --surface-scroll-thin: rgba(255, 255, 255, 0.12);
+    --surface-scrim: rgba(0, 0, 0, 0.4);           /* 遮罩 */
+    /* reduced-transparency 覆盖：去模糊时提高不透明度 */
+    --surface-main-solid: rgba(24, 24, 28, 0.98);
+    --surface-panel-solid: rgba(28, 28, 32, 0.98);
+    --surface-raised-solid: rgba(30, 30, 36, 0.99);
+
+    /* ---- 文字（对玻璃底均 ≥ 4.5:1） ---- */
+    --text-primary: rgba(255, 255, 255, 0.95);
+    --text-secondary: rgba(255, 255, 255, 0.75);
+    --text-tertiary: rgba(255, 255, 255, 0.6);
+    --text-faint: rgba(255, 255, 255, 0.5);
+    --text-strong: #ffffff;
+
+    /* ---- 动作（primary CTA） ---- */
+    /* 深蓝渐变：白字对比 ≥ 4.5:1（原 #78b4ff 系 2.6:1 不达标） */
+    --action-primary: #5a8dff;
+    --action-primary-strong: #3f6ae0;
+    --action-gradient: linear-gradient(135deg, var(--action-primary), var(--action-primary-strong));
+    --action-focus: rgba(120, 180, 255, 0.9);
+    --action-on: rgba(120, 180, 255, 0.7);         /* switch 开启 */
+    --action-on-strong: #7ab0ff;
+
+    /* ---- 中性按钮（次级） ---- */
+    --button-secondary: rgba(255, 255, 255, 0.08);
+    --button-secondary-hover: rgba(255, 255, 255, 0.16);
+    --button-secondary-text: rgba(255, 255, 255, 0.85);
+
+    /* ---- 状态语义 ---- */
+    --status-danger: #d63c42;                       /* 白字徽标 4.58:1（原 #e5484d 3.9:1） */
+    --status-danger-text: #ff8f92;                  /* 玻璃底上的红色小字 */
+    --status-danger-bg: rgba(255, 90, 90, 0.2);
+    --status-warning: #ffb46b;                      /* 今天/到期（玻璃底可读） */
+    --status-warning-strong: #ff8c42;               /* 原值，用于渐变/强调 */
+    --status-success: #4caf50;
+    --status-success-text: #7ee2a0;
+    --status-success-bg: rgba(80, 200, 120, 0.2);
+    --status-note: #9aa4b2;
+    --status-ai-online: #8be8b2;
+
+    /* ---- 分隔 / 描边 ---- */
+    --border-subtle: rgba(255, 255, 255, 0.07);
+    --border-soft: rgba(255, 255, 255, 0.1);
+    --border-strong: rgba(255, 255, 255, 0.16);
+    --border-card: rgba(255, 255, 255, 0.05);
+    --border-field: rgba(120, 180, 255, 0.4);       /* 输入聚焦 */
+
+    /* ---- 深度 ---- */
+    --shadow-panel: 0 8px 30px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    --shadow-card: 0 8px 40px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+    --shadow-dialog: 0 12px 40px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    --shadow-ball: 0 3px 14px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.35), inset 0 -2px 6px rgba(0, 0, 0, 0.18);
+
+    /* ---- 圆角（层级从内到外递增） ---- */
+    --radius-field: 6px;
+    --radius-btn: 8px;
+    --radius-card: 10px;
+    --radius-panel: 14px;
+    --radius-chip: 20px;
+
+    /* ---- 排版尺度（4 档：标题 / 正文 / 元信息 / 辅助，比例 ≥ 1.25） ---- */
+    --font-stack: system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+    --text-title: 1.125rem;      /* 18px · 700 */
+    --text-body: 0.8125rem;      /* 13px · 400 */
+    --text-meta: 0.75rem;        /* 12px · 400 */
+    --text-tiny: 0.6875rem;      /* 11px · 400 */
+    --weight-strong: 600;
+
+    /* ---- 动效 ---- */
+    --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
+    --dur-fast: 0.18s;
+    --dur-med: 0.25s;
+    --dur-slow: 0.4s;
+}
+
+/* 高缩放 / 弱视：正文级下限 12px，元信息下限 11px */
+@media (min-resolution: 2dppx) {
+    :root {
+        --text-meta: 0.8125rem;
+    }
+}

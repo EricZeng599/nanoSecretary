@@ -5,9 +5,8 @@
     <!-- 内容安全策略：仅本机脚本；样式允许内联（无构建工具链） -->
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'">
     <title>nanoSecretary</title>
+    <link rel="stylesheet" href="tokens.css">
     <style>
-        /* 根字号基准：1rem = 16px，布局随系统字号缩放 */
-        html { font-size: 100%; }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             background: transparent;
@@ -17,12 +16,12 @@
             align-items: center;
             justify-content: center;
             overflow: hidden;
-            font-family: system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+            font-family: var(--font-stack);
         }
 
         /* 无障碍：键盘焦点指示（全局，浅色描边 + 外发光） */
         :focus-visible {
-            outline: 2px solid rgba(120, 180, 255, 0.9);
+            outline: 2px solid var(--action-focus);
             outline-offset: 2px;
             border-radius: 4px;
         }
@@ -31,6 +30,9 @@
         #save-button-form:focus-visible {
             outline-offset: 1px;
         }
+
+        /* 统一线性图标 */
+        .icon { display: inline-block; vertical-align: -2px; }
 
         /* ---- 悬浮球 ---- */
         /* 外层：透明点击区，负责 hover/按下反馈（transform 不被动画占用） */
@@ -45,7 +47,7 @@
             position: relative;
             user-select: none;
             -webkit-app-region: no-drag;
-            transition: transform 0.2s ease-out;
+            transition: transform var(--dur-med) var(--ease-out);
             touch-action: none;
             background: transparent;
             border: none;
@@ -63,10 +65,7 @@
             background:
                 radial-gradient(circle at 32% 28%, rgba(255,255,255,0.55), rgba(255,255,255,0) 42%),
                 linear-gradient(135deg, rgba(135,145,165,0.95), rgba(75,85,105,0.95));
-            box-shadow:
-                0 3px 14px rgba(0, 0, 0, 0.3),
-                inset 0 1px 0 rgba(255,255,255,0.35),
-                inset 0 -2px 6px rgba(0,0,0,0.18);
+            box-shadow: var(--shadow-ball);
             transition: background 0.5s ease, box-shadow 0.5s ease;
             will-change: transform;
         }
@@ -95,7 +94,7 @@
             50% { transform: scale(1.08); box-shadow: 0 0 0 10px rgba(255,90,80,0); }
         }
 
-        /* 角标：待办数量 */
+        /* 角标：待办数量（白字 4.5:1） */
         #badge {
             position: absolute;
             top: -2px;
@@ -104,9 +103,9 @@
             height: 16px;
             padding: 0 4px;
             border-radius: 8px;
-            background: #e5484d;
+            background: var(--status-danger);
             color: white;
-            font-size: 0.625rem;
+            font-size: var(--text-tiny);
             font-weight: 700;
             display: none;
             align-items: center;
@@ -138,18 +137,16 @@
             height: 100%;
             display: flex;
             flex-direction: column;
-            background: rgba(28, 28, 32, 0.9);
+            background: var(--surface-panel);
             backdrop-filter: blur(18px) saturate(160%);
-            border-radius: 14px;
+            border-radius: var(--radius-panel);
             padding: 10px;
-            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4),
-                        inset 0 1px 0 rgba(255,255,255,0.08);
-            border: 1px solid rgba(255,255,255,0.09);
+            box-shadow: var(--shadow-panel);
+            border: 1px solid var(--border-soft);
             transform-origin: 50% 100%; /* 从底部(球的方向)展开 */
             opacity: 0;
             transform: scale(0.92);
             transition: opacity 0.18s ease-out, transform 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.2), backdrop-filter 0.22s ease-out;
-            will-change: transform, opacity;
         }
         #input-wrapper.show {
             opacity: 1;
@@ -160,110 +157,111 @@
             flex: 1;
             width: 100%;
             border: none;
-            background: rgba(255,255,255,0.08);
-            color: white;
+            background: var(--surface-field);
+            color: var(--text-primary);
             padding: 0 12px;
-            border-radius: 8px;
-            font-size: 0.875rem;
+            border-radius: var(--radius-field);
+            font-size: var(--text-body);
             outline: none;
             margin-bottom: 8px;
         }
-        #text-input::placeholder { color: rgba(255,255,255,0.55); }
+        #text-input::placeholder { color: var(--text-tertiary); }
 
         /* 保存失败内联提示 */
         #save-error {
             display: none;
-            color: #ff8b8b;
-            font-size: 0.6875rem;
+            color: var(--status-danger-text);
+            font-size: var(--text-meta);
             margin-top: 6px;
             padding: 5px 8px;
-            border-radius: 6px;
-            background: rgba(255,90,90,0.12);
+            border-radius: var(--radius-field);
+            background: var(--status-danger-bg);
         }
 
         .row { display: flex; gap: 6px; align-items: center; }
         .row select, .row input[type="date"] {
-            background: rgba(255,255,255,0.1);
-            color: white;
+            background: var(--surface-field-hover);
+            color: var(--text-primary);
             border: none;
-            border-radius: 6px;
+            border-radius: var(--radius-field);
             padding: 5px 8px;
-            font-size: 0.75rem;
+            font-size: var(--text-meta);
             outline: none;
             color-scheme: dark;
         }
         .row input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.8); }
-        .row label { color: rgba(255,255,255,0.6); font-size: 0.6875rem; }
+        .row label { color: var(--text-secondary); font-size: var(--text-meta); }
 
+        /* 次级保存按钮（输入面板）：中性渐变，与主页面主 CTA 区分但语义一致 */
         #save-button,
         #save-button-form {
             height: 30px;
             padding: 0 16px;
-            background: linear-gradient(135deg, rgba(120,130,150,0.9), rgba(80,88,104,0.9));
-            color: white;
+            background: var(--button-secondary);
+            color: var(--button-secondary-text);
             border: none;
-            border-radius: 8px;
+            border-radius: var(--radius-btn);
             cursor: pointer;
-            font-size: 0.8125rem;
-            transition: filter 0.2s;
+            font-size: var(--text-body);
+            transition: filter var(--dur-fast);
             margin-left: auto;
         }
         #save-button:hover,
-        #save-button-form:hover { filter: brightness(1.15); }
+        #save-button-form:hover { background: var(--button-secondary-hover); }
 
         /* AI 解析结果预览 */
         #ai-preview {
             display: none;
             background: rgba(120,180,255,0.1);
             border: 1px solid rgba(120,180,255,0.25);
-            border-radius: 8px;
+            border-radius: var(--radius-btn);
             padding: 8px 10px;
-            font-size: 0.75rem;
-            color: rgba(255,255,255,0.85);
+            font-size: var(--text-meta);
+            color: var(--text-primary);
             margin-bottom: 8px;
             line-height: 1.5;
         }
-        #ai-preview .ai-title { font-weight: 600; }
+        #ai-preview .ai-title { font-weight: var(--weight-strong); }
         #ai-preview .ai-edit {
             float: right;
             background: none;
             border: none;
-            color: rgba(120,180,255,0.9);
+            color: var(--action-on-strong);
             cursor: pointer;
-            font-size: 0.6875rem;
+            font-size: var(--text-meta);
         }
 
         /* 模式切换 Tab */
         .tabs { display: flex; gap: 4px; margin-bottom: 8px; }
         .tab {
             padding: 3px 10px;
-            font-size: 0.6875rem;
-            border-radius: 20px;
-            background: rgba(255,255,255,0.08);
-            color: rgba(255,255,255,0.65);
+            font-size: var(--text-meta);
+            border-radius: var(--radius-chip);
+            background: var(--surface-chip);
+            color: var(--text-secondary);
             border: none;
             cursor: pointer;
         }
-        .tab.active { background: rgba(120,180,255,0.25); color: white; }
+        .tab.active { background: rgba(120,180,255,0.25); color: var(--text-strong); }
 
         .form-row { display: flex; gap: 6px; margin-bottom: 6px; align-items: center; }
         .form-row input[type="text"], .form-row input[type="date"] {
             flex: 1;
-            background: rgba(255,255,255,0.08);
-            color: white;
+            background: var(--surface-field);
+            color: var(--text-primary);
             border: none;
-            border-radius: 6px;
+            border-radius: var(--radius-field);
             padding: 6px 10px;
-            font-size: 0.75rem;
+            font-size: var(--text-meta);
             outline: none;
         }
         .form-row select {
-            background: rgba(255,255,255,0.1);
-            color: white;
+            background: var(--surface-field-hover);
+            color: var(--text-primary);
             border: none;
-            border-radius: 6px;
+            border-radius: var(--radius-field);
             padding: 6px 8px;
-            font-size: 0.75rem;
+            font-size: var(--text-meta);
             color-scheme: dark;
         }
         /* 输入面板子面板：内容多时内部滚动，防溢出窗口 */
@@ -277,9 +275,8 @@
             background-color: #1e1e24;
             color: white;
         }
-        #overlay { position: fixed; inset: 0; background: transparent; display: none; z-index: -1; }
 
-        .hint { color: rgba(255,255,255,0.5); font-size: 0.625rem; margin-top: 6px; text-align: center; }
+        .hint { color: var(--text-faint); font-size: var(--text-meta); margin-top: 6px; text-align: center; }
 
         /* ---- 无障碍：减少动态 ---- */
         /* prefers-reduced-motion: 停用呼吸/脉冲/闪光动画，保留颜色状态提示（静态即可） */
@@ -301,7 +298,7 @@
         /* prefers-reduced-transparency: 降毛玻璃模糊，提高底色不透明度，保证可读性 */
         @media (prefers-reduced-transparency: reduce) {
             #input-wrapper {
-                background: rgba(28, 28, 32, 0.98);
+                background: var(--surface-panel-solid);
                 backdrop-filter: blur(4px);
             }
         }
@@ -311,7 +308,7 @@
     <!-- 悬浮球：role="button" + tabindex，键盘可操作（Enter/Space 打开输入面板） -->
     <div id="floating-ball" role="button" tabindex="0" aria-label="打开速记输入" title="双击输入">
         <div id="ball-core"></div>
-        <span id="ball-icon" style="position:relative;color:white;font-size: 1.125rem;pointer-events:none;">◆</span>
+        <span id="ball-icon" style="position:relative;color:white;font-size: 1.125rem;pointer-events:none;line-height:0;"></span>
         <span id="badge">0</span>
     </div>
 
@@ -356,8 +353,8 @@
             <div class="hint">Esc 收起 · Enter 保存 · 右键更多</div>
         </div>
     </div>
-    <div id="overlay"></div>
 
+    <script src="icons.js"></script>
     <script src="index.js"></script>
 </body>
 </html>

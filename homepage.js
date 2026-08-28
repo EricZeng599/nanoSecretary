@@ -5,6 +5,18 @@
 let allEntries = [];
 let chatHistory = [];
 
+// ---- Tab 图标（统一线性图标）----
+const tabIconHolders = {
+    records: document.getElementById('tab-records-icon'),
+    chat: document.getElementById('tab-chat-icon'),
+};
+function mountTabIcons() {
+    if (!window.nanoIcons) return;
+    if (tabIconHolders.records) tabIconHolders.records.innerHTML = window.nanoIcons.ic('note', 'inline');
+    if (tabIconHolders.chat) tabIconHolders.chat.innerHTML = window.nanoIcons.ic('chat', 'inline');
+}
+mountTabIcons();
+
 // ---- Tab 切换（role="tablist"）----
 const viewTabs = document.querySelectorAll('.tabs > .tab');
 viewTabs.forEach((tab) => {
@@ -69,10 +81,11 @@ function renderTodos() {
     document.getElementById('record-count').textContent = todos.length ? '(' + todos.length + ')' : '';
 
     if (!todos.length) {
-        list.innerHTML = '<div class="empty">没有待办，记点什么吧 ✨</div>';
+        list.innerHTML = '<div class="empty">没有待办，记点什么吧</div>';
         return;
     }
     const today = new Date().toISOString().slice(0, 10);
+    const ic = (name, cls) => (window.nanoIcons ? window.nanoIcons.ic(name, cls) : '');
     list.innerHTML = todos.map((e) => {
         const overdue = e.dueDate && e.dueDate < today;
         const todayDue = e.dueDate === today;
@@ -83,12 +96,12 @@ function renderTodos() {
         return `<div class="entry-item ${cls}" data-id="${e.id}">
             <div class="entry-title">${esc(e.title)}</div>
             <div class="entry-meta">
-                ${dueText ? `<span class="due ${overdue ? 'overdue' : ''}">⏰ ${esc(dueText)}</span>` : ''}
-                ${e.priority === '高' ? '<span class="priority-high">🔥 高优先级</span>' : e.priority === '中' ? '<span class="priority-mid">· 中</span>' : ''}
+                ${dueText ? `<span class="due ${overdue ? 'overdue' : ''}">${ic('clock', 'inline')}${esc(dueText)}</span>` : ''}
+                ${e.priority === '高' ? `<span class="priority-high">${ic('fire', 'inline')}高优先级</span>` : e.priority === '中' ? `<span class="priority-mid">中</span>` : ''}
                 ${e.category ? `<span class="cat">${esc(e.category)}</span>` : ''}
             </div>
             <div class="entry-actions">
-                <button class="done-btn" type="button" data-action="done" data-id="${e.id}">✓ 完成</button>
+                <button class="done-btn" type="button" data-action="done" data-id="${e.id}">${ic('check', 'inline')}完成</button>
             </div>
         </div>`;
     }).join('');
@@ -101,19 +114,20 @@ function renderRecent(entries) {
         list.innerHTML = '<div class="empty">暂无记录</div>';
         return;
     }
+    const ic = (name, cls) => (window.nanoIcons ? window.nanoIcons.ic(name, cls) : '');
     list.innerHTML = entries.map((e) => {
         const cls = e.status === 'pending' ? (e.dueDate && e.dueDate < new Date().toISOString().slice(0,10) ? 'overdue' : 'today') : 'note';
         const isPending = e.status === 'pending';
         return `<div class="entry-item ${isPending ? cls : 'note'}">
             <div class="entry-title">${esc(e.title || e.content)}</div>
             <div class="entry-meta">
-                ${e.dueDate ? `<span class="due">截止 ${esc(e.dueDate)}</span>` : ''}
+                ${e.dueDate ? `<span class="due">${ic('calendar', 'inline')}截止 ${esc(e.dueDate)}</span>` : ''}
                 <span>${esc(formatTime(e.created))}</span>
                 ${e.category ? `<span class="cat">${esc(e.category)}</span>` : ''}
             </div>
             <div class="entry-actions">
-                <button class="done-btn" type="button" data-action="${isPending ? 'done' : 'restore'}" data-id="${e.id}">${isPending ? '✓ 完成' : '↩ 恢复'}</button>
-                <button type="button" data-action="delete" data-id="${e.id}">删除</button>
+                <button class="done-btn" type="button" data-action="${isPending ? 'done' : 'restore'}" data-id="${e.id}">${ic(isPending ? 'check' : 'restore', 'inline')}${isPending ? '完成' : '恢复'}</button>
+                <button type="button" data-action="delete" data-id="${e.id}">${ic('trash', 'inline')}删除</button>
             </div>
         </div>`;
     }).join('');
@@ -131,7 +145,19 @@ function markDone(id, done) {
     setTimeout(loadData, 280); // 等动效播完再刷新
 }
 function delEntry(id) {
-    if (confirm('确定删除这条记录？')) { api.deleteEntry(id); setTimeout(loadData, 150); }
+    const card = document.querySelector(`.entry-item[data-id="${id}"]`);
+    if (!card || card.querySelector('.confirm-bar')) return;
+    const bar = document.createElement('div');
+    bar.className = 'confirm-bar';
+    bar.innerHTML = '<span>确认删除？</span><span class="confirm-btns"><button type="button" data-confirm="yes">删除</button><button type="button" class="confirm-no" data-confirm="no">取消</button></span>';
+    bar.querySelector('[data-confirm="yes"]').addEventListener('click', () => {
+        api.deleteEntry(id);
+        bar.remove();
+        setTimeout(loadData, 150);
+    });
+    bar.querySelector('[data-confirm="no"]').addEventListener('click', () => bar.remove());
+    card.appendChild(bar);
+    bar.querySelector('[data-confirm="yes"]').focus();
 }
 
 function esc(str) {
@@ -144,7 +170,8 @@ function formatTime(iso) {
     if (diff < 3600000) return Math.floor(diff / 60000) + '分钟前';
     if (diff < 86400000) return Math.floor(diff / 3600000) + '小时前';
     if (diff < 7 * 86400000) return Math.floor(diff / 86400000) + '天前';
-    return d.toLocaleDateString();
+    // 本地化日期（中文环境为 2026/8/28 形式）
+    return d.toLocaleDateString('zh-CN', { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
 // IPC 回调

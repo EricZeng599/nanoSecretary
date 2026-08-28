@@ -129,7 +129,7 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
-      sandbox: false,
+      sandbox: true,
     },
   });
 
@@ -226,7 +226,7 @@ function createHomePageWindow() {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
-      sandbox: false,
+      sandbox: true,
     },
   });
   homePageWindow.loadFile('homepage.html');
@@ -249,7 +249,7 @@ function createHistoryWindow() {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
-      sandbox: false,
+      sandbox: true,
     },
   });
   historyWindow.loadFile('history.html');
@@ -273,6 +273,16 @@ function startReminderScheduler() {
   reminderTimer = setInterval(scanReminders, CHECK_INTERVAL);
 }
 
+function getDueMoment(entry) {
+  // 用记录的具体时间（HH:MM）构造到期时刻；无时间则按当天 00:00 算
+  let due = new Date(entry.dueDate + 'T00:00:00');
+  if (entry.time && /^\d{1,2}:\d{2}$/.test(entry.time)) {
+    const [h, m] = entry.time.split(':').map(Number);
+    due = new Date(entry.dueDate + `T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`);
+  }
+  return due;
+}
+
 function scanReminders() {
   try {
     const data = readData();
@@ -282,14 +292,14 @@ function scanReminders() {
 
     for (const entry of data) {
       if (entry.status !== 'pending' || !entry.dueDate || entry.reminded) continue;
-      const due = new Date(entry.dueDate + 'T00:00:00');
+      const due = getDueMoment(entry);
       if (isNaN(due.getTime())) continue;
       const diff = due - now;
       // 提醒窗口：截止前 N 小时内，或已过期但不超过 8 天（只提醒一次）
       if (diff <= leadMs && diff > -8 * 24 * 3600 * 1000) {
         entry.reminded = true;
         changed = true;
-        fireReminder(entry, diff);
+        fireReminder(entry, diff, due);
       }
     }
 
@@ -299,15 +309,20 @@ function scanReminders() {
   }
 }
 
-function fireReminder(entry, diffMs) {
+function fireReminder(entry, diffMs, due) {
   const hours = Math.round(diffMs / 3600 / 1000);
-  const diffText = diffMs > 0 ? `还剩约 ${hours} 小时` : `已超时 ${-hours} 小时`;
+  const diffText = diffMs > 0 ? `还剩约 ${hours} 小时` : `已超时 ${Math.abs(hours)} 小时`;
+  const dueText = due
+    ? (entry.time
+        ? `${entry.dueDate} ${entry.time}`
+        : `${entry.dueDate}（当天）`)
+    : String(entry.dueDate || '');
 
   // 1. 系统通知
   if (Notification.isSupported()) {
     const n = new Notification({
       title: 'nanoSecretary · 待办提醒',
-      body: `${entry.title}\n${diffText}（原定 ${entry.dueDate}）`,
+      body: `${entry.title}\n${diffText}（原定 ${dueText}）`,
       icon: getIconPath(),
       silent: false,
     });
@@ -544,11 +559,6 @@ ipcMain.on('chat-message', async (event, history) => {
   }
 });
 
-/* 获取配置 */
-ipcMain.on('get-config', (event) => {
-  event.reply('config-data', readConfig());
-});
-
 /* 保存配置 */
 ipcMain.on('save-config', (event, patch) => {
   const config = { ...readConfig(), ...patch };
@@ -641,25 +651,6 @@ ipcMain.on('drag-window-end', () => {
   dragSize = null;
 });
 
-/* 兼容旧接口：移动窗口 */
-ipcMain.on('move-window', (event, x, y) => {
-  if (!mainWindow) return;
-  const intX = Math.floor(x);
-  const intY = Math.floor(y);
-  const [w, h] = mainWindow.getSize();
-  mainWindow.setBounds({ x: intX, y: intY, width: w, height: h });
-  const config = readConfig();
-  config.windowPosition = { x: intX, y: intY };
-  writeConfig(config);
-});
-
-ipcMain.on('get-window-position', (event) => {
-  if (mainWindow) {
-    const [x, y] = mainWindow.getPosition();
-    event.reply('window-position', x, y);
-  }
-});
-
 /* 悬浮球右键菜单 */
 ipcMain.on('show-ball-menu', (event, x, y) => {
   if (!mainWindow) return;
@@ -713,17 +704,6 @@ ipcMain.on('drag-homepage-move', (event, dx, dy) => {
 ipcMain.on('drag-homepage-end', () => {
   homepageDragStart = null;
   homepageDragSize = null;
-});
-
-ipcMain.on('get-homepage-position', (event) => {
-  if (homePageWindow) {
-    const [x, y] = homePageWindow.getPosition();
-    event.reply('homepage-position', x, y);
-  }
-});
-
-ipcMain.on('move-homepage', (event, x, y) => {
-  if (homePageWindow) homePageWindow.setPosition(Math.floor(x), Math.floor(y));
 });
 
 ipcMain.on('get-ai-status', async (event) => {

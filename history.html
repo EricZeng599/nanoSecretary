@@ -5,99 +5,115 @@
     <!-- 内容安全策略：仅本机脚本；样式允许内联（无构建工具链） -->
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'">
     <title>历史记录 - nanoSecretary</title>
+    <link rel="stylesheet" href="tokens.css">
     <style>
-        /* 根字号基准：1rem = 16px，布局随系统字号缩放 */
-        html { font-size: 100%; }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             background: #16161a;
-            color: white;
-            font-family: system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+            color: var(--text-strong);
+            font-family: var(--font-stack);
             height: 100vh;
             overflow: hidden;
         }
         /* 无障碍：键盘焦点指示（全局） */
         :focus-visible {
-            outline: 2px solid rgba(120, 180, 255, 0.9);
+            outline: 2px solid var(--action-focus);
             outline-offset: 2px;
             border-radius: 4px;
         }
+        /* 统一线性图标 */
+        .icon { display: inline-block; vertical-align: -2px; }
+        .icon.inline { margin-right: 5px; }
+
         .container { width: 100%; height: 100vh; display: flex; flex-direction: column; }
         .header {
             padding: 18px 20px;
-            background: rgba(28,28,34,0.9);
-            border-bottom: 1px solid rgba(255,255,255,0.07);
+            background: var(--surface-header);
+            border-bottom: 1px solid var(--border-subtle);
             position: sticky; top: 0; z-index: 10;
         }
         /* 大标题：负字距收紧 */
-        .header h1 { font-size: 1.125rem; font-weight: 700; letter-spacing: -0.015em; margin-bottom: 12px; }
+        .header h1 { font-size: var(--text-title); font-weight: 700; letter-spacing: -0.015em; margin-bottom: 12px; }
         .filter-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
         .filter-group { display: flex; flex-wrap: wrap; gap: 6px; margin-right: 12px; }
-        .filter-group .label { font-size: 0.6875rem; color: rgba(255,255,255,0.55); align-self: center; margin-right: 2px; }
+        .filter-group .label { font-size: var(--text-meta); color: var(--text-faint); align-self: center; margin-right: 2px; }
         .chip {
             padding: 5px 12px;
-            background: rgba(255,255,255,0.07);
-            color: rgba(255,255,255,0.7);
-            border: none; border-radius: 16px;
-            cursor: pointer; font-size: 0.75rem; transition: all 0.2s;
+            background: var(--surface-chip);
+            color: var(--text-secondary);
+            border: none; border-radius: var(--radius-chip);
+            cursor: pointer; font-size: var(--text-meta); transition: background var(--dur-fast), color var(--dur-fast);
         }
-        .chip:hover { background: rgba(255,255,255,0.14); }
-        .chip.active { background: rgba(120,180,255,0.3); color: white; }
+        .chip:hover { background: var(--button-secondary-hover); }
+        .chip.active { background: rgba(120,180,255,0.3); color: var(--text-strong); }
 
         .content { flex: 1; min-height: 0; overflow-y: auto; padding: 18px 20px; }
         .entries-list { display: flex; flex-direction: column; gap: 12px; }
         .entry-card {
-            background: rgba(28,28,34,0.85);
+            background: var(--surface-entry);
             border-radius: 12px; padding: 14px 16px;
-            border-left: 3px solid #555;
-            transition: all 0.2s;
+            border-left: 3px solid var(--status-note);
+            transition: background var(--dur-fast);
         }
-        .entry-card:hover { background: rgba(40,40,48,0.9); }
-        .entry-card.overdue { border-left-color: #e5484d; }
-        .entry-card.today { border-left-color: #ff8c42; }
-        .entry-card.done { border-left-color: #4caf50; opacity: 0.65; }
-        .entry-card.note { border-left-color: #888; }
+        .entry-card:hover { background: var(--surface-entry-hover); }
+        .entry-card.overdue { border-left-color: var(--status-danger); }
+        .entry-card.today { border-left-color: var(--status-warning-strong); }
+        .entry-card.done { border-left-color: var(--status-success); opacity: 0.65; }
+        .entry-card.note { border-left-color: var(--status-note); }
 
-        .entry-title { font-size: 0.875rem; font-weight: 600; margin-bottom: 6px; }
-        .entry-content { font-size: 0.8125rem; color: rgba(255,255,255,0.85); line-height: 1.5; margin-bottom: 8px; }
-        .entry-meta { display: flex; flex-wrap: wrap; gap: 8px; font-size: 0.6875rem; color: rgba(255,255,255,0.68); align-items: center; margin-bottom: 10px; }
-        .entry-meta .due { color: #ff8c42; }
-        .entry-meta .due.overdue { color: #e5484d; }
-        .entry-meta .cat { padding: 2px 8px; border-radius: 10px; background: rgba(255,255,255,0.1); }
-        .entry-meta .priority-high { color: #e5484d; }
-        .entry-meta .tag { color: rgba(120,180,255,0.85); }
+        .entry-title { font-size: 0.875rem; font-weight: var(--weight-strong); margin-bottom: 6px; }
+        .entry-content { font-size: var(--text-body); color: var(--text-primary); line-height: 1.5; margin-bottom: 8px; }
+        .entry-meta { display: flex; flex-wrap: wrap; gap: 8px; font-size: var(--text-meta); color: var(--text-secondary); align-items: center; margin-bottom: 10px; }
+        .entry-meta .due { color: var(--status-warning-strong); }
+        .entry-meta .due.overdue { color: var(--status-danger-text); }
+        .entry-meta .cat { padding: 2px 8px; border-radius: var(--radius-chip); background: var(--surface-chip); }
+        .entry-meta .priority-high { color: var(--status-danger-text); }
+        .entry-meta .tag { color: var(--action-on-strong); }
 
         .entry-actions { display: flex; gap: 8px; }
         .action-button {
             padding: 5px 12px;
-            background: rgba(255,255,255,0.09);
-            color: rgba(255,255,255,0.85);
-            border: none; border-radius: 6px;
-            cursor: pointer; font-size: 0.6875rem; transition: all 0.2s;
+            background: var(--button-secondary);
+            color: var(--text-primary);
+            border: none; border-radius: var(--radius-field);
+            cursor: pointer; font-size: var(--text-meta); transition: background var(--dur-fast);
         }
-        .action-button:hover { background: rgba(255,255,255,0.18); }
-        .action-button.done { background: rgba(80,200,120,0.2); }
+        .action-button:hover { background: var(--button-secondary-hover); }
+        .action-button.done { background: var(--status-success-bg); }
         .action-button.done:hover { background: rgba(80,200,120,0.35); }
-        .action-button.delete { background: rgba(255,90,90,0.2); }
+        .action-button.delete { background: var(--status-danger-bg); }
         .action-button.delete:hover { background: rgba(255,90,90,0.35); }
         .action-button.due-edit { background: rgba(255,180,80,0.18); }
 
         .due-edit-row { display: flex; gap: 6px; align-items: center; margin-top: 8px; }
         .due-edit-row input[type="date"] {
-            background: rgba(255,255,255,0.1); color: white;
-            border: none; border-radius: 6px; padding: 5px 8px; font-size: 0.75rem;
+            background: var(--surface-field); color: var(--text-primary);
+            border: none; border-radius: var(--radius-field); padding: 5px 8px; font-size: var(--text-meta);
             color-scheme: dark;
         }
         .due-edit-row button {
-            padding: 4px 10px; background: rgba(120,180,255,0.25); color: white;
-            border: none; border-radius: 6px; font-size: 0.6875rem; cursor: pointer;
+            padding: 4px 10px; background: rgba(120,180,255,0.25); color: var(--text-strong);
+            border: none; border-radius: var(--radius-field); font-size: var(--text-meta); cursor: pointer;
         }
 
-        .empty-state { text-align: center; color: rgba(255,255,255,0.45); padding: 50px 0; font-size: 0.875rem; }
-        .count-line { font-size: 0.6875rem; color: rgba(255,255,255,0.55); margin-bottom: 10px; }
+        .empty-state { text-align: center; color: var(--text-faint); padding: 50px 0; font-size: 0.875rem; }
+        .count-line { font-size: var(--text-meta); color: var(--text-faint); margin-bottom: 10px; }
+
+        /* 删除确认条（内联，替代系统 confirm） */
+        .confirm-bar {
+            margin-top: 8px; display: flex; gap: 8px; align-items: center;
+            font-size: var(--text-meta); color: var(--text-secondary);
+        }
+        .confirm-bar .confirm-btns { display: flex; gap: 6px; }
+        .confirm-bar button {
+            background: var(--status-danger-bg); color: var(--text-strong);
+            border: none; padding: 4px 10px; border-radius: var(--radius-field);
+            font-size: var(--text-meta); cursor: pointer;
+        }
+        .confirm-bar button.confirm-no { background: var(--button-secondary); color: var(--text-secondary); }
 
         ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: var(--surface-scroll-thin); border-radius: 4px; }
 
         /* ---- 无障碍：减少动态 ---- */
         @media (prefers-reduced-motion: reduce) {
@@ -132,6 +148,7 @@
         </div>
     </div>
 
+    <script src="icons.js"></script>
     <script src="history.js"></script>
 </body>
 </html>
