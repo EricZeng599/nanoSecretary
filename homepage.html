@@ -150,7 +150,13 @@
         .chat-msg { max-width: 85%; padding: 8px 12px; border-radius: 12px; font-size: var(--text-body); line-height: 1.5; white-space: pre-wrap; }
         .chat-msg.user { align-self: flex-end; background: rgba(120,180,255,0.25); border-bottom-right-radius: 4px; }
         .chat-msg.ai { align-self: flex-start; background: var(--surface-chip); border-bottom-left-radius: 4px; }
-        .chat-input-row { display: flex; gap: 8px; margin-top: 10px; }
+        .chat-input-row {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+            /* 底部留出 focus outline（2px + offset 2px）的空间，避免被 .chat-section 的 overflow:hidden 裁边 */
+            padding-bottom: 6px;
+        }
         .chat-input-row input {
             flex: 1; background: var(--surface-field);
             border: 1px solid var(--border-soft); border-radius: var(--radius-card);
