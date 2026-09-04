@@ -76,8 +76,16 @@
     --radius-chip: 6px;
 
     /* ---- 排版尺度 ---- */
-    --font-stack: system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
-    --font-display: Georgia, "Times New Roman", "Songti SC", "SimSun", serif; /* Lora 的 Windows 回退 */
+    /* 中文字体 → 宋体（现代宋优先，逐级回退到 SimSun）：
+       拉丁/数字沿用系统无衬线，中文按字形落入宋体栈。
+       现代宋：思源宋体 Noto Serif CJK SC / Source Han Serif SC（需安装）、
+       macOS 自带 Songti SC / STSong；Windows 兜底 SimSun。 */
+    --font-stack: system-ui, -apple-system, "Segoe UI",
+                  "Noto Serif CJK SC", "Source Han Serif SC",
+                  "Songti SC", "STSong", "SimSun", serif;
+    --font-display: Georgia, "Times New Roman",
+                    "Noto Serif CJK SC", "Source Han Serif SC",
+                    "Songti SC", "STSong", "SimSun", serif; /* 拉丁衬线标题 + 中文宋体 */
     --text-title: 1.125rem;      /* 18px · 500 serif */
     --text-body: 0.8125rem;      /* 13px · 400 */
     --text-meta: 0.75rem;        /* 12px · 400 */
