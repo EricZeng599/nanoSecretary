@@ -89,6 +89,16 @@
 - `icons.js` 暴露 `window.nanoIcons.ic(name)`：统一 24×24 线性 SVG（1.8px 描边、`currentColor` 继承）
 - 图标名：note/pin/todo/fire/clock/calendar/tag/chat/book/check/check-circle/restore/trash/edit/copy/close/diamond/chevron-right/settings/dots
 
+## 便签与仪表盘（2026-09-04 新增）
+
+- **仪表盘**（主页面默认视图，640×700）：暖黑 bento —— 三张环卡 + 底部标签格。
+  环图手写 SVG（`stroke-dasharray`），不引图表库。今日卡 = 今日完成/今日待办小环 + 「下一件」点击跳记录；
+  关注卡 = 三色环（红逾期 / 赭橙明后天到期 / 绿近7天完成）+ 图例；本周卡 = 完成进度环（本周应做 vs 已完成）。
+  `doneAt` 记录完成时间（mark-done 写入），readData 保留。
+- **小便签**（notes.html 独立 frameless 窗，240×230）：纯单色暖黑（面板底 + 赭橙识别点 + serif 标题行），
+  自动保存（防抖 400ms 写 data.json 为 sticky:true 的 note 记录）、关闭即收起数据保留、置顶可切、
+  时间戳。入口：托盘菜单「新建便签」+ 悬浮球右键 + 主页面底部「便签」。数据出现在历史页备忘区。
+
 ## 平台注意
 
 - 无边框透明窗口：顶部 24px `-webkit-app-region: drag` 拖拽条；悬浮球/面板用 Pointer Events + `setPointerCapture` 防拖拽事件丢失

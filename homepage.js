@@ -4,14 +4,17 @@
  */
 let allEntries = [];
 let chatHistory = [];
+let currentView = 'dashboard'; // 当前视图（默认仪表盘）
 
 // ---- Tab 图标（统一线性图标）----
 const tabIconHolders = {
+    dashboard: document.getElementById('tab-dashboard-icon'),
     records: document.getElementById('tab-records-icon'),
     chat: document.getElementById('tab-chat-icon'),
 };
 function mountTabIcons() {
     if (!window.nanoIcons) return;
+    if (tabIconHolders.dashboard) tabIconHolders.dashboard.innerHTML = window.nanoIcons.ic('todo', 'inline');
     if (tabIconHolders.records) tabIconHolders.records.innerHTML = window.nanoIcons.ic('note', 'inline');
     if (tabIconHolders.chat) tabIconHolders.chat.innerHTML = window.nanoIcons.ic('chat', 'inline');
 }
@@ -32,14 +35,215 @@ viewTabs.forEach((tab) => {
     });
 });
 function setView(view) {
+    currentView = view;
     viewTabs.forEach((t) => {
         const active = t.dataset.view === view;
         t.classList.toggle('active', active);
         t.setAttribute('aria-selected', String(active));
     });
+    document.getElementById('view-dashboard').style.display = view === 'dashboard' ? 'flex' : 'none';
     document.getElementById('view-records').style.display = view === 'records' ? 'block' : 'none';
     document.getElementById('view-chat').style.display = view === 'chat' ? 'flex' : 'none';
+    if (view === 'dashboard') renderDashboard();
     if (view === 'chat') document.getElementById('chat-input').focus();
+}
+function goRecords() { setView('records'); }
+function goDashboard() { setView('dashboard'); }
+
+/* ================= 仪表盘（bento） ================= */
+/** 本地日期工具（civil date，UTC+8 安全） */
+function dISO(d) { const p = (n) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; }
+function localToday() {
+    const d = new Date();
+    const p = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+/** 本周一（当地时区） */
+function weekStart() {
+    const d = new Date();
+    const day = d.getDay(); // 0=周日
+    const back = (day + 6) % 7; // 距周一
+    d.setDate(d.getDate() - back);
+    return d;
+}
+/** 今日 00:00 起的新 Date */
+function todayLocalDate() {
+    const d = new Date(); d.setHours(0, 0, 0, 0); return d;
+}
+
+/** 绘制单段进度环。ratio∈[0,1]。返回 svg 字符串。 */
+function ringSVG(ratio, color, trackColor, size, stroke) {
+    const r = (size - stroke) / 2;
+    const c = 2 * Math.PI * r;
+    const filled = Math.max(0, Math.min(1, ratio)) * c;
+    return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+        <circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="${trackColor}" stroke-width="${stroke}"/>
+        <circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="${color}" stroke-width="${stroke}"
+            stroke-linecap="round" stroke-dasharray="${filled.toFixed(1)} ${c.toFixed(1)}"
+            transform="rotate(-90 ${size / 2} ${size / 2})"/>
+    </svg>`;
+}
+/** 多段环：segments = [{ratio, color}]，从顶部顺时针。 */
+function multiRingSVG(segments, trackColor, size, stroke) {
+    const r = (size - stroke) / 2;
+    const c = 2 * Math.PI * r;
+    const total = segments.reduce((s, x) => s + x.ratio, 0);
+    const track = (total >= 1) ? 'none' : trackColor;
+    let parts = '';
+    let acc = 0;
+    for (const seg of segments) {
+        if (seg.ratio <= 0) continue;
+        const frac = seg.ratio / Math.max(total, 1e-9);
+        const len = frac * c;
+        parts += `<circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="${seg.color}" stroke-width="${stroke}"
+            stroke-linecap="butt" stroke-dasharray="${len.toFixed(1)} ${c.toFixed(1)}"
+            stroke-dashoffset="${(-acc).toFixed(1)}"
+            transform="rotate(-90 ${size / 2} ${size / 2})"/>`;
+        acc += len;
+    }
+    return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+        <circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="${track}" stroke-width="${stroke}"/>${parts}</svg>`;
+}
+
+/** 全盘渲染：调 entries 计算各卡并刷新 DOM。 */
+function renderDashboard() {
+    if (currentView !== 'dashboard') return;
+    const entries = allEntries;
+    const pending = entries.filter((e) => e.status === 'pending');
+    const done = entries.filter((e) => e.status === 'done');
+    const today = localToday();
+    const SIZE = 108, STROKE = 8;
+
+    // —— 卡1 今日 ——
+    const todayDue = pending.filter((e) => e.dueDate === today);
+    const todayDone = done.filter((e) => (e.doneAt ? dISO(new Date(e.doneAt)) : e.dueDate) === today);
+    const totalToday = todayDue.length + todayDone.length;
+    const todayBox = document.getElementById('ring-today');
+    if (todayBox) {
+        todayBox.innerHTML = (totalToday === 0)
+            ? ringSVG(0, 'transparent', 'var(--border-soft)', SIZE, STROKE)
+            : ringSVG(todayDone.length / totalToday, 'var(--action-primary)', 'var(--border-soft)', SIZE, STROKE);
+    }
+    // 中心 + 下一件
+    const nextBox = document.getElementById('today-next');
+    if (todayBox) {
+        // 用绝对定位中心（ring-wrap 是 relative）
+        const wrap = todayBox.parentElement;
+        let center = wrap.querySelector('.ring-center');
+        if (!center) {
+            center = document.createElement('div');
+            center.className = 'ring-center';
+            wrap.appendChild(center);
+        }
+        center.innerHTML = `<div class="big">${todayDone.length}<small>/${totalToday}</small></div><div class="sub">今日完成</div>`;
+    }
+    if (nextBox) {
+        // 下一件 = 最近的未来到期（含今日未完成）
+        const future = pending
+            .filter((e) => e.dueDate && e.dueDate >= today)
+            .sort((a, b) => (a.dueDate + (a.time||'')) < (b.dueDate + (b.time||'')) ? -1 : 1);
+        if (future.length) {
+            const nx = future[0];
+            nextBox.innerHTML = `<span class="hl">${esc(nx.title)}</span><span>${nx.time || ''}</span>`;
+            nextBox.style.display = 'flex';
+            nextBox.onclick = () => goRecords();
+        } else {
+            nextBox.style.display = 'none';
+        }
+    }
+
+    // —— 卡2 关注：三色环 逾期/临近/近7天完成 ——
+    const overdueN = pending.filter((e) => e.dueDate && e.dueDate < today).length;
+    // 临近 = 明天或后天到期
+    const tom = new Date(); tom.setDate(tom.getDate() + 1);
+    const dayAft = new Date(); dayAft.setDate(dayAft.getDate() + 2);
+    const dueSoonN = pending.filter((e) => e.dueDate === dISO(tom) || e.dueDate === dISO(dayAft)).length;
+    // 近7天完成（含今天，rolling）
+    const since = todayLocalDate(); since.setDate(since.getDate() - 6);
+    const done7N = done.filter((e) => {
+        const t = e.doneAt ? new Date(e.doneAt) : (e.dueDate ? new Date(e.dueDate + 'T00:00:00') : null);
+        return t && t >= since && t <= new Date();
+    }).length;
+    const attBox = document.getElementById('ring-attention');
+    if (attBox) {
+        const segs = [
+            { ratio: overdueN, color: 'var(--status-danger)' },
+            { ratio: dueSoonN, color: 'var(--status-warning-strong)' },
+            { ratio: done7N, color: 'var(--status-success)' },
+        ];
+        attBox.innerHTML = (overdueN + dueSoonN + done7N === 0)
+            ? ringSVG(0, 'transparent', 'var(--border-soft)', SIZE, STROKE)
+            : multiRingSVG(segs, 'var(--border-soft)', SIZE, STROKE);
+        const wrap = attBox.parentElement;
+        let center = wrap.querySelector('.ring-center');
+        if (!center) { center = document.createElement('div'); center.className = 'ring-center'; wrap.appendChild(center); }
+        center.innerHTML = `<div class="big">${overdueN + dueSoonN + done7N}</div><div class="sub">待处理</div>`;
+    }
+    const legend = document.getElementById('attention-legend');
+    if (legend) {
+        legend.innerHTML = `<div class="row"><span class="swatch" style="background:var(--status-danger)"></span>逾期<span class="n">${overdueN}</span></div>
+            <div class="row"><span class="swatch" style="background:var(--status-warning-strong)"></span>明后天到期<span class="n">${dueSoonN}</span></div>
+            <div class="row"><span class="swatch" style="background:var(--status-success)"></span>近7天完成<span class="n">${done7N}</span></div>`;
+    }
+
+    // —— 卡3 本周完成：本周到期应做 vs 已完成 ——
+    const ws = weekStart();
+    const wsISO = dISO(ws);
+    const weISO = dISO(new Date());
+    // 本周到期应做（status pending 且 due 在本周，或已 done 且 doneAt 本周）
+    const wkDone = done.filter((e) => e.doneAt && dISO(new Date(e.doneAt)) >= wsISO && dISO(new Date(e.doneAt)) <= weISO).length;
+    // 本周到期（含已完成的：其 due 在本周）
+    const wkDueAll = done.filter((e) => e.dueDate && e.dueDate >= wsISO && e.dueDate <= weISO).length + pending.filter((e) => e.dueDate && e.dueDate >= wsISO && e.dueDate <= weISO).length;
+    const wkBox = document.getElementById('ring-week');
+    if (wkBox) {
+        wkBox.innerHTML = (wkDueAll === 0)
+            ? ringSVG(0, 'transparent', 'var(--border-soft)', SIZE, STROKE)
+            : ringSVG(wkDone / wkDueAll, 'var(--action-primary)', 'var(--border-soft)', SIZE, STROKE);
+        const wrap = wkBox.parentElement;
+        let center = wrap.querySelector('.ring-center');
+        if (!center) { center = document.createElement('div'); center.className = 'ring-center'; wrap.appendChild(center); }
+        center.innerHTML = `<div class="big">${wkDone}</div><div class="sub">已完成</div>`;
+    }
+    const weekFoot = document.getElementById('week-foot');
+    if (weekFoot) weekFoot.innerHTML = (wkDueAll === 0) ? '本周暂无到期待办' : `本周应做 <span class="hl">${wkDueAll}</span> · 完成 <span class="hl">${wkDone}</span>`;
+
+    renderTagRow(pending);
+}
+
+/** tag 计数格：chips = 全部标签，默认选中待办最多的。 */
+let activeTag = null;
+function renderTagRow(pendingTodos) {
+    // 收集全部 tag（pending 的 tags + category），去重
+    const tagCount = new Map();
+    for (const e of pendingTodos) {
+        const set = new Set([...(e.tags || []), e.category].filter(Boolean));
+        for (const t of set) tagCount.set(t, (tagCount.get(t) || 0) + 1);
+    }
+    const tags = Array.from(tagCount.entries()).sort((a, b) => b[1] - a[1]);
+    const chipsEl = document.getElementById('tag-chips');
+    const detailEl = document.getElementById('tag-detail');
+    if (!chipsEl || !detailEl) return;
+    if (!tags.length) {
+        chipsEl.innerHTML = '<div class="dash-empty">暂无待办</div>';
+        detailEl.innerHTML = '';
+        return;
+    }
+    // 默认选中待办最多者（或保留上次仍在的选中）
+    if (!activeTag || !tagCount.has(activeTag)) activeTag = tags[0][0];
+    chipsEl.innerHTML = tags.map(([t, n]) =>
+        `<button type="button" class="tag-chip${t === activeTag ? ' active' : ''}" data-tag="${esc(t)}">#${esc(t)}<span class="cnt">${n}</span></button>`
+    ).join('');
+    const detail = tagCount.get(activeTag) || 0;
+    detailEl.innerHTML = `<span>#${esc(activeTag)}</span><span class="big">${detail} 项待办</span>`;
+    // 点击切换选中
+    chipsEl.querySelectorAll('.tag-chip').forEach((chip) => {
+        chip.addEventListener('click', () => {
+            activeTag = chip.dataset.tag;
+            chipsEl.querySelectorAll('.tag-chip').forEach((c) => c.classList.toggle('active', c === chip));
+            const n = tagCount.get(activeTag) || 0;
+            detailEl.innerHTML = `<span>#${esc(activeTag)}</span><span class="big">${n} 项待办</span>`;
+        });
+    });
 }
 
 // 加载数据
@@ -258,7 +462,7 @@ function formatTime(iso) {
 
 // IPC 回调
 api.onRecentEntries((entries) => { renderRecent(entries || []); });
-api.onEntries((entries) => { allEntries = entries || []; renderTodos(); });
+api.onEntries((entries) => { allEntries = entries || []; renderTodos(); renderDashboard(); });
 api.onAiRefined(() => setTimeout(loadData, 400));
 api.onSaveSuccess(() => {});
 api.onEntryUpdated(() => setTimeout(loadData, 150));
@@ -266,6 +470,7 @@ api.onEntryUpdated(() => setTimeout(loadData, 150));
 api.onEntriesChanged((entries) => {
     allEntries = entries || [];
     renderTodos();
+    renderDashboard();
     api.getRecentEntries();
 });
 
@@ -312,6 +517,7 @@ api.onAiStatus((status) => {
 
 // 底部按钮
 document.getElementById('history-button').addEventListener('click', () => api.openHistory());
+document.getElementById('sticky-button').addEventListener('click', () => api.openSticky());
 document.getElementById('settings-button').addEventListener('click', openSettings);
 document.getElementById('close-button').addEventListener('click', () => api.closeHomepage());
 
@@ -449,3 +655,5 @@ document.addEventListener('keydown', (e) => {
 });
 
 loadData();
+// 初始视图 = 仪表盘（隐藏记录/对话面板；数据到达后自动渲染）
+setView('dashboard');

@@ -59,4 +59,12 @@ contextBridge.exposeInMainWorld('api', {
 
   // 提醒（悬浮球收到待办提醒时）
   onReminderAlert: (cb) => ipcRenderer.on('reminder-alert', (e, data) => cb(data)),
+
+  // 便签
+  saveNote: (payload) => ipcRenderer.send('note-save', payload),
+  onNoteSaved: (cb) => ipcRenderer.on('note-saved', (e, data) => cb(data)),
+  onNoteLoaded: (cb) => ipcRenderer.on('note-loaded', (e, data) => cb(data)),
+  setNotePinned: (id, pinned) => ipcRenderer.send('note-pin', id, pinned),
+  closeNote: () => ipcRenderer.send('note-close'),
+  openSticky: () => ipcRenderer.send('open-sticky'),
 });

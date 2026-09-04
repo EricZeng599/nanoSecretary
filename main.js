@@ -7,6 +7,7 @@ const ollama = require('./ollama');
 let mainWindow;       // 悬浮球窗口
 let homePageWindow;   // 主页面
 let historyWindow;    // 历史记录
+let stickyWindows = new Map(); // noteId -> BrowserWindow（便签多开）
 let tray;
 let reminderTimer = null;
 let isDragging = false;
@@ -68,6 +69,8 @@ function readData() {
         tags: e.tags || [],
         reminded: e.reminded || false,
         created: e.created || new Date().toISOString(),
+        sticky: e.sticky === true,           // 便签标记
+        doneAt: e.doneAt || undefined,       // 完成时间（仪表盘/统计用）
       }));
     }
   } catch (e) {
@@ -160,6 +163,8 @@ function createTray() {
       { label: '主页面', click: () => createHomePageWindow() },
       { label: '历史记录', click: () => createHistoryWindow() },
       { type: 'separator' },
+      { label: '新建便签', click: () => openNewSticky() },
+      { type: 'separator' },
       {
         label: '开机自启',
         type: 'checkbox',
@@ -200,7 +205,7 @@ function createHomePageWindow() {
     return;
   }
   const screenSize = screen.getPrimaryDisplay().workAreaSize;
-  const width = 560, height = 620;
+  const width = 640, height = 700;
   homePageWindow = new BrowserWindow({
     width, height,
     x: Math.floor((screenSize.width - width) / 2),
@@ -244,6 +249,129 @@ function createHistoryWindow() {
   historyWindow.loadFile('history.html');
   historyWindow.on('closed', () => { historyWindow = null; });
 }
+
+/* ================= 便签窗口 ================= */
+function createStickyWindow(entry) {
+  // entry 存在：打开既有便签；否则新建一条
+  const id = entry && entry.id ? entry.id : null;
+  if (id && stickyWindows.has(id)) {
+    const w = stickyWindows.get(id);
+    if (w && !w.isDestroyed()) { w.show(); w.focus(); return w; }
+    stickyWindows.delete(id);
+  }
+
+  const win = new BrowserWindow({
+    width: 240,
+    height: 230,
+    frame: false,
+    transparent: true,
+    resizable: false, // transparent 窗口在 Windows 上不应 resizable
+    alwaysOnTop: false,
+    skipTaskbar: true,
+    icon: getIconPath(),
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: true,
+    },
+  });
+
+  // 若没有既有 id：先落一条 note 记录，拿到 id 再加载
+  if (!id) {
+    const data = readData();
+    const noteEntry = {
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
+      content: '',
+      title: '便签',
+      dueDate: null,
+      time: null,
+      priority: '低',
+      status: 'note',
+      category: '其他',
+      tags: [],
+      reminded: false,
+      sticky: true,
+      created: new Date().toISOString(),
+    };
+    data.push(noteEntry);
+    writeData(data);
+    broadcastEntriesChanged();
+    stickyWindows.set(noteEntry.id, win);
+    win.webContents.once('did-finish-load', () => {
+      win.webContents.send('note-loaded', { id: noteEntry.id, title: '', content: '' });
+    });
+    win.loadFile('notes.html');
+  } else {
+    stickyWindows.set(id, win);
+    win.webContents.once('did-finish-load', () => {
+      win.webContents.send('note-loaded', { id, title: entry.title || '', content: entry.content || '' });
+    });
+    win.loadFile('notes.html');
+  }
+
+  win.on('closed', () => {
+    for (const [k, w] of stickyWindows) {
+      if (w === win) stickyWindows.delete(k);
+    }
+  });
+  win.on('close', (e) => {
+    // 点关闭按钮 = 收起（数据已存），不让窗口真正销毁
+    if (!win.__reallyClose) {
+      e.preventDefault();
+      win.hide();
+    }
+  });
+
+  return win;
+}
+
+// 新便签入口（托盘/悬浮球菜单/主页面共用）
+function openNewSticky() {
+  // 让新便签出现在主屏中央偏下，多个便签稍错开
+  const count = stickyWindows.size;
+  const baseX = 200 + (count % 5) * 30;
+  const baseY = 160 + (count % 4) * 28;
+  const win = createStickyWindow(null);
+  if (win) { win.setPosition(baseX, baseY); win.show(); }
+}
+
+/* 便签 IPC */
+ipcMain.on('note-save', (event, payload) => {
+  if (!payload || typeof payload !== 'object') return;
+  const data = readData();
+  let entry = data.find((e) => e.id === payload.id);
+  if (!entry) {
+    entry = {
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
+      dueDate: null, time: null, priority: '低', status: 'note',
+      category: '其他', tags: [], reminded: false, sticky: true,
+      created: new Date().toISOString(),
+    };
+    data.push(entry);
+  }
+  entry.title = payload.title || (payload.content || '便签').slice(0, 30) || '便签';
+  entry.content = payload.content || '';
+  entry.sticky = true;
+  writeData(data);
+  event.reply('note-saved', { id: entry.id });
+  broadcastEntriesChanged();
+});
+
+ipcMain.on('note-pin', (event, id, pinned) => {
+  const win = stickyWindows.get(id);
+  if (win && !win.isDestroyed()) win.setAlwaysOnTop(!!pinned);
+});
+
+ipcMain.on('note-close', (event) => {
+  // 收起当前便签（从 sender 找窗口）
+  const sender = event.sender;
+  for (const [, w] of stickyWindows) {
+    if (w.webContents === sender) { w.hide(); break; }
+  }
+});
+
+ipcMain.on('open-sticky', () => openNewSticky());
 
 /* ================= 提醒调度器 ================= */
 const DEFAULT_LEAD_HOURS = 24; // 默认提前 24 小时提醒
@@ -459,6 +587,8 @@ ipcMain.on('mark-done', (event, id, done) => {
   const entry = data.find((e) => e.id === id);
   if (entry) {
     entry.status = done ? 'done' : (entry.dueDate ? 'pending' : 'note');
+    if (done) entry.doneAt = new Date().toISOString(); // 仪表盘「完成趋势/进度」用
+    else delete entry.doneAt;
     writeData(data);
     event.reply('entry-updated', entry);
     broadcastEntriesChanged(); // 更新角标 + 广播
@@ -693,6 +823,8 @@ ipcMain.on('show-ball-menu', (event, x, y) => {
   const menu = Menu.buildFromTemplate([
     { label: '打开主页面', click: () => createHomePageWindow() },
     { label: '历史记录', click: () => createHistoryWindow() },
+    { type: 'separator' },
+    { label: '新建便签', click: () => openNewSticky() },
     { type: 'separator' },
     {
       label: '开机自启',

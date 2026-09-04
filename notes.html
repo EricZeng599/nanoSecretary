@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'">
+    <title>便签</title>
+    <link rel="stylesheet" href="tokens.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { width: 100%; height: 100%; }
+        body {
+            background: transparent;
+            color: var(--text-primary);
+            font-family: var(--font-stack);
+            overflow: hidden;
+        }
+        :focus-visible { outline: 2px solid var(--action-focus); outline-offset: 2px; border-radius: 2px; }
+
+        .note {
+            width: 100%;
+            height: 100%;
+            background: var(--surface-panel);
+            border-radius: var(--radius-panel);
+            border: 1px solid var(--border-soft);
+            box-shadow: var(--shadow-panel);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        /* 拖拽条（窗口顶部 24px，-webkit-app-region drag） */
+        .drag-bar {
+            height: 24px;
+            -webkit-app-region: drag;
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
+            gap: 6px;
+            flex-shrink: 0;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+        .drag-bar .dot {
+            width: 6px; height: 6px; border-radius: 50%;
+            background: var(--action-primary);
+            flex-shrink: 0;
+        }
+        .drag-bar .title {
+            font-size: var(--text-meta);
+            color: var(--text-tertiary);
+            letter-spacing: 0.03em;
+            flex: 1;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+        }
+        .drag-bar .meta { font-size: var(--text-tiny); color: var(--text-faint); font-family: var(--font-display); }
+        /* 置顶按钮在拖拽区内——app-region drag 子元素要 no-drag */
+        .pin-btn {
+            -webkit-app-region: no-drag;
+            background: none; border: none; cursor: pointer;
+            color: var(--text-faint); padding: 2px;
+            display: inline-flex; align-items: center; justify-content: center;
+        }
+        .pin-btn:hover { color: var(--text-strong); }
+        .pin-btn.on { color: var(--action-primary); }
+
+        .drag-bar .close-btn {
+            -webkit-app-region: no-drag;
+            background: none; border: none; cursor: pointer;
+            color: var(--text-faint); padding: 2px;
+            display: inline-flex; align-items: center; justify-content: center;
+        }
+        .drag-bar .close-btn:hover { color: var(--status-danger-text); }
+
+        /* 标题输入 */
+        .title-input {
+            border: none; outline: none;
+            background: transparent;
+            color: var(--text-strong);
+            font-family: var(--font-display);
+            font-size: var(--text-title);
+            font-weight: 500;
+            padding: 8px 14px 4px;
+            width: 100%;
+        }
+        .title-input::placeholder { color: var(--text-faint); font-family: var(--font-stack); font-size: var(--text-body); }
+
+        /* 正文 */
+        .body-input {
+            flex: 1;
+            border: none; outline: none; resize: none;
+            background: transparent;
+            color: var(--text-primary);
+            font-family: var(--font-stack);
+            font-size: var(--text-body);
+            line-height: 1.6;
+            padding: 4px 14px 12px;
+            width: 100%;
+            min-height: 0;
+        }
+        .body-input::placeholder { color: var(--text-faint); }
+
+        .status-bar {
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 4px 14px 8px;
+            font-size: var(--text-tiny);
+            color: var(--text-faint);
+        }
+        .status-bar .save-state { display: inline-flex; align-items: center; gap: 4px; }
+        .status-bar .save-state .icon { width: 11px; height: 11px; }
+    </style>
+</head>
+<body>
+    <div class="note">
+        <div class="drag-bar">
+            <span class="dot"></span>
+            <span class="title">便签</span>
+            <span class="meta" id="note-date"></span>
+            <button class="pin-btn" id="pin-btn" type="button" title="置顶切换" aria-label="置顶切换"></button>
+            <button class="close-btn" id="close-btn" type="button" title="收起" aria-label="收起便签"></button>
+        </div>
+        <input class="title-input" id="note-title" type="text" placeholder="便签标题（可选）">
+        <textarea class="body-input" id="note-body" placeholder="记点什么…"></textarea>
+        <div class="status-bar">
+            <span class="save-state" id="save-state"></span>
+            <span id="char-count"></span>
+        </div>
+    </div>
+    <script src="icons.js"></script>
+    <script src="notes.js"></script>
+</body>
+</html>
