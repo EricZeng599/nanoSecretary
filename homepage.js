@@ -42,7 +42,7 @@ function setView(view) {
         t.setAttribute('aria-selected', String(active));
     });
     document.getElementById('view-dashboard').style.display = view === 'dashboard' ? 'flex' : 'none';
-    document.getElementById('view-records').style.display = view === 'records' ? 'block' : 'none';
+    document.getElementById('view-records').style.display = view === 'records' ? 'flex' : 'none';
     document.getElementById('view-chat').style.display = view === 'chat' ? 'flex' : 'none';
     if (view === 'dashboard') renderDashboard();
     if (view === 'chat') document.getElementById('chat-input').focus();
@@ -127,8 +127,8 @@ function renderDashboard() {
     // 中心 + 下一件
     const nextBox = document.getElementById('today-next');
     if (todayBox) {
-        // 用绝对定位中心（ring-wrap 是 relative）
-        const wrap = todayBox.parentElement;
+        // ring-today 本身就是 .ring-wrap（relative），center 绝对定位挂在它上面
+        const wrap = todayBox;
         let center = wrap.querySelector('.ring-center');
         if (!center) {
             center = document.createElement('div');
@@ -174,7 +174,7 @@ function renderDashboard() {
         attBox.innerHTML = (overdueN + dueSoonN + done7N === 0)
             ? ringSVG(0, 'transparent', 'var(--border-soft)', SIZE, STROKE)
             : multiRingSVG(segs, 'var(--border-soft)', SIZE, STROKE);
-        const wrap = attBox.parentElement;
+        const wrap = attBox;
         let center = wrap.querySelector('.ring-center');
         if (!center) { center = document.createElement('div'); center.className = 'ring-center'; wrap.appendChild(center); }
         center.innerHTML = `<div class="big">${overdueN + dueSoonN + done7N}</div><div class="sub">待处理</div>`;
@@ -199,7 +199,7 @@ function renderDashboard() {
         wkBox.innerHTML = (wkDueAll === 0)
             ? ringSVG(0, 'transparent', 'var(--border-soft)', SIZE, STROKE)
             : ringSVG(wkDone / wkDueAll, 'var(--action-primary)', 'var(--border-soft)', SIZE, STROKE);
-        const wrap = wkBox.parentElement;
+        const wrap = wkBox;
         let center = wrap.querySelector('.ring-center');
         if (!center) { center = document.createElement('div'); center.className = 'ring-center'; wrap.appendChild(center); }
         center.innerHTML = `<div class="big">${wkDone}</div><div class="sub">已完成</div>`;
@@ -274,8 +274,15 @@ document.addEventListener('click', (e) => {
     if (btn.dataset.action === 'done') markDone(id, true);
     else if (btn.dataset.action === 'restore') markDone(id, false);
     else if (btn.dataset.action === 'delete') delEntry(id);
+    else if (btn.dataset.action === 'topending') makePending(id);
     else if (btn.dataset.action === 'reschedule') toggleDueEdit(id);
 });
+
+/** 备忘/随手记 → 待办（无截止日期，直接进待办列表） */
+function makePending(id) {
+    api.makePending(id);
+    setTimeout(loadData, 200);
+}
 
 /** 本地时区的「今天」yyyy-mm-dd（civil date，不用 toISOString 避免 UTC 差一天）。 */
 function localToday() {
@@ -331,9 +338,14 @@ function renderRecent(entries) {
     }
     const ic = (name, cls) => (window.nanoIcons ? window.nanoIcons.ic(name, cls) : '');
     list.innerHTML = entries.map((e) => {
-        const cls = e.status === 'pending' ? (e.dueDate && e.dueDate < localToday() ? 'overdue' : 'today') : 'note';
-        const isPending = e.status === 'pending';
-        return `<div class="entry-item ${isPending ? cls : 'note'}">
+        const st = e.status; // pending | done | note
+        const cls = st === 'pending' ? (e.dueDate && e.dueDate < localToday() ? 'overdue' : 'today') : st === 'done' ? 'done' : 'note';
+        const primary = st === 'pending'
+            ? `<button class="done-btn" type="button" data-action="done" data-id="${e.id}">${ic('check', 'inline')}完成</button>`
+            : st === 'done'
+                ? `<button type="button" data-action="restore" data-id="${e.id}">${ic('restore', 'inline')}恢复</button>`
+                : `<button type="button" class="promote-btn" data-action="topending" data-id="${e.id}">${ic('pin', 'inline')}转为待办</button>`;
+        return `<div class="entry-item ${cls}">
             <div class="entry-title">${esc(e.title || e.content)}</div>
             <div class="entry-meta">
                 ${e.dueDate ? `<span class="due">${ic('calendar', 'inline')}截止 ${esc(e.dueDate)}</span>` : ''}
@@ -341,7 +353,7 @@ function renderRecent(entries) {
                 ${e.category ? `<span class="cat">${esc(e.category)}</span>` : ''}
             </div>
             <div class="entry-actions">
-                <button class="done-btn" type="button" data-action="${isPending ? 'done' : 'restore'}" data-id="${e.id}">${ic(isPending ? 'check' : 'restore', 'inline')}${isPending ? '完成' : '恢复'}</button>
+                ${primary}
                 <button type="button" data-action="delete" data-id="${e.id}">${ic('trash', 'inline')}删除</button>
             </div>
         </div>`;

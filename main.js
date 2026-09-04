@@ -595,6 +595,18 @@ ipcMain.on('mark-done', (event, id, done) => {
   }
 });
 
+/* 备忘/随手记 → 转为待办（用户主动升级，不设截止日期，进待办列表） */
+ipcMain.on('make-pending', (event, id) => {
+  const data = readData();
+  const entry = data.find((e) => e.id === id);
+  if (entry && entry.status === 'note') {
+    entry.status = 'pending';
+    writeData(data);
+    event.reply('entry-updated', entry);
+    broadcastEntriesChanged();
+  }
+});
+
 /* 更新截止日期 */
 ipcMain.on('update-due-date', (event, id, dueDate) => {
   const data = readData();
@@ -777,8 +789,10 @@ ipcMain.on('resize-window', (event, mode) => {
     x = Math.max(work.x, Math.min(x, work.x + work.width - BALLOON_SIZE));
     y = Math.max(work.y, Math.min(y, work.y + work.height - BALLOON_SIZE));
     inputExpanded = false;
-    mainWindow.setSize(BALLOON_SIZE, BALLOON_SIZE);
-    mainWindow.setPosition(x, y);
+    // 用 setBounds 一次性带尺寸移动：避免先 setSize 后 setPosition 时，
+    // Windows 把 x/y 按旧的大窗口尺寸钳制（透明窗口 resizable:false 的怪癖），
+    // 导致小球落在超大窗口一角、看似消失且无法点出（Enter 保存后必现）。
+    mainWindow.setBounds({ x: Math.round(x), y: Math.round(y), width: BALLOON_SIZE, height: BALLOON_SIZE });
     ballPosBeforeInput = null;
     inputWindowPosAtOpen = null;
   }

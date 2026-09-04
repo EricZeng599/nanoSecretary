@@ -25,6 +25,7 @@ contextBridge.exposeInMainWorld('api', {
   onDeleteSuccess: (cb) => ipcRenderer.on('delete-entry-success', (e, ok) => cb(ok)),
   markDone: (id, done) => ipcRenderer.send('mark-done', id, done),
   updateDueDate: (id, dueDate) => ipcRenderer.send('update-due-date', id, dueDate),
+  makePending: (id) => ipcRenderer.send('make-pending', id),
   onEntryUpdated: (cb) => ipcRenderer.on('entry-updated', (e, entry) => cb(entry)),
 
   // 窗口操作

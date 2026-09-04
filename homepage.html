@@ -264,6 +264,7 @@
         .entry-item.overdue { border-left-color: var(--status-danger); }
         .entry-item.today { border-left-color: var(--status-warning-strong); }
         .entry-item.note { border-left-color: var(--status-note); }
+        .entry-item.done { border-left-color: var(--status-success); opacity: 0.62; }
         .entry-title { font-size: var(--text-body); margin-bottom: 4px; font-weight: var(--weight-strong); color: var(--text-strong); }
         .entry-meta { display: flex; gap: 8px; font-size: var(--text-meta); color: var(--text-tertiary); align-items: center; flex-wrap: wrap; }
         .entry-meta .due { color: var(--status-warning-strong); }
@@ -279,6 +280,8 @@
         }
         .entry-actions button:hover { background: var(--button-secondary-hover); color: var(--text-strong); }
         .entry-actions .done-btn:hover { background: var(--status-success-bg); border-color: var(--status-success); }
+        .entry-actions .promote-btn { color: var(--status-success-text); }
+        .entry-actions .promote-btn:hover { background: rgba(111,168,107,0.16); border-color: var(--status-success); color: var(--status-success-text); }
         .empty { text-align: center; color: var(--text-faint); padding: 30px 0; font-size: var(--text-body); }
 
         /* 改期行（复用历史页 due-edit-row 视觉） */

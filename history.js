@@ -97,6 +97,9 @@ function renderEntries() {
             : e.status === 'done'
                 ? '<button class="action-button" type="button" data-action="restore" data-id="' + e.id + '">' + ic('restore', 'inline') + '恢复</button>'
                 : '';
+        const promoteBtn = e.status === 'note'
+            ? '<button class="action-button promote" type="button" data-action="topending" data-id="' + e.id + '">' + ic('pin', 'inline') + '转为待办</button>'
+            : '';
         return `<div class="entry-card ${cls}" data-id="${e.id}">
             <div class="entry-title">${esc(e.title || '(无标题)')}</div>
             <div class="entry-content">${esc(e.content)}</div>
@@ -110,6 +113,7 @@ function renderEntries() {
             </div>
             <div class="entry-actions">
                 ${doneBtn}
+                ${promoteBtn}
                 <button class="action-button due-edit" type="button" data-action="reschedule" data-id="${e.id}">${ic('edit', 'inline')}改期</button>
                 <button class="action-button" type="button" data-action="copy" data-id="${e.id}">${ic('copy', 'inline')}复制</button>
                 <button class="action-button delete" type="button" data-action="delete" data-id="${e.id}">${ic('trash', 'inline')}删除</button>
@@ -126,6 +130,7 @@ document.addEventListener('click', (e) => {
     if (btn.dataset.action === 'done') markDone(id, true);
     else if (btn.dataset.action === 'restore') markDone(id, false);
     else if (btn.dataset.action === 'reschedule') toggleDueEdit(id);
+    else if (btn.dataset.action === 'topending') makePending(id);
     else if (btn.dataset.action === 'copy') copyContent(id);
     else if (btn.dataset.action === 'delete') deleteEntry(id);
 });
@@ -205,6 +210,7 @@ function removeDueEdit() {
 }
 
 function markDone(id, done) { api.markDone(id, done); setTimeout(loadEntries, 200); }
+function makePending(id) { api.makePending(id); setTimeout(loadEntries, 200); }
 function copyContent(id) {
     const entry = allEntries.find((e) => e.id === id);
     if (!entry) return;
