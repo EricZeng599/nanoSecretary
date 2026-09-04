@@ -60,7 +60,16 @@ document.querySelector('.filter-row').addEventListener('click', (e) => {
     renderEntries();
 });
 
+/** 本地时区的「今天」yyyy-mm-dd（civil date，不用 toISOString 避免 UTC 差一天）。 */
+function localToday() {
+    const d = new Date();
+    const p = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
 function renderEntries() {
+    // 若改期行打开则先清理（列表即将重绘，DOM 会失效）
+    if (dueEditRow) removeDueEdit();
     const list = document.getElementById('entries-list');
     let filtered = allEntries;
     if (filters.status === 'pending') filtered = filtered.filter((e) => e.status === 'pending');
@@ -74,7 +83,7 @@ function renderEntries() {
         list.innerHTML = '<div class="empty-state">暂无记录</div>';
         return;
     }
-    const today = new Date().toISOString().slice(0, 10);
+    const today = localToday();
     const ic = (name, cls) => (window.nanoIcons ? window.nanoIcons.ic(name, cls) : '');
     list.innerHTML = filtered.map((e) => {
         const overdue = e.status === 'pending' && e.dueDate && e.dueDate < today;
@@ -121,35 +130,78 @@ document.addEventListener('click', (e) => {
     else if (btn.dataset.action === 'delete') deleteEntry(id);
 });
 
-// 改期（内联编辑）
+// 改期（内联编辑）：点「改期」→ 展开日历弹层 → 选择日期 → 确定
 let dueEditRow = null;
+let dueEditPicker = null;
+let dueEditNewValue = undefined; // undefined=未改动; null=清除; 'yyyy-mm-dd'=新日期
+
 function toggleDueEdit(id) {
     const entry = allEntries.find((e) => e.id === id);
     if (!entry) return;
-    if (dueEditRow) dueEditRow.remove();
+    if (dueEditRow) removeDueEdit();
     const card = document.querySelector(`.entry-card[data-id="${id}"]`);
     if (!card) return;
+
     const row = document.createElement('div');
     row.className = 'due-edit-row';
-    const input = document.createElement('input');
-    input.type = 'date';
-    input.value = entry.dueDate || '';
+    // 挂载点：NSDatePicker.attach 会在这里生成触发字段
+    const mount = document.createElement('span');
+    mount.className = 'nsdp-mount';
+    row.appendChild(mount);
+
     const saveBtn = document.createElement('button');
     saveBtn.type = 'button';
     saveBtn.textContent = '确定';
-    saveBtn.addEventListener('click', () => {
-        api.updateDueDate(id, input.value || null);
-        dueEditRow = null;
-        setTimeout(loadEntries, 200);
-    });
     const cancelBtn = document.createElement('button');
     cancelBtn.type = 'button';
     cancelBtn.textContent = '取消';
-    cancelBtn.addEventListener('click', () => { row.remove(); dueEditRow = null; });
-    row.appendChild(input); row.appendChild(saveBtn); row.appendChild(cancelBtn);
+    cancelBtn.addEventListener('click', () => { removeDueEdit(); });
+    row.appendChild(saveBtn);
+    row.appendChild(cancelBtn);
     card.appendChild(row);
     dueEditRow = row;
-    input.focus();
+    dueEditNewValue = undefined;
+
+    // 有日历本体：NSDatePicker.attach 生成字段并自动展开弹层
+    if (window.NSDatePicker) {
+        dueEditPicker = window.NSDatePicker.attach({
+            mount,
+            id: 're-due-' + id,
+            ariaLabel: '新的截止日期',
+            placeholder: entry.dueDate ? '当前：' + (NSDatePicker.fullDate ? NSDatePicker.fullDate(entry.dueDate) : entry.dueDate) : '选择日期',
+            clearable: true,
+            value: entry.dueDate || null,
+            autoOpen: true,
+            onChange(iso) {
+                dueEditNewValue = iso; // 点选即暂存，等待「确定」（iso 可为 null=清除）
+            },
+        });
+        saveBtn.addEventListener('click', () => {
+            const val = dueEditNewValue !== undefined ? dueEditNewValue : (entry.dueDate || null);
+            api.updateDueDate(id, val);
+            removeDueEdit();
+            setTimeout(loadEntries, 200);
+        });
+    } else {
+        // 兜底：无日历本体时退化为原生 date 输入（理论不会出现）
+        const input = document.createElement('input');
+        input.type = 'date';
+        input.value = entry.dueDate || '';
+        input.style.cssText = 'flex:1;min-width:0;background:var(--surface-field);color:var(--text-primary);border:1px solid var(--border-soft);border-radius:var(--radius-field);padding:5px 8px;font-size:var(--text-meta);color-scheme:dark;';
+        mount.appendChild(input);
+        saveBtn.addEventListener('click', () => {
+            api.updateDueDate(id, input.value || null);
+            removeDueEdit();
+            setTimeout(loadEntries, 200);
+        });
+        input.focus();
+    }
+}
+
+function removeDueEdit() {
+    if (dueEditPicker) { dueEditPicker.destroy(); dueEditPicker = null; }
+    if (dueEditRow) { dueEditRow.remove(); dueEditRow = null; }
+    dueEditNewValue = undefined;
 }
 
 function markDone(id, done) { api.markDone(id, done); setTimeout(loadEntries, 200); }

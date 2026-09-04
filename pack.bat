@@ -18,7 +18,7 @@ if errorlevel 1 (
 
 echo [3/3] Adding app code...
 mkdir "%OUT%\resources\app"
-copy /Y main.js preload.js ollama.js index.js homepage.js history.js icons.js index.html homepage.html history.html tokens.css icon.png nanoSecretary.ico package.json "%OUT%\resources\app\" >nul
+copy /Y main.js preload.js ollama.js index.js homepage.js history.js icons.js date-picker.js date-picker-react.js index.html homepage.html history.html tokens.css date-picker.css date-picker-react.css icon.png nanoSecretary.ico package.json "%OUT%\resources\app\" >nul
 
 if exist "%OUT%\resources\default_app.asar" del /q "%OUT%\resources\default_app.asar"
 

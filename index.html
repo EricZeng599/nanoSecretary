@@ -6,6 +6,9 @@
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'">
     <title>nanoSecretary</title>
     <link rel="stylesheet" href="tokens.css">
+    <!-- 日期选择器：react-day-picker 日历基础样式 + 暖暗主题 -->
+    <link rel="stylesheet" href="date-picker-react.css">
+    <link rel="stylesheet" href="date-picker.css">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         /* html 需占满窗口高度，body 的 height:100% 才有依据；
@@ -172,7 +175,7 @@
         }
 
         .row { display: flex; gap: 6px; align-items: center; }
-        .row select, .row input[type="date"] {
+        .row select {
             background: var(--surface-field);
             color: var(--text-primary);
             border: 1px solid var(--border-soft);
@@ -182,8 +185,7 @@
             outline: none;
             color-scheme: dark;
         }
-        .row input[type="date"]:focus { border-color: var(--border-field); }
-        .row input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.75); }
+        .row select:focus { border-color: var(--border-field); }
         .row label { color: var(--text-tertiary); font-size: var(--text-meta); }
 
         /* 次级保存按钮（输入面板）：极简描边 */
@@ -242,7 +244,10 @@
         .tab.active { color: var(--text-strong); border-bottom-color: var(--action-primary); }
 
         .form-row { display: flex; gap: 6px; margin-bottom: 6px; align-items: center; }
-        .form-row input[type="text"], .form-row input[type="date"] {
+        /* 截止日期选择器的挂载点：占满行内剩余宽度 */
+        #f-due { flex: 1; display: flex; min-width: 0; }
+        #f-due .nsdp-field-wrap { width: 100%; }
+        .form-row input[type="text"] {
             flex: 1;
             background: var(--surface-field);
             color: var(--text-primary);
@@ -325,8 +330,8 @@
                     <input type="text" id="f-title" placeholder="要做什么？" autocomplete="off">
                 </div>
                 <div class="form-row">
-                    <label for="f-due" class="visually-hidden" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);">截止日期</label>
-                    <input type="date" id="f-due">
+                    <label for="f-due-field" class="visually-hidden" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);">截止日期</label>
+                    <span id="f-due"></span>
                     <label for="f-priority" class="visually-hidden" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);">优先级</label>
                     <select id="f-priority">
                         <option value="低">低</option>
@@ -344,6 +349,9 @@
     </div>
 
     <script src="icons.js"></script>
+    <!-- 日期选择器：react-day-picker 日历本体（构建产物）+ 原生封装 -->
+    <script src="date-picker-react.js"></script>
+    <script src="date-picker.js"></script>
     <script src="index.js"></script>
 </body>
 </html>

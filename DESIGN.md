@@ -30,10 +30,11 @@
 
 ## 排版
 
-- 标题：`Georgia, "Times New Roman", "Songti SC", "SimSun", serif`（Lora 的 Windows 回退，deeptutor 用 Lora）；`1.125–1.25rem / 500`，负字距 `-0.02em`
-- 正文：`system-ui, "Microsoft YaHei", sans-serif`（deeptutor 用 Geist）；`0.8125rem`
+- 标题：`Georgia, "Times New Roman", "Noto Serif CJK SC", "Source Han Serif SC", "Songti SC", "STSong", "SimSun", serif`（拉丁衬线标题 + 中文宋体）；`1.125–1.25rem / 500`，负字距 `-0.02em`
+- 正文：`system-ui, -apple-system, "Segoe UI", "Noto Serif CJK SC", "Source Han Serif SC", "Songti SC", "STSong", "SimSun", serif`（拉丁/数字走系统无衬线，中文按字形落宋体）`0.8125rem`
 - 元信息 `0.75rem`，辅助 `0.6875rem`
 - 分类列表标题：`letter-spacing 0.04em` 小字大写感
+- 中文宋体（2026-09-04）：正文中文由雅黑改为宋体，现代宋优先（思源宋体 Noto/Source Han → 宋体-简 Songti/STSong → SimSun），Windows 未装现代宋时自然落 SimSun；`--font-stack` 仍以系统无衬线打头，保证拉丁/数字不衬线化
 
 ## 形状与层级
 
@@ -50,12 +51,35 @@
 - **次级按钮**：透明底 + 暖描边
 - **状态 chip**：透明底 + 描边，激活暖黑底
 - **对话气泡**：user = 赭橙浅底描边，ai = 暖黑卡片描边
+- **日期选择器**（`date-picker.js` 原生封装 + `date-picker-react.js` 日历本体）：
+  shadcn「Popover + Calendar」模式 —— 触发字段（只读按钮，日历图标 + **完整日期**）点开
+  日历弹层，点选即回填。
+  **弹层 = 暖「纸卡」**：在暖黑桌面上铺开一张米白卡片（`#faf6f0`），衬线月份标题、
+  深墨字、赭橙**圆日**选中、today 用赭橙**描边环**（选中日不叠加）、range 中段淡橙带，
+  柔和三层投影 + 轻微入场动画；整体 `color-scheme: light`。触发字段保持暗色控件，
+  悬停显清除 ×。
+  日历本体为 react-day-picker（`scripts/build-datepicker.mjs` 用 esbuild 打成 IIFE，
+  提交进仓库；改日历交互需 `npm run build:datepicker`），原生封装维护触发字段/定位/焦点/ARIA。
+
+## 日期约定（civil date）
+
+- **对外一律 `yyyy-mm-dd` 字符串**；仅在交给 react-day-picker 时用当地时区正午
+  `new Date(y, m-1, d, 12)` 构造，绝不 `new Date('yyyy-mm-dd')`（会被当 UTC，
+  UTC+8 地区会在 0–8 点差一天）。
+- 「今天」用 `getFullYear/getMonth/getDate` 拼本地日期（见各页 `localToday()`，
+  历史页/主页面已替换原 `toISOString().slice(0,10)` 的 UTC 隐患）。
+- 周起始随 locale：zh-CN（date-fns `zhCN`）→ 周一起始。
 
 ## 关键交互
 
 - **悬浮球**：暖灰球（`linear-gradient(#3a3734,#262421)`）；常驻呼吸（2.4s）；到期赭橙呼吸（1.8s）；逾期红脉冲（1.2s + 扩散光圈）；保存成功暖绿闪光；待办数角标
 - **双击展开**：面板从球方向 `scale(0.96)→1` + 透明度，`cubic-bezier(0.2,0.7,0.2,1)`；`Esc` 收起
-- **输入**：快速记录（一句话 + AI 实时预览）与结构化表单双模式 Tab；`Enter` 保存
+- **输入**：快速记录（一句话 + AI 实时预览）与结构化表单双模式 Tab；`Enter` 保存。
+  结构化表单截止日期 = 日期选择器；悬浮球小窗打开弹层时窗口临时加高
+  （`resize-window` → `input-expand`/`input-collapse`），收起即还原。
+- **改期**：主页面待办与历史页每条待办均可改期 —— 点「改期」直接展开日期弹层，
+  点选即暂存，按「确定」提交 `update-due-date`。触发字段显示完整日期（yyyy年M月d日），
+  title 悬停附「今天/明天」语义。
 - **AI 预览**：赭橙浅底卡片
 - **列表操作**：hover 增亮；完成时卡片淡出；删除用内联双步确认条
 - **设置**：主页面中央遮罩 + 暖黑弹层，switch（40×22）

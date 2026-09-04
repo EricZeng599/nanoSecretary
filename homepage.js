@@ -70,10 +70,20 @@ document.addEventListener('click', (e) => {
     if (btn.dataset.action === 'done') markDone(id, true);
     else if (btn.dataset.action === 'restore') markDone(id, false);
     else if (btn.dataset.action === 'delete') delEntry(id);
+    else if (btn.dataset.action === 'reschedule') toggleDueEdit(id);
 });
+
+/** 本地时区的「今天」yyyy-mm-dd（civil date，不用 toISOString 避免 UTC 差一天）。 */
+function localToday() {
+    const d = new Date();
+    const p = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
 
 // 渲染待办
 function renderTodos() {
+    // 若改期行打开，先清理（列表即将重绘，其 DOM 会失效）
+    if (dueEditRow) removeDueEdit();
     const list = document.getElementById('todo-list');
     const todos = allEntries
         .filter((e) => e.status === 'pending')
@@ -84,7 +94,7 @@ function renderTodos() {
         list.innerHTML = '<div class="empty">没有待办，记点什么吧</div>';
         return;
     }
-    const today = new Date().toISOString().slice(0, 10);
+    const today = localToday();
     const ic = (name, cls) => (window.nanoIcons ? window.nanoIcons.ic(name, cls) : '');
     list.innerHTML = todos.map((e) => {
         const overdue = e.dueDate && e.dueDate < today;
@@ -102,6 +112,7 @@ function renderTodos() {
             </div>
             <div class="entry-actions">
                 <button class="done-btn" type="button" data-action="done" data-id="${e.id}">${ic('check', 'inline')}完成</button>
+                ${e.dueDate ? `<button type="button" data-action="reschedule" data-id="${e.id}">${ic('edit', 'inline')}改期</button>` : ''}
             </div>
         </div>`;
     }).join('');
@@ -116,7 +127,7 @@ function renderRecent(entries) {
     }
     const ic = (name, cls) => (window.nanoIcons ? window.nanoIcons.ic(name, cls) : '');
     list.innerHTML = entries.map((e) => {
-        const cls = e.status === 'pending' ? (e.dueDate && e.dueDate < new Date().toISOString().slice(0,10) ? 'overdue' : 'today') : 'note';
+        const cls = e.status === 'pending' ? (e.dueDate && e.dueDate < localToday() ? 'overdue' : 'today') : 'note';
         const isPending = e.status === 'pending';
         return `<div class="entry-item ${isPending ? cls : 'note'}">
             <div class="entry-title">${esc(e.title || e.content)}</div>
@@ -143,6 +154,77 @@ function markDone(id, done) {
     }
     api.markDone(id, done);
     setTimeout(loadData, 280); // 等动效播完再刷新
+}
+
+// 改期（内联编辑）：点「改期」→ 展开日历弹层 → 选择日期 → 确定
+let dueEditRow = null;
+let dueEditPicker = null;
+let dueEditNewValue = undefined; // undefined=未改动; null=清除; 'yyyy-mm-dd'=新日期
+
+function toggleDueEdit(id) {
+    const entry = allEntries.find((e) => e.id === id);
+    if (!entry) return;
+    if (dueEditRow) removeDueEdit();
+    const card = document.querySelector(`.entry-item[data-id="${id}"]`);
+    if (!card) return;
+
+    const row = document.createElement('div');
+    row.className = 'due-edit-row';
+    const mount = document.createElement('span');
+    mount.className = 'nsdp-mount';
+    row.appendChild(mount);
+    const saveBtn = document.createElement('button');
+    saveBtn.type = 'button';
+    saveBtn.textContent = '确定';
+    const cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.textContent = '取消';
+    cancelBtn.addEventListener('click', () => { removeDueEdit(); });
+    row.appendChild(saveBtn);
+    row.appendChild(cancelBtn);
+    card.appendChild(row);
+    dueEditRow = row;
+    dueEditNewValue = undefined;
+
+    if (window.NSDatePicker) {
+        dueEditPicker = window.NSDatePicker.attach({
+            mount,
+            id: 'hp-re-due-' + id,
+            ariaLabel: '新的截止日期',
+            placeholder: entry.dueDate ? '当前：' + (NSDatePicker.fullDate ? NSDatePicker.fullDate(entry.dueDate) : entry.dueDate) : '选择日期',
+            clearable: true,
+            value: entry.dueDate || null,
+            autoOpen: true,
+            onChange(iso) {
+                dueEditNewValue = iso;
+            },
+        });
+        saveBtn.addEventListener('click', () => {
+            const val = dueEditNewValue !== undefined ? dueEditNewValue : (entry.dueDate || null);
+            api.updateDueDate(id, val);
+            removeDueEdit();
+            setTimeout(loadData, 200);
+        });
+    } else {
+        // 兜底：退化为原生 date 输入
+        const input = document.createElement('input');
+        input.type = 'date';
+        input.value = entry.dueDate || '';
+        input.style.cssText = 'flex:1;min-width:0;background:var(--surface-field);color:var(--text-primary);border:1px solid var(--border-soft);border-radius:var(--radius-field);padding:5px 8px;font-size:var(--text-meta);color-scheme:dark;';
+        mount.appendChild(input);
+        saveBtn.addEventListener('click', () => {
+            api.updateDueDate(id, input.value || null);
+            removeDueEdit();
+            setTimeout(loadData, 200);
+        });
+        input.focus();
+    }
+}
+
+function removeDueEdit() {
+    if (dueEditPicker) { dueEditPicker.destroy(); dueEditPicker = null; }
+    if (dueEditRow) { dueEditRow.remove(); dueEditRow = null; }
+    dueEditNewValue = undefined;
 }
 function delEntry(id) {
     const card = document.querySelector(`.entry-item[data-id="${id}"]`);

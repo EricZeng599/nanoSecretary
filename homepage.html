@@ -6,6 +6,8 @@
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'">
     <title>nanoSecretary</title>
     <link rel="stylesheet" href="tokens.css">
+    <link rel="stylesheet" href="date-picker-react.css">
+    <link rel="stylesheet" href="date-picker.css">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -147,6 +149,17 @@
         .entry-actions button:hover { background: var(--button-secondary-hover); color: var(--text-strong); }
         .entry-actions .done-btn:hover { background: var(--status-success-bg); border-color: var(--status-success); }
         .empty { text-align: center; color: var(--text-faint); padding: 30px 0; font-size: var(--text-body); }
+
+        /* 改期行（复用历史页 due-edit-row 视觉） */
+        .due-edit-row { display: flex; gap: 6px; align-items: center; margin-top: 8px; }
+        .due-edit-row > .nsdp-mount { flex: 1; min-width: 0; display: flex; }
+        .due-edit-row > .nsdp-mount .nsdp-field-wrap { width: 100%; }
+        .due-edit-row > button {
+            padding: 4px 10px; background: var(--action-primary); color: var(--action-on-text);
+            border: none; border-radius: var(--radius-field); font-size: var(--text-meta); cursor: pointer; font-weight: 600;
+            white-space: nowrap;
+        }
+        .due-edit-row > button:last-child { background: transparent; color: var(--text-secondary); border: 1px solid var(--border-soft); font-weight: 400; }
 
         /* 删除确认条（内联） */
         .confirm-bar {
@@ -357,6 +370,9 @@
     </div>
 
     <script src="icons.js"></script>
+    <!-- 日期选择器：react-day-picker 日历本体（构建产物）+ 原生封装 -->
+    <script src="date-picker-react.js"></script>
+    <script src="date-picker.js"></script>
     <script src="homepage.js"></script>
 </body>
 </html>

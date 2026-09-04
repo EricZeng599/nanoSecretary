@@ -1,0 +1,297 @@
+/* ============================================================
+   date-picker.css — nanoSecretary 日期选择器（Popover + Calendar）
+   · 触发字段：暗色 UI 里的控制件（radius-btn，暖色描边）
+   · 日历弹层：暖「纸卡」——在暖黑桌面上铺开一张米白卡片
+     （衬线月份标题 + 深墨字 + 赭橙圆日 + today 描边环 + 柔和深影）
+   参考：NameThatUI / shadcn Popover+Calendar 的视觉语言，
+   但色板取自本 app 的暖 editorial 世界（纸=--text-strong 一族）。
+   依赖：date-picker-react.css（react-day-picker 基础样式）先加载，本文件在后覆盖。
+   ============================================================ */
+
+/* ============================================================
+   1 · 触发字段（暗色控件）
+   ============================================================ */
+.nsdp-field-wrap {
+  display: inline-flex;
+  align-items: stretch;
+  min-width: 0;
+  border: 1px solid var(--border-soft, #3a3634);
+  border-radius: var(--radius-btn, 6px);
+  background: var(--surface-field, rgba(255, 255, 255, 0.04));
+  overflow: hidden;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  transition: border-color var(--dur-fast, 0.18s), background var(--dur-fast, 0.18s),
+              box-shadow var(--dur-fast, 0.18s);
+}
+.nsdp-field-wrap:hover {
+  background: var(--surface-field-hover, rgba(255, 255, 255, 0.08));
+  border-color: var(--border-strong, #4a453f);
+}
+.nsdp-field-wrap:focus-within {
+  border-color: var(--action-primary, #d4734b);
+  box-shadow: 0 0 0 3px rgba(212, 115, 75, 0.18);
+}
+
+.nsdp-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  color: var(--text-primary, #e8e4de);
+  border: none;
+  padding: 6px 4px 6px 10px;
+  font-size: var(--text-body, 0.8125rem);
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  line-height: 1.3;
+}
+.nsdp-field:focus-visible { outline: none; }
+.nsdp-field .nsdp-field-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: var(--text-tertiary, #a39c93);
+  transition: color var(--dur-fast, 0.18s);
+}
+.nsdp-field .nsdp-field-value {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+/* 空值占位：弱化 */
+.nsdp-field .nsdp-field-value.empty { color: var(--text-faint, #8a837a); font-weight: 400; }
+/* 有值：暖白 + 略强 */
+.nsdp-field-wrap.has-value .nsdp-field { color: var(--text-strong, #f5f2ec); font-weight: 500; }
+.nsdp-field-wrap.has-value .nsdp-field-icon { color: var(--action-on-strong, #d4734b); }
+
+/* 清除 ×：hover 显现 */
+.nsdp-clear {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  color: var(--text-tertiary, #a39c93);
+  cursor: pointer;
+  padding: 0;
+  transition: background var(--dur-fast, 0.18s), color var(--dur-fast, 0.18s);
+}
+.nsdp-clear:hover { color: var(--text-strong, #f5f2ec); background: rgba(255, 255, 255, 0.1); }
+.nsdp-field-wrap.has-value:hover .nsdp-clear { display: inline-flex; }
+.nsdp-clear:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--action-focus, #d4734b); }
+
+/* 挂载点 */
+.nsdp-mount { display: flex; min-width: 0; flex: 1; }
+.nsdp-mount .nsdp-field-wrap { width: 100%; }
+.form-row .nsdp-field-wrap { flex: 1; }
+
+/* ============================================================
+   2 · 日历弹层 — 暖「纸卡」
+   （弹层内自成体系，不依赖外层暗色 token，全部本地化）
+   ============================================================ */
+.nsdp-pop {
+  /* 纸卡色板 */
+  --paper: #faf6f0;            /* 卡底：暖米白 */
+  --paper-hi: #fffdf9;         /* 更高（按钮悬停底） */
+  --ink: #332d27;              /* 主文字：暖墨 */
+  --ink-2: #6f675c;            /* 次文字 */
+  --ink-3: #a69d90;            /* 弱文字（星期/外部日） */
+  --line: #e6ded2;             /* 卡内细线 */
+  --line-soft: #efe8dd;
+  --accent: #d4734b;           /* 赭橙（沿用 app 主色） */
+  --accent-deep: #b45f3a;      /* hover 加深 */
+  --accent-tint: rgba(212, 115, 75, 0.14);   /* range 中段淡橙 */
+  --accent-tint-hover: rgba(212, 115, 75, 0.2);
+
+  position: fixed;
+  z-index: 300;
+  display: none;
+  background: var(--paper);
+  color: var(--ink);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 14px;
+  box-shadow:
+    0 1px 2px rgba(60, 40, 20, 0.06),
+    0 8px 16px -4px rgba(60, 40, 20, 0.16),
+    0 24px 48px -12px rgba(60, 40, 20, 0.32);
+  padding: 12px;
+  color-scheme: light;
+  /* 入场微动画 */
+  animation: nsdp-in 0.14s ease-out;
+  transform-origin: top center;
+}
+@keyframes nsdp-in {
+  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.nsdp-cal-host { min-height: 260px; }
+
+/* ============================================================
+   3 · react-day-picker — 纸卡主题覆盖
+   ============================================================ */
+.nsdp-cal-host .rdp-root {
+  --rdp-accent-color: var(--accent);
+  --rdp-accent-background-color: var(--accent-tint);
+  --rdp-day-height: 36px;
+  --rdp-day-width: 36px;
+  --rdp-day_button-height: 34px;
+  --rdp-day_button-width: 34px;
+  --rdp-day_button-border-radius: 999px;   /* 圆日 */
+  --rdp-selected-border: 2px solid transparent;
+  --rdp-today-color: var(--accent);
+  --rdp-nav_button-height: 28px;
+  --rdp-nav_button-width: 28px;
+  --rdp-nav-height: 2.5rem;
+  --rdp-outside-opacity: 0.38;
+  --rdp-disabled-opacity: 0.32;
+  --rdp-weekday-opacity: 1;
+  /* range 端点/中段文字颜色：端点实心圆用深字，中段沿用墨字 */
+  --rdp-range_start-color: #1c1917;
+  --rdp-range_end-color: #1c1917;
+  --rdp-range_start-date-background-color: var(--accent);
+  --rdp-range_end-date-background-color: var(--accent);
+  --rdp-range_middle-background-color: var(--accent-tint);
+  --rdp-range_middle-color: var(--ink);
+  width: fit-content;
+  margin: 0 auto;
+  font-family: var(--font-stack, system-ui, sans-serif);
+  color: var(--ink);
+  background: transparent;
+}
+
+/* ---- 月份标题：衬线 editorial ---- */
+.nsdp-cal-host .rdp-month_caption {
+  font-family: var(--font-display, Georgia, "Times New Roman", "Songti SC", serif);
+  font-size: 0.9375rem;                 /* 15px，比正文略大 */
+  font-weight: 500;
+  color: var(--ink);
+  letter-spacing: 0.01em;
+  height: var(--rdp-nav-height);
+}
+.nsdp-cal-host .rdp-caption_label { padding: 0 4px; }
+
+/* ---- 月份切换按钮 ---- */
+.nsdp-cal-host .rdp-button_previous,
+.nsdp-cal-host .rdp-button_next {
+  border-radius: 999px;
+  color: var(--ink-2);
+  transition: background var(--dur-fast, 0.15s), color var(--dur-fast, 0.15s);
+}
+.nsdp-cal-host .rdp-button_previous:hover,
+.nsdp-cal-host .rdp-button_next:hover {
+  background: var(--line-soft);
+  color: var(--accent);
+}
+.nsdp-cal-host .rdp-chevron { fill: currentColor; }
+
+/* ---- 星期表头：单字，弱化 ---- */
+.nsdp-cal-host .rdp-weekday {
+  color: var(--ink-3);
+  font-size: var(--text-tiny, 0.6875rem);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 0.25rem 0 0.5rem;
+}
+
+/* ---- 日格 ---- */
+.nsdp-cal-host .rdp-day_button {
+  font-size: 0.8125rem;                 /* 13px */
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  border-radius: 999px;
+  transition: background var(--dur-fast, 0.12s), color var(--dur-fast, 0.12s),
+              box-shadow var(--dur-fast, 0.12s), transform var(--dur-fast, 0.12s);
+}
+.nsdp-cal-host .rdp-day_button:hover:not(:disabled) {
+  background: var(--line-soft);
+  color: var(--ink);
+}
+.nsdp-cal-host .rdp-day_button:active:not(:disabled) { transform: scale(0.92); }
+
+/* 外部月 / 禁用 */
+.nsdp-cal-host .rdp-outside { opacity: var(--rdp-outside-opacity); }
+.nsdp-cal-host .rdp-outside .rdp-day_button { color: var(--ink-3); }
+.nsdp-cal-host .rdp-outside .rdp-day_button:hover { background: transparent; }
+.nsdp-cal-host .rdp-disabled .rdp-day_button { cursor: default; opacity: var(--rdp-disabled-opacity); }
+.nsdp-cal-host .rdp-disabled .rdp-day_button:hover { background: transparent; }
+
+/* ---- 今天：赭橙描边环（独立于选中） ---- */
+.nsdp-cal-host .rdp-today:not(.rdp-outside) .rdp-day_button {
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* ---- 选中（单日）：赭橙圆 + 深字 ---- */
+.nsdp-cal-host .rdp-selected {
+  font-weight: normal;      /* 覆盖 RDP 默认 font-weight:bold / font-size:large */
+  font-size: inherit;
+}
+.nsdp-cal-host .rdp-selected .rdp-day_button,
+.nsdp-cal-host .rdp-range_start .rdp-day_button,
+.nsdp-cal-host .rdp-range_end .rdp-day_button {
+  background: var(--accent);
+  color: #1c1917;
+  font-weight: 700;
+  border: none;
+  box-shadow: none;         /* 选中日不叠加「今天」描边环 */
+}
+.nsdp-cal-host .rdp-selected .rdp-day_button:hover,
+.nsdp-cal-host .rdp-range_start .rdp-day_button:hover,
+.nsdp-cal-host .rdp-range_end .rdp-day_button:hover {
+  background: var(--accent-deep);
+}
+/* 今天若恰为选中日：去掉描边环（实心圆本身已标示） */
+.nsdp-cal-host .rdp-today.rdp-selected .rdp-day_button,
+.nsdp-cal-host .rdp-today.rdp-range_start .rdp-day_button,
+.nsdp-cal-host .rdp-today.rdp-range_end .rdp-day_button {
+  box-shadow: none;
+}
+
+/* ---- 区间：中段淡橙带，端点实心圆（去掉默认斜切渐变） ---- */
+.nsdp-cal-host .rdp-range_start,
+.nsdp-cal-host .rdp-range_end {
+  background: none;         /* 覆盖 RDP 默认的半格渐变 */
+}
+.nsdp-cal-host .rdp-range_middle {
+  background-color: var(--accent-tint);
+}
+.nsdp-cal-host .rdp-range_middle:hover {
+  background-color: var(--accent-tint-hover);
+}
+.nsdp-cal-host .rdp-range_middle .rdp-day_button {
+  border-radius: 0;
+}
+.nsdp-cal-host .rdp-range_start .rdp-day_button { border-radius: 999px 0 0 999px; }
+.nsdp-cal-host .rdp-range_end .rdp-day_button { border-radius: 0 999px 999px 0; }
+
+/* ---- 焦点环：赭橙 ---- */
+.nsdp-cal-host .rdp-day_button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  background: var(--line-soft);
+}
+.nsdp-cal-host .rdp-button_previous:focus-visible,
+.nsdp-cal-host .rdp-button_next:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* ============================================================
+   4 · 无障碍：减少动态
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  .nsdp-pop { animation: none; }
+  .nsdp-field-wrap,
+  .nsdp-cal-host .rdp-day_button,
+  .nsdp-cal-host .rdp-button_previous,
+  .nsdp-cal-host .rdp-button_next { transition: none; }
+  .nsdp-cal-host .rdp-day_button:active { transform: none; }
+}

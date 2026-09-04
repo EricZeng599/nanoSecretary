@@ -14,6 +14,7 @@ let startX, startY, startWindowX, startWindowY;
 
 const BALLOON_SIZE = 120; // 加大窗口，给 hover/呼吸/阴影留足余量（球 40px 居中）
 const INPUT_SIZE = { width: 420, height: 190 };
+const INPUT_CAL_SIZE = { width: 440, height: 520 }; // 日历弹层展开时的输入窗尺寸（临时扩大）
 
 /* ================= 配置管理 ================= */
 function getConfigFilePath() {
@@ -561,13 +562,30 @@ ipcMain.on('save-config', (event, patch) => {
 /* 窗口操作 */
 let ballPosBeforeInput = null;  // 进入输入模式前的球位置
 let inputWindowPosAtOpen = null; // 输入面板初始放置位置
+let inputExpanded = false;       // 输入窗是否处于「日历弹层展开」状态
+
+/** 把输入窗口放到球附近（优先球上方，空间不够则下方）。 */
+function placeInputWindow(height) {
+  const work = screen.getPrimaryDisplay().workArea;
+  const [bx, by] = mainWindow.getPosition();
+  const inputW = INPUT_SIZE.width;
+  const inputH = height;
+  const ballCenterX = bx + BALLOON_SIZE / 2;
+  let x = Math.round(ballCenterX - inputW / 2);
+  let y = by - inputH - 10;
+  if (y < work.y) y = by + BALLOON_SIZE + 10;
+  x = Math.max(work.x, Math.min(x, work.x + work.width - inputW));
+  y = Math.max(work.y, Math.min(y, work.y + work.height - inputH));
+  mainWindow.setSize(inputW, inputH);
+  mainWindow.setPosition(x, y);
+}
 
 ipcMain.on('resize-window', (event, mode) => {
   if (!mainWindow) return;
   const work = screen.getPrimaryDisplay().workArea;
 
   if (mode === 'input') {
-    // 记录球位置，把输入面板放到球附近（优先球上方，空间不够则下方）
+    // 记录球位置，把输入面板放到球附近
     const [bx, by] = mainWindow.getPosition();
     ballPosBeforeInput = { x: bx, y: by };
     const inputW = INPUT_SIZE.width;
@@ -579,12 +597,40 @@ ipcMain.on('resize-window', (event, mode) => {
     x = Math.max(work.x, Math.min(x, work.x + work.width - inputW));
     y = Math.max(work.y, Math.min(y, work.y + work.height - inputH));
     inputWindowPosAtOpen = { x, y };
+    inputExpanded = false;
     mainWindow.setSize(inputW, inputH);
     mainWindow.setPosition(x, y);
     // 确保输入框窗口能获得焦点，否则键盘事件收不到
     mainWindow.focus();
+  } else if (mode === 'input-expand') {
+    // 日历弹层展开：临时加高输入窗（锚点不变，向右下伸展）
+    if (inputExpanded) return;
+    inputExpanded = true;
+    const [px, py] = mainWindow.getPosition();
+    const w = INPUT_CAL_SIZE.width;
+    const h = INPUT_CAL_SIZE.height;
+    let x = Math.min(px, work.x + work.width - w);
+    x = Math.max(work.x, x);
+    // 若原窗口贴近屏幕底，向上扩展（保留弹层在输入窗内）
+    let y = py;
+    if (y + h > work.y + work.height) y = Math.max(work.y, work.y + work.height - h);
+    mainWindow.setSize(w, h);
+    mainWindow.setPosition(x, y);
+  } else if (mode === 'input-collapse') {
+    // 弹层关闭：还原输入窗
+    if (!inputExpanded) return;
+    inputExpanded = false;
+    const inputH = INPUT_SIZE.height;
+    const [px, py] = mainWindow.getPosition();
+    // 回到展开前的锚点（若展开时挪了位置，尽量靠回）
+    if (inputWindowPosAtOpen) {
+      mainWindow.setSize(INPUT_SIZE.width, inputH);
+      mainWindow.setPosition(inputWindowPosAtOpen.x, inputWindowPosAtOpen.y);
+    } else {
+      placeInputWindow(inputH);
+    }
   } else {
-    // 回到小球：若面板被拖过，保持相对位移
+    // mode === 'ball'：回到小球；若面板被拖过，保持相对位移
     const config = readConfig();
     let x, y;
     if (ballPosBeforeInput && inputWindowPosAtOpen) {
@@ -600,6 +646,7 @@ ipcMain.on('resize-window', (event, mode) => {
     }
     x = Math.max(work.x, Math.min(x, work.x + work.width - BALLOON_SIZE));
     y = Math.max(work.y, Math.min(y, work.y + work.height - BALLOON_SIZE));
+    inputExpanded = false;
     mainWindow.setSize(BALLOON_SIZE, BALLOON_SIZE);
     mainWindow.setPosition(x, y);
     ballPosBeforeInput = null;

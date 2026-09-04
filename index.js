@@ -42,6 +42,8 @@ tabQuick.addEventListener('click', () => setEntryMode('quick'));
 tabForm.addEventListener('click', () => setEntryMode('form'));
 function setEntryMode(mode) {
     entryMode = mode;
+    // 切换模式时收起可能打开的日历弹层（避免收起后窗口变小把弹层裁掉）
+    if (window.NSDatePicker) window.NSDatePicker.close();
     const isQuick = mode === 'quick';
     tabQuick.classList.toggle('active', isQuick);
     tabForm.classList.toggle('active', !isQuick);
@@ -189,9 +191,39 @@ function saveQuick() {
 
 // 保存（结构化表单）
 saveButtonForm.addEventListener('click', saveForm);
+
+// 截止日期：日期选择器（shadcn Popover+Calendar 风格）。
+// f-due 是挂载点；NSDatePicker.attach 在里面生成触发字段。
+let formDuePicker = null;
+let formDueValue = ''; // yyyy-mm-dd 或 ''
+function initFormDuePicker() {
+    const mount = document.getElementById('f-due');
+    if (!mount || !window.NSDatePicker) return;
+    formDuePicker = window.NSDatePicker.attach({
+        mount,
+        id: 'f-due-field',
+        ariaLabel: '截止日期',
+        placeholder: '截止日期',
+        clearable: true,
+        value: null,
+        onChange(iso) {
+            formDueValue = iso || '';
+        },
+        onOpenStateChange(open) {
+            // 弹层打开时把输入窗口临时加高，避免日历被窗口裁掉；关闭后还原
+            api.resizeWindow(open ? 'input-expand' : 'input-collapse');
+            // 窗口尺寸变更后重新定位弹层（展开动画/尺寸变化需等一帧）
+            if (open && formDuePicker) {
+                setTimeout(() => formDuePicker.reposition(), 30);
+            }
+        },
+    });
+}
+initFormDuePicker();
+
 function saveForm() {
     const title = document.getElementById('f-title').value.trim();
-    const due = document.getElementById('f-due').value;
+    const due = formDueValue;
     const priority = document.getElementById('f-priority').value;
     if (!title) { document.getElementById('f-title').focus(); return; }
     hideSaveError();
@@ -200,7 +232,8 @@ function saveForm() {
     payload += ' 优先级' + priority;
     api.saveEntry(payload);
     document.getElementById('f-title').value = '';
-    document.getElementById('f-due').value = '';
+    formDueValue = '';
+    if (formDuePicker) formDuePicker.setValue(null);
     switchToBallMode();
 }
 
@@ -269,6 +302,8 @@ function updateBallStatus(hasDue) {
 // 模式切换
 function switchToInputMode() {
     currentMode = 'input';
+    // 首次从球进入输入态，先收掉任何遗留弹层
+    if (window.NSDatePicker) window.NSDatePicker.close();
     ball.classList.remove('breathe', 'due', 'urgent');
     ball.style.transform = 'scale(0)';
     ball.style.opacity = '0';

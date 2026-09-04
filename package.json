@@ -1,14 +1,22 @@
 {
   "name": "nanosecretary",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "nanoSecretary 本地 AI 秘书",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "pack": "pack.bat"
+    "pack": "pack.bat",
+    "build:datepicker": "node scripts/build-datepicker.mjs"
   },
   "dependencies": {
     "electron": "^28.0.0"
+  },
+  "devDependencies": {
+    "date-fns": "^4.1.0",
+    "esbuild": "^0.28.0",
+    "react": "^19.0.0",
+    "react-day-picker": "^10.0.0",
+    "react-dom": "^19.0.0"
   },
   "build": {
     "icon": "nanoSecretary.ico"

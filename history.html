@@ -6,6 +6,8 @@
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'">
     <title>历史记录 - nanoSecretary</title>
     <link rel="stylesheet" href="tokens.css">
+    <link rel="stylesheet" href="date-picker-react.css">
+    <link rel="stylesheet" href="date-picker.css">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -95,16 +97,13 @@
         .action-button.due-edit { background: rgba(212,115,75,0.1); border-color: rgba(212,115,75,0.3); color: var(--status-warning-strong); }
 
         .due-edit-row { display: flex; gap: 6px; align-items: center; margin-top: 8px; }
-        .due-edit-row input[type="date"] {
-            background: var(--surface-field); color: var(--text-primary);
-            border: 1px solid var(--border-soft); border-radius: var(--radius-field); padding: 5px 8px; font-size: var(--text-meta);
-            color-scheme: dark;
-        }
-        .due-edit-row button {
+        .due-edit-row > .nsdp-mount { flex: 1; min-width: 0; display: flex; }
+        .due-edit-row > .nsdp-mount .nsdp-field-wrap { width: 100%; }
+        .due-edit-row > button {
             padding: 4px 10px; background: var(--action-primary); color: var(--action-on-text);
             border: none; border-radius: var(--radius-field); font-size: var(--text-meta); cursor: pointer; font-weight: 600;
         }
-        .due-edit-row button:last-child { background: transparent; color: var(--text-secondary); border: 1px solid var(--border-soft); font-weight: 400; }
+        .due-edit-row > button:last-child { background: transparent; color: var(--text-secondary); border: 1px solid var(--border-soft); font-weight: 400; }
 
         .empty-state { text-align: center; color: var(--text-faint); padding: 50px 0; font-size: 0.875rem; }
         .count-line { font-size: var(--text-meta); color: var(--text-faint); margin-bottom: 10px; }
@@ -156,6 +155,9 @@
     </div>
 
     <script src="icons.js"></script>
+    <!-- 日期选择器：react-day-picker 日历本体（构建产物）+ 原生封装 -->
+    <script src="date-picker-react.js"></script>
+    <script src="date-picker.js"></script>
     <script src="history.js"></script>
 </body>
 </html>
