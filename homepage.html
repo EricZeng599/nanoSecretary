@@ -157,6 +157,8 @@
         .legend .row { display: flex; align-items: center; gap: 6px; }
         .legend .swatch { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
         .legend .row .n { margin-left: auto; color: var(--text-secondary); font-family: var(--font-display); }
+        /* 「近7天完成」是独立计数，不是环段：无 swatch，用左缩进对齐带点的行 */
+        .legend .done-note { margin-left: 14px; }
         /* 今日副行（下一件） */
         .next-todo {
             display: flex; align-items: center; gap: 6px;
@@ -200,7 +202,10 @@
             border-top: 1px solid var(--border-subtle);
             font-size: var(--text-meta); color: var(--text-tertiary);
             display: flex; align-items: center; justify-content: space-between;
+            cursor: pointer; transition: color var(--dur-fast);
         }
+        .dash-tags .tag-detail:hover { color: var(--text-secondary); }
+        .dash-tags .tag-detail:hover .big { color: var(--action-primary); }
         .dash-tags .tag-detail .big {
             font-family: var(--font-display); font-size: 1.125rem; color: var(--text-strong);
         }
@@ -247,6 +252,21 @@
 
         /* 待办列表 */
         .list-section { flex: 1; min-height: 0; overflow-y: auto; }
+        /* 待办 tag 筛选条（从仪表盘 tag 芯片进入，action-first） */
+        .filter-bar {
+            display: flex; align-items: center; justify-content: space-between; gap: 8px;
+            margin: 0 0 8px; padding: 6px 10px;
+            background: var(--surface-chip); border: 1px solid var(--border-soft);
+            border-radius: var(--radius-field);
+            font-size: var(--text-meta); color: var(--text-secondary);
+        }
+        .filter-bar .filter-tag { color: var(--action-primary); font-weight: 600; }
+        .filter-clear {
+            background: transparent; color: var(--text-tertiary);
+            border: 1px solid var(--border-soft); padding: 2px 10px; border-radius: var(--radius-field);
+            font-size: var(--text-meta); cursor: pointer;
+        }
+        .filter-clear:hover { background: var(--button-secondary-hover); color: var(--text-strong); }
         .list-section h2 {
             font-size: var(--text-body); color: var(--text-tertiary);
             margin: 6px 0 8px; font-weight: var(--weight-strong);
@@ -482,6 +502,10 @@
             </div>
 
             <div class="list-section">
+                <div class="filter-bar" id="todo-filter" hidden>
+                    <span>筛选：<span class="filter-tag" id="todo-filter-tag"></span></span>
+                    <button type="button" class="filter-clear" id="todo-filter-clear">清除</button>
+                </div>
                 <h2>待办事项</h2>
                 <div class="entry-list" id="todo-list"></div>
                 <h2 style="margin-top:12px;">最近记录</h2>

@@ -166,24 +166,28 @@ function renderDashboard() {
     }).length;
     const attBox = document.getElementById('ring-attention');
     if (attBox) {
+        // 「待处理」只画仍待处理的两段（逾期 + 明后天到期）：这是同一 pending 坐标。
+        // done7N 属于「已完成」轴，不该混进待处理环 —— 否则中心总和会把已做完的算进
+        // 「待处理」，默认视图最显眼的一张卡就会说错话（critique P1-1）。
+        const pendingAttn = overdueN + dueSoonN;
         const segs = [
             { ratio: overdueN, color: 'var(--status-danger)' },
             { ratio: dueSoonN, color: 'var(--status-warning-strong)' },
-            { ratio: done7N, color: 'var(--status-success)' },
         ];
-        attBox.innerHTML = (overdueN + dueSoonN + done7N === 0)
+        attBox.innerHTML = (pendingAttn === 0)
             ? ringSVG(0, 'transparent', 'var(--border-soft)', SIZE, STROKE)
             : multiRingSVG(segs, 'var(--border-soft)', SIZE, STROKE);
         const wrap = attBox;
         let center = wrap.querySelector('.ring-center');
         if (!center) { center = document.createElement('div'); center.className = 'ring-center'; wrap.appendChild(center); }
-        center.innerHTML = `<div class="big">${overdueN + dueSoonN + done7N}</div><div class="sub">待处理</div>`;
+        center.innerHTML = `<div class="big">${pendingAttn}</div><div class="sub">待处理</div>`;
     }
     const legend = document.getElementById('attention-legend');
     if (legend) {
+        // 图例只标注环里的两段；「近7天完成」画成独立计数（无 swatch，不与环段混排）。
         legend.innerHTML = `<div class="row"><span class="swatch" style="background:var(--status-danger)"></span>逾期<span class="n">${overdueN}</span></div>
             <div class="row"><span class="swatch" style="background:var(--status-warning-strong)"></span>明后天到期<span class="n">${dueSoonN}</span></div>
-            <div class="row"><span class="swatch" style="background:var(--status-success)"></span>近7天完成<span class="n">${done7N}</span></div>`;
+            <div class="row done-note">近7天完成<span class="n">${done7N}</span></div>`;
     }
 
     // —— 卡3 本周完成：本周到期应做 vs 已完成 ——
@@ -212,6 +216,8 @@ function renderDashboard() {
 
 /** tag 计数格：chips = 全部标签，默认选中待办最多的。 */
 let activeTag = null;
+/** 当前待办 tag 筛选（来自仪表盘 tag 芯片点击；null = 不过滤）。 */
+let todoFilterTag = null;
 function renderTagRow(pendingTodos) {
     // 收集全部 tag（pending 的 tags + category），去重
     const tagCount = new Map();
@@ -235,15 +241,32 @@ function renderTagRow(pendingTodos) {
     ).join('');
     const detail = tagCount.get(activeTag) || 0;
     detailEl.innerHTML = `<span>#${esc(activeTag)}</span><span class="big">${detail} 项待办</span>`;
-    // 点击切换选中
+    // 摘要行同样可点：进记录视图并按该 tag 筛选（action-first）。
+    // 用 onclick（覆盖而非累加）—— #tag-detail 是常驻元素，addEventListener 会在每次重绘时累积。
+    detailEl.onclick = () => { setTodoFilter(activeTag); goRecords(); };
+    // 点击切换选中，并据此筛选待办列表（action-first：点 tag 进记录视图并过滤）
     chipsEl.querySelectorAll('.tag-chip').forEach((chip) => {
         chip.addEventListener('click', () => {
             activeTag = chip.dataset.tag;
             chipsEl.querySelectorAll('.tag-chip').forEach((c) => c.classList.toggle('active', c === chip));
             const n = tagCount.get(activeTag) || 0;
             detailEl.innerHTML = `<span>#${esc(activeTag)}</span><span class="big">${n} 项待办</span>`;
+            setTodoFilter(activeTag);
+            goRecords();
         });
     });
+}
+
+/** 应用/清除待办 tag 筛选，并刷新列表与筛选条。tag=null 表示清除。 */
+function setTodoFilter(tag) {
+    todoFilterTag = tag;
+    const bar = document.getElementById('todo-filter');
+    const tagEl = document.getElementById('todo-filter-tag');
+    if (bar && tagEl) {
+        bar.hidden = !tag;
+        if (tag) tagEl.textContent = '#' + tag;
+    }
+    renderTodos();
 }
 
 // 加载数据
@@ -265,6 +288,9 @@ document.getElementById('save-button').addEventListener('click', saveEntry);
 document.getElementById('input-text').addEventListener('keydown', (e) => {
     if (e.ctrlKey && e.key === 'Enter') saveEntry();
 });
+// 待办 tag 筛选条「清除」
+const todoFilterClear = document.getElementById('todo-filter-clear');
+if (todoFilterClear) todoFilterClear.addEventListener('click', () => setTodoFilter(null));
 
 // ---- 列表事件委托（替代内联 onclick，兼容 CSP 无内联脚本）----
 document.addEventListener('click', (e) => {
@@ -296,13 +322,22 @@ function renderTodos() {
     // 若改期行打开，先清理（列表即将重绘，其 DOM 会失效）
     if (dueEditRow) removeDueEdit();
     const list = document.getElementById('todo-list');
-    const todos = allEntries
+    let todos = allEntries
         .filter((e) => e.status === 'pending')
         .sort((a, b) => (a.dueDate || '9999') < (b.dueDate || '9999') ? -1 : 1);
+    // 应用来自仪表盘 tag 芯片的筛选（action-first）
+    if (todoFilterTag) {
+        todos = todos.filter((e) => {
+            const set = new Set([...(e.tags || []), e.category].filter(Boolean));
+            return set.has(todoFilterTag);
+        });
+    }
     document.getElementById('record-count').textContent = todos.length ? '(' + todos.length + ')' : '';
 
     if (!todos.length) {
-        list.innerHTML = '<div class="empty">没有待办，记点什么吧</div>';
+        list.innerHTML = todoFilterTag
+            ? `<div class="empty">没有「#${esc(todoFilterTag)}」的待办</div>`
+            : '<div class="empty">没有待办，记点什么吧</div>';
         return;
     }
     const today = localToday();
