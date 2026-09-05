@@ -275,7 +275,7 @@ document.addEventListener('click', (e) => {
     else if (btn.dataset.action === 'restore') markDone(id, false);
     else if (btn.dataset.action === 'delete') delEntry(id);
     else if (btn.dataset.action === 'topending') makePending(id);
-    else if (btn.dataset.action === 'reschedule') toggleDueEdit(id);
+    else if (btn.dataset.action === 'reschedule') toggleDueEdit(id, btn.closest('.entry-item'));
 });
 
 /** 备忘/随手记 → 待办（无截止日期，直接进待办列表） */
@@ -323,7 +323,7 @@ function renderTodos() {
             </div>
             <div class="entry-actions">
                 <button class="done-btn" type="button" data-action="done" data-id="${e.id}">${ic('check', 'inline')}完成</button>
-                ${e.dueDate ? `<button type="button" data-action="reschedule" data-id="${e.id}">${ic('edit', 'inline')}改期</button>` : ''}
+                <button type="button" data-action="reschedule" data-id="${e.id}">${ic('edit', 'inline')}改期</button>
             </div>
         </div>`;
     }).join('');
@@ -345,7 +345,7 @@ function renderRecent(entries) {
             : st === 'done'
                 ? `<button type="button" data-action="restore" data-id="${e.id}">${ic('restore', 'inline')}恢复</button>`
                 : `<button type="button" class="promote-btn" data-action="topending" data-id="${e.id}">${ic('pin', 'inline')}转为待办</button>`;
-        return `<div class="entry-item ${cls}">
+        return `<div class="entry-item ${cls}" data-id="${e.id}">
             <div class="entry-title">${esc(e.title || e.content)}</div>
             <div class="entry-meta">
                 ${e.dueDate ? `<span class="due">${ic('calendar', 'inline')}截止 ${esc(e.dueDate)}</span>` : ''}
@@ -354,6 +354,7 @@ function renderRecent(entries) {
             </div>
             <div class="entry-actions">
                 ${primary}
+                <button type="button" data-action="reschedule" data-id="${e.id}">${ic('edit', 'inline')}改期</button>
                 <button type="button" data-action="delete" data-id="${e.id}">${ic('trash', 'inline')}删除</button>
             </div>
         </div>`;
@@ -377,11 +378,13 @@ let dueEditRow = null;
 let dueEditPicker = null;
 let dueEditNewValue = undefined; // undefined=未改动; null=清除; 'yyyy-mm-dd'=新日期
 
-function toggleDueEdit(id) {
+function toggleDueEdit(id, card) {
     const entry = allEntries.find((e) => e.id === id);
     if (!entry) return;
     if (dueEditRow) removeDueEdit();
-    const card = document.querySelector(`.entry-item[data-id="${id}"]`);
+    // 用点击处的卡片（同一 pending 项可能同时出现在「待办列表」和「最近记录」，
+    // 不能按 id 反查，否则永远命中第一张）
+    if (!card) card = document.querySelector(`.entry-item[data-id="${id}"]`);
     if (!card) return;
 
     const row = document.createElement('div');
