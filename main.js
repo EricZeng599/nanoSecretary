@@ -565,10 +565,14 @@ ipcMain.on('get-entries', (event) => {
   event.reply('get-entries-success', readData());
 });
 
-/* 获取最近记录 */
+/* 获取最近记录：与主页「待办事项」不相交 —— 已转 pending 的项在列表里，不再重复进最近记录
+   （否则同一待办一屏两处渲染、操作还不同，且 markDone 会淡出错卡。critique P1） */
 ipcMain.on('get-recent-entries', (event) => {
   const data = readData();
-  const sorted = [...data].sort((a, b) => new Date(b.created) - new Date(a.created)).slice(0, 5);
+  const sorted = [...data]
+    .filter((e) => e.status !== 'pending') // note/done 才进最近记录
+    .sort((a, b) => new Date(b.created) - new Date(a.created))
+    .slice(0, 5);
   event.reply('recent-entries', sorted);
 });
 

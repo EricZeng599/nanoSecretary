@@ -135,7 +135,10 @@ function renderDashboard() {
             center.className = 'ring-center';
             wrap.appendChild(center);
         }
-        center.innerHTML = `<div class="big">${todayDone.length}<small>/${totalToday}</small></div><div class="sub">今日完成</div>`;
+        // 今日中心：无到期时显示「—」而非「0/0」（0/0 读着别扭；逾期归关注环负责）
+        center.innerHTML = (totalToday === 0)
+            ? '<div class="big">—</div><div class="sub">今日完成</div>'
+            : `<div class="big">${todayDone.length}<small>/${totalToday}</small></div><div class="sub">今日完成</div>`;
     }
     if (nextBox) {
         // 下一件 = 最近的未来到期（含今日未完成）
@@ -373,13 +376,11 @@ function renderRecent(entries) {
     }
     const ic = (name, cls) => (window.nanoIcons ? window.nanoIcons.ic(name, cls) : '');
     list.innerHTML = entries.map((e) => {
-        const st = e.status; // pending | done | note
-        const cls = st === 'pending' ? (e.dueDate && e.dueDate < localToday() ? 'overdue' : 'today') : st === 'done' ? 'done' : 'note';
-        const primary = st === 'pending'
-            ? `<button class="done-btn" type="button" data-action="done" data-id="${e.id}">${ic('check', 'inline')}完成</button>`
-            : st === 'done'
-                ? `<button type="button" data-action="restore" data-id="${e.id}">${ic('restore', 'inline')}恢复</button>`
-                : `<button type="button" class="promote-btn" data-action="topending" data-id="${e.id}">${ic('pin', 'inline')}转为待办</button>`;
+        const st = e.status; // done | note（pending 已在 main.js 排除，不与待办事项重复）
+        const cls = st === 'done' ? 'done' : 'note';
+        const primary = st === 'done'
+            ? `<button type="button" data-action="restore" data-id="${e.id}">${ic('restore', 'inline')}恢复</button>`
+            : `<button type="button" class="promote-btn" data-action="topending" data-id="${e.id}">${ic('pin', 'inline')}转为待办</button>`;
         return `<div class="entry-item ${cls}" data-id="${e.id}">
             <div class="entry-title">${esc(e.title || e.content)}</div>
             <div class="entry-meta">
@@ -624,7 +625,6 @@ function closeSettings() {
     if (settingsTrigger) { settingsTrigger.focus(); settingsTrigger = null; }
 }
 settingsOverlay.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') { closeSettings(); return; }
     if (e.key !== 'Tab') return;
     // 焦点圈定在面板内
     const focusables = settingsPanel.querySelectorAll('select, input, button');
@@ -695,13 +695,21 @@ const endHomeDrag = (e) => {
 header.addEventListener('pointerup', endHomeDrag);
 header.addEventListener('pointercancel', endHomeDrag);
 
-// Esc 收起
+// Esc：从最内层向上逐层关闭（critique P1：不能按一下就把整窗关掉）
 document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-        const overlay = document.getElementById('settings-overlay');
-        if (overlay.classList.contains('show')) closeSettings();
-        else api.closeHomepage();
-    }
+    if (e.key !== 'Escape') return;
+    // 1) 最内层：设置弹层
+    const overlay = document.getElementById('settings-overlay');
+    if (overlay.classList.contains('show')) { closeSettings(); return; }
+    // 2) 改期内联行（日历弹层）打开 → 只取消改期，不动窗口
+    if (dueEditRow) { removeDueEdit(); return; }
+    // 3) 输入框聚焦 → 只失焦清草稿缓冲，不关窗
+    const input = document.getElementById('input-text');
+    if (document.activeElement === input) { input.blur(); return; }
+    const chatInput = document.getElementById('chat-input');
+    if (document.activeElement === chatInput) { chatInput.blur(); return; }
+    // 4) 无编辑面 → 真正收起窗口
+    api.closeHomepage();
 });
 
 loadData();
