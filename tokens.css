@@ -27,7 +27,7 @@
     --text-primary: #e8e4de;                     /* 暖白 */
     --text-secondary: #c2bbb2;                   /* 暖灰 */
     --text-tertiary: #a39c93;                    /* 弱化 */
-    --text-faint: #8a837a;                       /* 更弱 */
+    --text-faint: #9c9388;                       /* 更弱（≥4.5:1 全表面，critique P1） */
     --text-strong: #f5f2ec;                      /* 强调 */
 
     /* ---- 动作（赭橙，deeptutor 主色） ---- */
@@ -45,7 +45,7 @@
 
     /* ---- 状态语义（暖色化） ---- */
     --status-danger: #c53a2c;                    /* 逾期/删除（deeptutor destructive） */
-    --status-danger-text: #e2716a;               /* 玻璃底上的红色小字（暖） */
+    --status-danger-text: #f0716a;               /* 玻璃底上的红色小字（暖，较热红，拉开与预警橙亮度） */
     --status-danger-bg: rgba(197, 58, 44, 0.22);
     --status-warning: #e0a06c;                   /* 今天/到期（暖橙） */
     --status-warning-strong: #d4734b;            /* 强调 */

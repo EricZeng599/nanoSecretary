@@ -585,6 +585,16 @@ ipcMain.on('delete-entry', (event, id) => {
   broadcastEntriesChanged();
 });
 
+/* 撤销删除：把被删记录原样插回（保留原 id） */
+ipcMain.on('restore-entry', (event, entry) => {
+  if (!entry || !entry.id) return;
+  const data = readData();
+  if (data.some((e) => e.id === entry.id)) return; // 已存在则不重复
+  data.push(entry);
+  writeData(data);
+  broadcastEntriesChanged();
+});
+
 /* 标记完成/未完成 */
 ipcMain.on('mark-done', (event, id, done) => {
   const data = readData();

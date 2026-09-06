@@ -114,32 +114,68 @@ function renderDashboard() {
     const today = localToday();
     const SIZE = 108, STROKE = 8;
 
-    // —— 卡1 今日 ——
+    // —— 主卡 关注：中心 = 全部待处理（诚实计数，含无日期/未到期的）——
+    const overdueN = pending.filter((e) => e.dueDate && e.dueDate < today).length;
+    // 明后天到期
+    const tom = new Date(); tom.setDate(tom.getDate() + 1);
+    const dayAft = new Date(); dayAft.setDate(dayAft.getDate() + 2);
+    const dueSoonN = pending.filter((e) => e.dueDate === dISO(tom) || e.dueDate === dISO(dayAft)).length;
+    // 其余待办 = 今天到期 + 未来到期 + 无日期；三段恒等于全部 pending（P0-1 不低报）
+    const restN = pending.length - overdueN - dueSoonN;
+    // 近7天完成（含今天，rolling）
+    const since = todayLocalDate(); since.setDate(since.getDate() - 6);
+    const done7N = done.filter((e) => {
+        const t = e.doneAt ? new Date(e.doneAt) : (e.dueDate ? new Date(e.dueDate + 'T00:00:00') : null);
+        return t && t >= since && t <= new Date();
+    }).length;
+
+    const attBox = document.getElementById('ring-attention');
+    if (attBox) {
+        // 三段 = 逾期(热红 #f0716a) / 明后天(橙) / 其余(描边色弱段)，总和恒等于全部 pending。
+        // done7N 属于「已完成」轴，不混进「待处理」环。
+        const segs = [
+            { ratio: overdueN, color: 'var(--status-danger-text)' },
+            { ratio: dueSoonN, color: 'var(--status-warning-strong)' },
+            { ratio: restN, color: 'var(--border-soft)' },
+        ];
+        attBox.innerHTML = multiRingSVG(segs, 'var(--border-soft)', 124, STROKE);
+        let center = attBox.querySelector('.ring-center');
+        if (!center) { center = document.createElement('div'); center.className = 'ring-center'; attBox.appendChild(center); }
+        center.innerHTML = `<div class="big">${pending.length}</div><div class="sub">待处理</div>`;
+    }
+    const legend = document.getElementById('attention-legend');
+    if (legend) {
+        legend.innerHTML = `<div class="row"><span class="swatch" style="background:var(--status-danger-text)"></span>逾期<span class="n">${overdueN}</span></div>
+            <div class="row"><span class="swatch" style="background:var(--status-warning-strong)"></span>明后天<span class="n">${dueSoonN}</span></div>`
+            + (restN > 0 ? `<div class="row"><span class="swatch" style="background:var(--border-soft)"></span>其余待办<span class="n">${restN}</span></div>` : '')
+            + `<div class="row done-note">近7天完成<span class="n">${done7N}</span></div>`;
+    }
+
+    // —— 本周应做 / 完成（只收进侧卡一行，主卡不再重复）——
+    const ws = weekStart();
+    const wsISO = dISO(ws);
+    const weISO = dISO(new Date());
+    const wkDone = done.filter((e) => e.doneAt && dISO(new Date(e.doneAt)) >= wsISO && dISO(new Date(e.doneAt)) <= weISO).length;
+    const wkDueAll = done.filter((e) => e.dueDate && e.dueDate >= wsISO && e.dueDate <= weISO).length + pending.filter((e) => e.dueDate && e.dueDate >= wsISO && e.dueDate <= weISO).length;
+
+    // —— 侧卡 今日 ——
     const todayDue = pending.filter((e) => e.dueDate === today);
     const todayDone = done.filter((e) => (e.doneAt ? dISO(new Date(e.doneAt)) : e.dueDate) === today);
     const totalToday = todayDue.length + todayDone.length;
     const todayBox = document.getElementById('ring-today');
     if (todayBox) {
         todayBox.innerHTML = (totalToday === 0)
-            ? ringSVG(0, 'transparent', 'var(--border-soft)', SIZE, STROKE)
-            : ringSVG(todayDone.length / totalToday, 'var(--action-primary)', 'var(--border-soft)', SIZE, STROKE);
-    }
-    // 中心 + 下一件
-    const nextBox = document.getElementById('today-next');
-    if (todayBox) {
-        // ring-today 本身就是 .ring-wrap（relative），center 绝对定位挂在它上面
-        const wrap = todayBox;
-        let center = wrap.querySelector('.ring-center');
-        if (!center) {
-            center = document.createElement('div');
-            center.className = 'ring-center';
-            wrap.appendChild(center);
-        }
+            ? ringSVG(0, 'transparent', 'var(--border-soft)', 84, STROKE)
+            : ringSVG(todayDone.length / totalToday, 'var(--action-primary)', 'var(--border-soft)', 84, STROKE);
+        let center = todayBox.querySelector('.ring-center');
+        if (!center) { center = document.createElement('div'); center.className = 'ring-center'; todayBox.appendChild(center); }
         // 今日中心：无到期时显示「—」而非「0/0」（0/0 读着别扭；逾期归关注环负责）
         center.innerHTML = (totalToday === 0)
             ? '<div class="big">—</div><div class="sub">今日完成</div>'
             : `<div class="big">${todayDone.length}<small>/${totalToday}</small></div><div class="sub">今日完成</div>`;
     }
+    // 下一件（带「下一件」标签；点击进记录视图）
+    const nextBox = document.getElementById('today-next');
     if (nextBox) {
         // 下一件 = 最近的未来到期（含今日未完成）
         const future = pending
@@ -147,7 +183,8 @@ function renderDashboard() {
             .sort((a, b) => (a.dueDate + (a.time||'')) < (b.dueDate + (b.time||'')) ? -1 : 1);
         if (future.length) {
             const nx = future[0];
-            nextBox.innerHTML = `<span class="hl">${esc(nx.title)}</span><span>${nx.time || ''}</span>`;
+            const when = nx.dueDate === today ? '今天' : nx.dueDate === dISO(tom) ? '明天' : nx.dueDate;
+            nextBox.innerHTML = `<span class="lbl">下一件</span><span class="hl">${esc(nx.title)}</span><span class="lbl">${when}${nx.time ? ' ' + esc(nx.time) : ''}</span>`;
             nextBox.style.display = 'flex';
             nextBox.onclick = () => goRecords();
         } else {
@@ -155,72 +192,23 @@ function renderDashboard() {
         }
     }
 
-    // —— 卡2 关注：三色环 逾期/临近/近7天完成 ——
-    const overdueN = pending.filter((e) => e.dueDate && e.dueDate < today).length;
-    // 临近 = 明天或后天到期
-    const tom = new Date(); tom.setDate(tom.getDate() + 1);
-    const dayAft = new Date(); dayAft.setDate(dayAft.getDate() + 2);
-    const dueSoonN = pending.filter((e) => e.dueDate === dISO(tom) || e.dueDate === dISO(dayAft)).length;
-    // 近7天完成（含今天，rolling）
-    const since = todayLocalDate(); since.setDate(since.getDate() - 6);
-    const done7N = done.filter((e) => {
-        const t = e.doneAt ? new Date(e.doneAt) : (e.dueDate ? new Date(e.dueDate + 'T00:00:00') : null);
-        return t && t >= since && t <= new Date();
-    }).length;
-    const attBox = document.getElementById('ring-attention');
-    if (attBox) {
-        // 「待处理」只画仍待处理的两段（逾期 + 明后天到期）：这是同一 pending 坐标。
-        // done7N 属于「已完成」轴，不该混进待处理环 —— 否则中心总和会把已做完的算进
-        // 「待处理」，默认视图最显眼的一张卡就会说错话（critique P1-1）。
-        const pendingAttn = overdueN + dueSoonN;
-        const segs = [
-            { ratio: overdueN, color: 'var(--status-danger)' },
-            { ratio: dueSoonN, color: 'var(--status-warning-strong)' },
-        ];
-        attBox.innerHTML = (pendingAttn === 0)
-            ? ringSVG(0, 'transparent', 'var(--border-soft)', SIZE, STROKE)
-            : multiRingSVG(segs, 'var(--border-soft)', SIZE, STROKE);
-        const wrap = attBox;
-        let center = wrap.querySelector('.ring-center');
-        if (!center) { center = document.createElement('div'); center.className = 'ring-center'; wrap.appendChild(center); }
-        center.innerHTML = `<div class="big">${pendingAttn}</div><div class="sub">待处理</div>`;
-    }
-    const legend = document.getElementById('attention-legend');
-    if (legend) {
-        // 图例只标注环里的两段；「近7天完成」画成独立计数（无 swatch，不与环段混排）。
-        legend.innerHTML = `<div class="row"><span class="swatch" style="background:var(--status-danger)"></span>逾期<span class="n">${overdueN}</span></div>
-            <div class="row"><span class="swatch" style="background:var(--status-warning-strong)"></span>明后天到期<span class="n">${dueSoonN}</span></div>
-            <div class="row done-note">近7天完成<span class="n">${done7N}</span></div>`;
-    }
-
-    // —— 卡3 本周完成：本周到期应做 vs 已完成 ——
-    const ws = weekStart();
-    const wsISO = dISO(ws);
-    const weISO = dISO(new Date());
-    // 本周到期应做（status pending 且 due 在本周，或已 done 且 doneAt 本周）
-    const wkDone = done.filter((e) => e.doneAt && dISO(new Date(e.doneAt)) >= wsISO && dISO(new Date(e.doneAt)) <= weISO).length;
-    // 本周到期（含已完成的：其 due 在本周）
-    const wkDueAll = done.filter((e) => e.dueDate && e.dueDate >= wsISO && e.dueDate <= weISO).length + pending.filter((e) => e.dueDate && e.dueDate >= wsISO && e.dueDate <= weISO).length;
-    const wkBox = document.getElementById('ring-week');
-    if (wkBox) {
-        wkBox.innerHTML = (wkDueAll === 0)
-            ? ringSVG(0, 'transparent', 'var(--border-soft)', SIZE, STROKE)
-            : ringSVG(wkDone / wkDueAll, 'var(--action-primary)', 'var(--border-soft)', SIZE, STROKE);
-        const wrap = wkBox;
-        let center = wrap.querySelector('.ring-center');
-        if (!center) { center = document.createElement('div'); center.className = 'ring-center'; wrap.appendChild(center); }
-        center.innerHTML = `<div class="big">${wkDone}</div><div class="sub">已完成</div>`;
+    // —— 侧卡 本周：去环，压成一行进度（与主卡 week-strip 同源，不抢焦点）——
+    const wkBlock = document.getElementById('week-block');
+    if (wkBlock) {
+        const frac = wkDueAll ? Math.min(1, wkDone / wkDueAll) : 0;
+        wkBlock.innerHTML = `<div class="bar"><i style="width:${(frac * 100).toFixed(1)}%"></i></div>`;
     }
     const weekFoot = document.getElementById('week-foot');
-    if (weekFoot) weekFoot.innerHTML = (wkDueAll === 0) ? '本周暂无到期待办' : `本周应做 <span class="hl">${wkDueAll}</span> · 完成 <span class="hl">${wkDone}</span>`;
+    if (weekFoot) weekFoot.innerHTML = (wkDueAll === 0) ? '本周暂无' : `共 ${wkDueAll} 件 · 已完成 ${wkDone}`;
 
     renderTagRow(pending);
 }
 
-/** tag 计数格：chips = 全部标签，默认选中待办最多的。 */
+/** tag 计数格：默认只露 Top-3 芯片，其余收进「更多标签」；详情一行点选进记录。 */
 let activeTag = null;
 /** 当前待办 tag 筛选（来自仪表盘 tag 芯片点击；null = 不过滤）。 */
 let todoFilterTag = null;
+const TAG_TOP_N = 3;
 function renderTagRow(pendingTodos) {
     // 收集全部 tag（pending 的 tags + category），去重
     const tagCount = new Map();
@@ -231,27 +219,61 @@ function renderTagRow(pendingTodos) {
     const tags = Array.from(tagCount.entries()).sort((a, b) => b[1] - a[1]);
     const chipsEl = document.getElementById('tag-chips');
     const detailEl = document.getElementById('tag-detail');
-    if (!chipsEl || !detailEl) return;
+    const revealEl = document.getElementById('tag-reveal');
+    if (!chipsEl || !detailEl || !revealEl) return;
     if (!tags.length) {
-        chipsEl.innerHTML = '<div class="dash-empty">暂无待办</div>';
+        chipsEl.innerHTML = '<div class="dash-empty">没有待办</div>';
         detailEl.innerHTML = '';
+        revealEl.hidden = true;
         return;
     }
     // 默认选中待办最多者（或保留上次仍在的选中）
     if (!activeTag || !tagCount.has(activeTag)) activeTag = tags[0][0];
-    chipsEl.innerHTML = tags.map(([t, n]) =>
-        `<button type="button" class="tag-chip${t === activeTag ? ' active' : ''}" data-tag="${esc(t)}">#${esc(t)}<span class="cnt">${n}</span></button>`
+    const top = tags.slice(0, TAG_TOP_N);
+    const rest = tags.slice(TAG_TOP_N);
+    // Top-3 常驻；若选中不在 Top-3，把它补进来（保证选中的始终可见）
+    if (activeTag && !top.some(([t]) => t === activeTag)) {
+        const picked = tags.find(([t]) => t === activeTag);
+        if (picked) top[top.length - 1] = picked;
+    }
+    chipsEl.innerHTML = top.map(([t, n]) =>
+        `<button type="button" class="tag-chip${t === activeTag ? ' active' : ''}" data-tag="${esc(t)}" aria-pressed="${t === activeTag}">#${esc(t)}<span class="cnt">${n}</span></button>`
     ).join('');
+    // 其余收进「更多标签」reveal（distill：默认不挤占主角）
+    revealEl.hidden = !rest.length;
+    if (rest.length) {
+        revealEl.textContent = `更多标签 +${rest.length}`;
+        revealEl.setAttribute('aria-expanded', String(chipsEl.classList.contains('expanded')));
+    }
     const detail = tagCount.get(activeTag) || 0;
     detailEl.innerHTML = `<span>#${esc(activeTag)}</span><span class="big">${detail} 项待办</span>`;
     // 摘要行同样可点：进记录视图并按该 tag 筛选（action-first）。
-    // 用 onclick（覆盖而非累加）—— #tag-detail 是常驻元素，addEventListener 会在每次重绘时累积。
     detailEl.onclick = () => { setTodoFilter(activeTag); goRecords(); };
+    // 展开/收起其余标签
+    revealEl.onclick = () => {
+        const expanded = chipsEl.classList.toggle('expanded');
+        revealEl.textContent = expanded ? '收起' : `更多标签 +${rest.length}`;
+        revealEl.setAttribute('aria-expanded', String(expanded));
+        if (expanded) {
+            const extra = rest.filter(([t]) => t !== activeTag).map(([t, n]) =>
+                `<button type="button" class="tag-chip" data-tag="${esc(t)}" aria-pressed="false">#${esc(t)}<span class="cnt">${n}</span></button>`
+            ).join('');
+            chipsEl.insertAdjacentHTML('beforeend', extra);
+        } else {
+            chipsEl.querySelectorAll('.tag-chip').forEach((c) => {
+                if (!top.some(([t]) => t === c.dataset.tag)) c.remove();
+            });
+        }
+    };
     // 点击切换选中，并据此筛选待办列表（action-first：点 tag 进记录视图并过滤）
     chipsEl.querySelectorAll('.tag-chip').forEach((chip) => {
         chip.addEventListener('click', () => {
             activeTag = chip.dataset.tag;
-            chipsEl.querySelectorAll('.tag-chip').forEach((c) => c.classList.toggle('active', c === chip));
+            chipsEl.querySelectorAll('.tag-chip').forEach((c) => {
+                const on = c.dataset.tag === activeTag;
+                c.classList.toggle('active', on);
+                c.setAttribute('aria-pressed', String(on));
+            });
             const n = tagCount.get(activeTag) || 0;
             detailEl.innerHTML = `<span>#${esc(activeTag)}</span><span class="big">${n} 项待办</span>`;
             setTodoFilter(activeTag);
@@ -306,6 +328,32 @@ document.addEventListener('click', (e) => {
     else if (btn.dataset.action === 'topending') makePending(id);
     else if (btn.dataset.action === 'reschedule') toggleDueEdit(id, btn.closest('.entry-item'));
 });
+
+// 可点击仪表盘卡：主卡(关注)、今日卡、本周卡 → 进记录视图（键盘可用，Enter/Space）
+function bindDashCardNav() {
+    const cardIds = ['card-attention', 'card-today', 'card-week'];
+    const handler = (target) => (e) => {
+        // 点击到子交互（如今日卡里的「下一件」）时不重复导航
+        if (e.target.closest('.next-todo') || e.target.closest('.tag-chip') || e.target.closest('.tag-reveal')) return;
+        if (e.key && e.key !== 'Enter' && e.key !== ' ') return;
+        if (e.key === ' ') e.preventDefault();
+        goRecords();
+    };
+    for (const id of cardIds) {
+        const el = document.getElementById(id);
+        if (el) { el.addEventListener('click', handler(el)); el.addEventListener('keydown', handler(el)); }
+    }
+    // 「下一件」是卡内子交互：自身的 role="button"（键盘 Enter/Space 也进记录）
+    const next = document.getElementById('today-next');
+    if (next) {
+        next.addEventListener('keydown', (e) => {
+            if (e.key !== 'Enter' && e.key !== ' ') return;
+            e.preventDefault(); e.stopPropagation();
+            goRecords();
+        });
+    }
+}
+bindDashCardNav();
 
 /** 备忘/随手记 → 待办（无截止日期，直接进待办列表） */
 function makePending(id) {
@@ -371,7 +419,7 @@ function renderTodos() {
 function renderRecent(entries) {
     const list = document.getElementById('recent-list');
     if (!entries.length) {
-        list.innerHTML = '<div class="empty">暂无记录</div>';
+        list.innerHTML = '<div class="empty">没有记录</div>';
         return;
     }
     const ic = (name, cls) => (window.nanoIcons ? window.nanoIcons.ic(name, cls) : '');
@@ -398,15 +446,16 @@ function renderRecent(entries) {
 }
 
 function markDone(id, done) {
-    // 找到对应的卡片元素，先做完成动效再刷新
+    // 找到对应的卡片元素，先做完成动效再刷新（reduced-motion 时跳过动效）
     const card = document.querySelector(`.entry-item[data-id="${id}"]`);
-    if (card) {
+    const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (card && !reduced) {
         card.style.transition = 'opacity 0.25s ease, transform 0.25s ease';
         card.style.opacity = '0';
         card.style.transform = 'scale(0.96) translateX(8px)';
     }
     api.markDone(id, done);
-    setTimeout(loadData, 280); // 等动效播完再刷新
+    setTimeout(loadData, reduced ? 20 : 280); // 等动效播完再刷新
 }
 
 // 改期（内联编辑）：点「改期」→ 展开日历弹层 → 选择日期 → 确定
@@ -486,15 +535,41 @@ function delEntry(id) {
     if (!card || card.querySelector('.confirm-bar')) return;
     const bar = document.createElement('div');
     bar.className = 'confirm-bar';
-    bar.innerHTML = '<span>确认删除？</span><span class="confirm-btns"><button type="button" data-confirm="yes">删除</button><button type="button" class="confirm-no" data-confirm="no">取消</button></span>';
+    bar.innerHTML = '<span>确认删除？（删除后可在提示里撤销）</span><span class="confirm-btns"><button type="button" data-confirm="yes">删除</button><button type="button" class="confirm-no" data-confirm="no">取消</button></span>';
     bar.querySelector('[data-confirm="yes"]').addEventListener('click', () => {
+        const entry = allEntries.find((e) => e.id === id);
         api.deleteEntry(id);
         bar.remove();
+        if (entry) showToast('已删除', { undo: entry }); // 提供撤销
         setTimeout(loadData, 150);
     });
     bar.querySelector('[data-confirm="no"]').addEventListener('click', () => bar.remove());
     card.appendChild(bar);
     bar.querySelector('[data-confirm="yes"]').focus();
+}
+
+// 轻量 toast：msg + 可选撤销（undo = 被删的记录对象）
+let toastTimer = null;
+function showToast(msg, opts) {
+    const el = document.getElementById('toast');
+    if (!el) return;
+    el.innerHTML = '';
+    el.appendChild(document.createTextNode(msg));
+    if (opts && opts.undo) {
+        const undoBtn = document.createElement('button');
+        undoBtn.className = 'toast-undo';
+        undoBtn.type = 'button';
+        undoBtn.textContent = '撤销';
+        undoBtn.addEventListener('click', () => {
+            api.restoreEntry(opts.undo);
+            showToast('已恢复');
+            loadData();
+        });
+        el.appendChild(undoBtn);
+    }
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
 }
 
 function esc(str) {
@@ -535,12 +610,15 @@ function sendChat() {
     input.value = '';
     const aiStatus = document.getElementById('ai-status');
     aiStatus.textContent = '思考中…';
+    aiStatus.title = '';
     api.sendChat(chatHistory);
 }
 api.onChatReply((reply) => {
     chatHistory.push({ role: 'assistant', content: reply });
     appendChat('ai', reply);
-    document.getElementById('ai-status').textContent = '在线';
+    const el = document.getElementById('ai-status');
+    el.textContent = 'AI 在线';
+    el.title = '';
 });
 function appendChat(role, content) {
     const box = document.getElementById('chat-messages');
@@ -558,10 +636,12 @@ api.getAiStatus();
 api.onAiStatus((status) => {
     const el = document.getElementById('ai-status');
     if (status.available) {
-        el.textContent = 'AI 在线 · ' + status.model;
+        el.textContent = 'AI 在线';
+        el.title = status.model || ''; // 完整模型号放 tooltip，避免淹没头部
         el.className = 'ai-status online';
     } else {
-        el.textContent = 'AI 离线（Ollama 未启动）';
+        el.textContent = 'AI 离线';
+        el.title = 'Ollama 未启动';
         el.className = 'ai-status offline';
     }
 });

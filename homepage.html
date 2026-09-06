@@ -54,6 +54,8 @@
             padding: 3px 10px; border-radius: var(--radius-chip);
             background: var(--surface-chip);
             letter-spacing: 0.01em;
+            max-width: 46%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+            cursor: default;
         }
         .header .ai-status.online { color: var(--status-ai-online); background: rgba(111,168,107,0.15); }
         .header .ai-status.offline { color: var(--text-tertiary); }
@@ -87,10 +89,9 @@
             min-height: 0;
             gap: 12px;
         }
-        /* 上排：三张环卡（今日/三色关注/本周完成） */
+        /* 上排：关注卡做主角，今日/本周小卡让位 */
         .dash-row { display: flex; gap: 12px; }
         .dash-card {
-            flex: 1;
             min-width: 0;
             background: var(--surface-card);
             border: 1px solid var(--border-subtle);
@@ -100,6 +101,11 @@
             flex-direction: column;
             transition: background var(--dur-fast);
         }
+        /* 关注卡 = 主卡（flex: 1.2），环更大更醒目 */
+        .dash-card.attention { flex: 1.2; }
+        /* 右侧列：今日 + 本周 垂直堆叠 */
+        .dash-col { flex: 1; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+        .dash-col .dash-card { flex: 1; }
         .dash-card.clickable { cursor: pointer; }
         .dash-card.clickable:hover { background: var(--surface-card-hover); }
         .dash-card .card-label {
@@ -113,7 +119,6 @@
         /* 环区 */
         .ring-wrap {
             position: relative;
-            width: 108px; height: 108px;
             margin: 0 auto 10px;
         }
         .ring-wrap svg { display: block; }
@@ -136,6 +141,26 @@
             font-size: var(--text-tiny);
             color: var(--text-faint);
             margin-top: 2px;
+        }
+        /* 主卡（关注）中心数字更大 —— 唯一主导元素 */
+        .dash-card.attention .ring-center .big { font-size: 2.5rem; }
+        .dash-card.attention .ring-wrap { width: 124px; height: 124px; }
+        /* 侧卡（今日）中心数字缩小，与主卡拉开层级 */
+        .dash-card.side .ring-center .big { font-size: 1.375rem; }
+        .dash-card.side .ring-wrap { width: 84px; height: 84px; }
+        /* 本周侧卡：去环，压实成一行进度 */
+        .week-block {
+            margin-top: 4px;
+            display: flex; align-items: center; gap: 8px;
+            font-size: var(--text-meta); color: var(--text-tertiary);
+        }
+        .week-block .bar {
+            flex: 1; height: 4px; border-radius: 2px;
+            background: var(--surface-chip); overflow: hidden;
+        }
+        .week-block .bar > i {
+            display: block; height: 100%;
+            background: var(--action-primary); border-radius: 2px;
         }
         /* 环下注释行 */
         .dash-foot {
@@ -167,6 +192,7 @@
             border-top: 1px solid var(--border-subtle);
             cursor: pointer;
         }
+        .next-todo .lbl { flex-shrink: 0; color: var(--text-faint); }
         .next-todo:hover .hl { color: var(--action-primary); }
         .next-todo .hl {
             overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
@@ -197,6 +223,15 @@
         .tag-chip:hover { background: var(--button-secondary-hover); color: var(--text-strong); }
         .tag-chip.active { background: var(--surface-active); border-color: var(--border-strong); color: var(--text-strong); }
         .tag-chip .cnt { color: var(--text-faint); font-family: var(--font-display); font-size: var(--text-tiny); }
+        /* 展开其余标签（distill：默认只露 Top-3，点开再看剩余） */
+        .tag-reveal {
+            margin-top: 8px;
+            background: transparent; color: var(--text-tertiary);
+            border: 1px solid var(--border-soft); border-radius: var(--radius-field);
+            padding: 3px 10px; font-size: var(--text-meta); cursor: pointer;
+            display: inline-flex; align-items: center; gap: 4px;
+        }
+        .tag-reveal:hover { background: var(--button-secondary-hover); color: var(--text-strong); }
         .dash-tags .tag-detail {
             margin-top: 10px; padding-top: 8px;
             border-top: 1px solid var(--border-subtle);
@@ -285,7 +320,7 @@
         .entry-item.today { border-left-color: var(--status-warning-strong); }
         .entry-item.note { border-left-color: var(--status-note); }
         .entry-item.done { border-left-color: var(--status-success); opacity: 0.62; }
-        .entry-title { font-size: var(--text-body); margin-bottom: 4px; font-weight: var(--weight-strong); color: var(--text-strong); }
+        .entry-title { font-size: var(--text-body); margin-bottom: 4px; font-weight: var(--weight-strong); color: var(--text-strong); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
         .entry-meta { display: flex; gap: 8px; font-size: var(--text-meta); color: var(--text-tertiary); align-items: center; flex-wrap: wrap; }
         .entry-meta .due { color: var(--status-warning-strong); }
         .entry-meta .due.overdue { color: var(--status-danger-text); }
@@ -327,6 +362,26 @@
             font-size: var(--text-meta); cursor: pointer;
         }
         .confirm-bar button.confirm-no { background: transparent; color: var(--text-secondary); border: 1px solid var(--border-soft); }
+
+        /* 轻量 toast（保存/删除等反馈，底部浮出） */
+        .toast {
+            position: fixed; bottom: 18px; left: 50%;
+            transform: translateX(-50%) translateY(8px);
+            background: var(--surface-raised); color: var(--text-strong);
+            border: 1px solid var(--border-soft); border-radius: var(--radius-panel);
+            padding: 8px 14px; font-size: var(--text-meta);
+            box-shadow: var(--shadow-card);
+            opacity: 0; pointer-events: none;
+            transition: opacity var(--dur-med), transform var(--dur-med);
+            z-index: 30; max-width: 90%; white-space: nowrap;
+        }
+        .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+        .toast .toast-undo {
+            margin-left: 12px; color: var(--action-primary); font-weight: 600;
+            background: none; border: none; cursor: pointer; font-size: var(--text-meta);
+            padding: 0;
+        }
+        .toast .toast-undo:hover { text-decoration: underline; }
 
         /* 对话 Tab */
         .chat-section {
@@ -441,8 +496,9 @@
 
         /* 无障碍：减少动态 */
         @media (prefers-reduced-motion: reduce) {
-            .tab, .entry-item, .footer-button, .switch { transition: none; }
+            .tab, .entry-item, .footer-button, .switch, .card-label, .dash-card { transition: none; }
             #settings-panel { animation: none; }
+            .toast { transition: none; }
         }
     </style>
 </head>
@@ -461,30 +517,35 @@
 
         <!-- 仪表盘视图（bento，默认） -->
         <div id="view-dashboard" role="tabpanel" aria-labelledby="view-tab-dashboard">
+            <!-- 上排：关注卡做主角（左），今日/本周让位（右列） -->
             <div class="dash-row" id="dash-top-row">
-                <!-- 今日总览环 -->
-                <div class="dash-card" id="card-today">
-                    <div class="card-label">今日</div>
-                    <div class="ring-wrap" id="ring-today"></div>
-                    <div class="next-todo" id="today-next" title="跳转到记录"></div>
-                </div>
-                <!-- 三色关注环：逾期 / 临近 / 近7天完成 -->
-                <div class="dash-card" id="card-attention">
+                <!-- 主卡：关注环 —— 中心 = 全部待处理（诚实含无日期） -->
+                <div class="dash-card attention clickable" id="card-attention" role="button" tabindex="0" aria-label="关注：查看待办">
                     <div class="card-label">关注</div>
                     <div class="ring-wrap" id="ring-attention"></div>
                     <div class="legend" id="attention-legend"></div>
                 </div>
-                <!-- 本周完成进度环 -->
-                <div class="dash-card" id="card-week">
-                    <div class="card-label">本周完成</div>
-                    <div class="ring-wrap" id="ring-week"></div>
-                    <div class="dash-foot" id="week-foot"></div>
+                <!-- 右侧列：今日 + 本周（本周去环，压成文字行） -->
+                <div class="dash-col" id="dash-col-side">
+                    <!-- 今日总览环 -->
+                    <div class="dash-card side clickable" id="card-today" role="button" tabindex="0" aria-label="今日：查看记录">
+                        <div class="card-label">今日</div>
+                        <div class="ring-wrap" id="ring-today"></div>
+                        <div class="next-todo" id="today-next" role="button" tabindex="0" title="跳转到记录"></div>
+                    </div>
+                    <!-- 本周：去环，压成一行进度（distill：不抢主卡注意力） -->
+                    <div class="dash-card side clickable" id="card-week" role="button" tabindex="0" aria-label="本周完成：查看记录">
+                        <div class="card-label">本周</div>
+                        <div class="week-block" id="week-block"></div>
+                        <div class="dash-foot" id="week-foot"></div>
+                    </div>
                 </div>
             </div>
-            <!-- tag 计数格 -->
+            <!-- tag：Top-3 芯片 + 展开详情（distill：弱化非主角信息） -->
             <div class="dash-tags" id="dash-tags">
                 <div class="tags-label">标签待办</div>
-                <div class="tag-chips" id="tag-chips"></div>
+                <div class="tag-chips top-three" id="tag-chips"></div>
+                <button type="button" class="tag-reveal" id="tag-reveal" hidden></button>
                 <div class="tag-detail" id="tag-detail"></div>
             </div>
         </div>
@@ -558,6 +619,9 @@
             </div>
         </div>
     </div>
+
+    <!-- 轻量反馈 toast -->
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
     <script src="icons.js"></script>
     <!-- 日期选择器：react-day-picker 日历本体（构建产物）+ 原生封装 -->

@@ -23,6 +23,7 @@ contextBridge.exposeInMainWorld('api', {
   onRecentEntries: (cb) => ipcRenderer.on('recent-entries', (e, data) => cb(data)),
   deleteEntry: (id) => ipcRenderer.send('delete-entry', id),
   onDeleteSuccess: (cb) => ipcRenderer.on('delete-entry-success', (e, ok) => cb(ok)),
+  restoreEntry: (entry) => ipcRenderer.send('restore-entry', entry),
   markDone: (id, done) => ipcRenderer.send('mark-done', id, done),
   updateDueDate: (id, dueDate) => ipcRenderer.send('update-due-date', id, dueDate),
   makePending: (id) => ipcRenderer.send('make-pending', id),
