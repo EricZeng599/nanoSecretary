@@ -95,7 +95,8 @@ function multiRingSVG(segments, trackColor, size, stroke) {
         if (seg.ratio <= 0) continue;
         const frac = seg.ratio / Math.max(total, 1e-9);
         const len = frac * c;
-        parts += `<circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="${seg.color}" stroke-width="${stroke}"
+        const w = seg.stroke || stroke; // 每段可覆盖笔画权重（明后天/其余故让「今天」更突出）
+        parts += `<circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="${seg.color}" stroke-width="${w}"
             stroke-linecap="butt" stroke-dasharray="${len.toFixed(1)} ${c.toFixed(1)}"
             stroke-dashoffset="${(-acc).toFixed(1)}"
             transform="rotate(-90 ${size / 2} ${size / 2})"/>`;
@@ -133,12 +134,13 @@ function renderDashboard() {
 
     const attBox = document.getElementById('ring-attention');
     if (attBox) {
-        // 四段 = 逾期(热红 #f0716a) / 今天(强调赭橙) / 明后天(轻橙) / 其余(描边色弱段)。
+        // 四段 = 逾期(热红 #f0716a,满宽) / 今天(强调赭橙,满宽) / 明后天(轻橙,细) / 其余(描边色弱段)。
+        // 「今天」与「明后天」都是暖橙、易混淆，故让明后天用更细笔画从属，令今天成为环上唯一突出赭橙。
         // 四段之和恒等于全部 pending（P0-1 不低报）；done7N 属「已完成」轴，不混进「待处理」环。
         const segs = [
             { ratio: overdueN, color: 'var(--status-danger-text)' },
             { ratio: todayDueN, color: 'var(--status-warning-strong)' },
-            { ratio: dueSoonN, color: 'var(--status-warning)' },
+            { ratio: dueSoonN, color: 'var(--status-warning)', stroke: 5 },
             { ratio: restN, color: 'var(--border-soft)' },
         ];
         attBox.innerHTML = multiRingSVG(segs, 'var(--border-soft)', 124, STROKE);
@@ -152,7 +154,7 @@ function renderDashboard() {
             <div class="row"><span class="swatch" style="background:var(--status-warning-strong)"></span>今天<span class="n">${todayDueN}</span></div>
             <div class="row"><span class="swatch" style="background:var(--status-warning)"></span>明后天<span class="n">${dueSoonN}</span></div>`
             + (restN > 0 ? `<div class="row"><span class="swatch" style="background:var(--border-soft)"></span>其余待办<span class="n">${restN}</span></div>` : '')
-            + `<div class="row done-note">近7天完成<span class="n">${done7N}</span></div>`;
+            + `<div class="axis-divider"></div><div class="row done-note">近7天完成<span class="n">${done7N}</span></div>`;
     }
 
     // —— 本周应做 / 完成（只收进侧卡一行，主卡不再重复）——
@@ -509,7 +511,7 @@ function renderRecent(entries) {
             <div class="entry-title">${esc(e.title || e.content)}</div>
             <div class="entry-meta">
                 ${e.dueDate ? `<span class="due">${ic('calendar', 'inline')}截止 ${esc(e.dueDate)}</span>` : ''}
-                <span>${esc(formatTime(e.created))}</span>
+                ${formatTime(e.created) ? `<span>${esc(formatTime(e.created))}</span>` : ''}
                 ${e.category ? `<span class="cat">${esc(e.category)}</span>` : ''}
             </div>
             <div class="entry-actions">
@@ -652,6 +654,7 @@ function esc(str) {
     return String(str || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 function formatTime(iso) {
+    if (!iso) return ''; // 防御：缺时间时不渲染中文外的裸 "Invalid Date"（真实数据 readData() 总回填 created）
     const d = new Date(iso), now = new Date();
     const diff = now - d;
     if (diff < 60000) return '刚刚';
@@ -709,6 +712,16 @@ document.getElementById('chat-input').addEventListener('keydown', (e) => { if (e
 
 // AI 状态
 api.getAiStatus();
+let aiStatusTimer = null;
+// 「连接中…」兜底：若几秒内 getAiStatus 未回包，转成明确的离线提示，避免状态永远悬置
+aiStatusTimer = setTimeout(() => {
+    const el = document.getElementById('ai-status');
+    if (el && el.textContent === 'AI 连接中…') {
+        el.textContent = 'AI 离线';
+        el.title = 'Ollama 未启动';
+        el.className = 'ai-status offline';
+    }
+}, 4000);
 api.onAiStatus((status) => {
     const el = document.getElementById('ai-status');
     if (status.available) {
@@ -720,6 +733,8 @@ api.onAiStatus((status) => {
         el.title = 'Ollama 未启动';
         el.className = 'ai-status offline';
     }
+    // 一旦拿到状态就撤销「连接中」超时兜底（避免离线判定被覆盖）
+    if (aiStatusTimer) { clearTimeout(aiStatusTimer); aiStatusTimer = null; }
 });
 
 // 底部按钮

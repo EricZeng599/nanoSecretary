@@ -59,6 +59,10 @@
         }
         .header .ai-status.online { color: var(--status-ai-online); background: rgba(111,168,107,0.15); }
         .header .ai-status.offline { color: var(--text-tertiary); }
+        /* 「连接中」给出轻微处理指示（脉冲点），区别于卡住无反馈 */
+        .header .ai-status.loading { color: var(--text-tertiary); }
+        .header .ai-status.loading::after { content: '…'; animation: ai-pulse 1.2s ease-in-out infinite; }
+        @keyframes ai-pulse { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
 
         /* 顶部 Tab */
         .tabs { display: flex; gap: 4px; margin-bottom: 12px; border-bottom: 1px solid var(--border-subtle); }
@@ -182,8 +186,13 @@
         .legend .row { display: flex; align-items: center; gap: 6px; }
         .legend .swatch { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
         .legend .row .n { margin-left: auto; color: var(--text-secondary); font-family: var(--font-display); }
-        /* 「近7天完成」是独立计数，不是环段：无 swatch，用左缩进对齐带点的行 */
-        .legend .done-note { margin-left: 14px; }
+        /* 「近7天完成」是独立「已完成」轴，不是环段：无 swatch，加分隔线与环段轴明确分离 */
+        .legend .done-note { margin-left: 14px; opacity: 0.85; }
+        /* 待处理(环)与已完成(计数)两条轴之间的可见分隔线，避免「近7天完成」被误读为第 5 个环段 */
+        .legend .axis-divider {
+            height: 1px; background: var(--border-subtle);
+            margin: 3px 0 2px;
+        }
         /* 今日副行（下一件） */
         .next-todo {
             display: flex; align-items: center; gap: 6px;
@@ -288,7 +297,9 @@
         /* 待办列表 */
         .list-section { flex: 1; min-height: 0; overflow-y: auto; }
         /* 待办 tag 筛选条（从仪表盘 tag 芯片进入，action-first） */
-        .filter-bar {
+        /* 用 :not([hidden]) 门控 display:flex，避免作者样式覆盖 UA 的 [hidden]{display:none}，
+           否则清除筛选/跳转后 .filter-bar 会残留一条"幽灵筛选栏"（状态与事实不符）。 */
+        .filter-bar:not([hidden]) {
             display: flex; align-items: center; justify-content: space-between; gap: 8px;
             margin: 0 0 8px; padding: 6px 10px;
             background: var(--surface-chip); border: 1px solid var(--border-soft);
@@ -511,7 +522,7 @@
     <div class="container">
         <div class="header">
             <h1>nanoSecretary</h1>
-            <span class="ai-status" id="ai-status">AI 连接中…</span>
+            <span class="ai-status loading" id="ai-status">AI 连接中</span>
         </div>
 
         <div class="tabs" role="tablist" aria-label="主视图">
