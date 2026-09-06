@@ -320,6 +320,11 @@
         .entry-item.today { border-left-color: var(--status-warning-strong); }
         .entry-item.note { border-left-color: var(--status-note); }
         .entry-item.done { border-left-color: var(--status-success); opacity: 0.62; }
+        .entry-item.flash { animation: entry-flash 1.4s ease; }
+        @keyframes entry-flash {
+            0%, 60% { background: rgba(212,115,75,0.18); }
+            100% { background: var(--surface-card); }
+        }
         .entry-title { font-size: var(--text-body); margin-bottom: 4px; font-weight: var(--weight-strong); color: var(--text-strong); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
         .entry-meta { display: flex; gap: 8px; font-size: var(--text-meta); color: var(--text-tertiary); align-items: center; flex-wrap: wrap; }
         .entry-meta .due { color: var(--status-warning-strong); }

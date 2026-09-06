@@ -112,16 +112,18 @@ function renderDashboard() {
     const pending = entries.filter((e) => e.status === 'pending');
     const done = entries.filter((e) => e.status === 'done');
     const today = localToday();
-    const SIZE = 108, STROKE = 8;
+    const STROKE = 8;
 
     // —— 主卡 关注：中心 = 全部待处理（诚实计数，含无日期/未到期的）——
     const overdueN = pending.filter((e) => e.dueDate && e.dueDate < today).length;
+    // 今天到期
+    const todayDueN = pending.filter((e) => e.dueDate === today).length;
     // 明后天到期
     const tom = new Date(); tom.setDate(tom.getDate() + 1);
     const dayAft = new Date(); dayAft.setDate(dayAft.getDate() + 2);
     const dueSoonN = pending.filter((e) => e.dueDate === dISO(tom) || e.dueDate === dISO(dayAft)).length;
-    // 其余待办 = 今天到期 + 未来到期 + 无日期；三段恒等于全部 pending（P0-1 不低报）
-    const restN = pending.length - overdueN - dueSoonN;
+    // 其余待办 = 未来到期(>明后天) + 无日期；四段恒等于全部 pending（P0-1 不低报）
+    const restN = pending.length - overdueN - todayDueN - dueSoonN;
     // 近7天完成（含今天，rolling）
     const since = todayLocalDate(); since.setDate(since.getDate() - 6);
     const done7N = done.filter((e) => {
@@ -131,11 +133,12 @@ function renderDashboard() {
 
     const attBox = document.getElementById('ring-attention');
     if (attBox) {
-        // 三段 = 逾期(热红 #f0716a) / 明后天(橙) / 其余(描边色弱段)，总和恒等于全部 pending。
-        // done7N 属于「已完成」轴，不混进「待处理」环。
+        // 四段 = 逾期(热红 #f0716a) / 今天(强调赭橙) / 明后天(轻橙) / 其余(描边色弱段)。
+        // 四段之和恒等于全部 pending（P0-1 不低报）；done7N 属「已完成」轴，不混进「待处理」环。
         const segs = [
             { ratio: overdueN, color: 'var(--status-danger-text)' },
-            { ratio: dueSoonN, color: 'var(--status-warning-strong)' },
+            { ratio: todayDueN, color: 'var(--status-warning-strong)' },
+            { ratio: dueSoonN, color: 'var(--status-warning)' },
             { ratio: restN, color: 'var(--border-soft)' },
         ];
         attBox.innerHTML = multiRingSVG(segs, 'var(--border-soft)', 124, STROKE);
@@ -146,17 +149,21 @@ function renderDashboard() {
     const legend = document.getElementById('attention-legend');
     if (legend) {
         legend.innerHTML = `<div class="row"><span class="swatch" style="background:var(--status-danger-text)"></span>逾期<span class="n">${overdueN}</span></div>
-            <div class="row"><span class="swatch" style="background:var(--status-warning-strong)"></span>明后天<span class="n">${dueSoonN}</span></div>`
+            <div class="row"><span class="swatch" style="background:var(--status-warning-strong)"></span>今天<span class="n">${todayDueN}</span></div>
+            <div class="row"><span class="swatch" style="background:var(--status-warning)"></span>明后天<span class="n">${dueSoonN}</span></div>`
             + (restN > 0 ? `<div class="row"><span class="swatch" style="background:var(--border-soft)"></span>其余待办<span class="n">${restN}</span></div>` : '')
             + `<div class="row done-note">近7天完成<span class="n">${done7N}</span></div>`;
     }
 
     // —— 本周应做 / 完成（只收进侧卡一行，主卡不再重复）——
+    // 单轴：以「本周到期」为队列（dueDate ∈ 本周），分子 = 该队列里已完成，分母 = 队列总数。
+    // 不再用「按完成日」的另一轴，避免"本周该做但下周才做完"两边都不算。
     const ws = weekStart();
     const wsISO = dISO(ws);
     const weISO = dISO(new Date());
-    const wkDone = done.filter((e) => e.doneAt && dISO(new Date(e.doneAt)) >= wsISO && dISO(new Date(e.doneAt)) <= weISO).length;
-    const wkDueAll = done.filter((e) => e.dueDate && e.dueDate >= wsISO && e.dueDate <= weISO).length + pending.filter((e) => e.dueDate && e.dueDate >= wsISO && e.dueDate <= weISO).length;
+    const wkCohort = allEntries.filter((e) => e.dueDate && e.dueDate >= wsISO && e.dueDate <= weISO);
+    const wkDueAll = wkCohort.length;
+    const wkDone = wkCohort.filter((e) => e.status === 'done').length;
 
     // —— 侧卡 今日 ——
     const todayDue = pending.filter((e) => e.dueDate === today);
@@ -174,7 +181,7 @@ function renderDashboard() {
             ? '<div class="big">—</div><div class="sub">今日完成</div>'
             : `<div class="big">${todayDone.length}<small>/${totalToday}</small></div><div class="sub">今日完成</div>`;
     }
-    // 下一件（带「下一件」标签；点击进记录视图）
+    // 下一件（带「下一件」标签；点击进记录视图并定位到该项）
     const nextBox = document.getElementById('today-next');
     if (nextBox) {
         // 下一件 = 最近的未来到期（含今日未完成）
@@ -186,7 +193,7 @@ function renderDashboard() {
             const when = nx.dueDate === today ? '今天' : nx.dueDate === dISO(tom) ? '明天' : nx.dueDate;
             nextBox.innerHTML = `<span class="lbl">下一件</span><span class="hl">${esc(nx.title)}</span><span class="lbl">${when}${nx.time ? ' ' + esc(nx.time) : ''}</span>`;
             nextBox.style.display = 'flex';
-            nextBox.onclick = () => goRecords();
+            nextBox.onclick = () => focusEntry(nx.id);
         } else {
             nextBox.style.display = 'none';
         }
@@ -199,7 +206,7 @@ function renderDashboard() {
         wkBlock.innerHTML = `<div class="bar"><i style="width:${(frac * 100).toFixed(1)}%"></i></div>`;
     }
     const weekFoot = document.getElementById('week-foot');
-    if (weekFoot) weekFoot.innerHTML = (wkDueAll === 0) ? '本周暂无' : `共 ${wkDueAll} 件 · 已完成 ${wkDone}`;
+    if (weekFoot) weekFoot.innerHTML = (wkDueAll === 0) ? '本周暂无' : `本周应做 ${wkDueAll} · 已完成 ${wkDone}`;
 
     renderTagRow(pending);
 }
@@ -208,6 +215,8 @@ function renderDashboard() {
 let activeTag = null;
 /** 当前待办 tag 筛选（来自仪表盘 tag 芯片点击；null = 不过滤）。 */
 let todoFilterTag = null;
+let tagCountLatest = new Map();
+let pendingTotalLatest = 0;
 const TAG_TOP_N = 3;
 function renderTagRow(pendingTodos) {
     // 收集全部 tag（pending 的 tags + category），去重
@@ -216,6 +225,8 @@ function renderTagRow(pendingTodos) {
         const set = new Set([...(e.tags || []), e.category].filter(Boolean));
         for (const t of set) tagCount.set(t, (tagCount.get(t) || 0) + 1);
     }
+    tagCountLatest = tagCount;
+    pendingTotalLatest = pendingTodos.length;
     const tags = Array.from(tagCount.entries()).sort((a, b) => b[1] - a[1]);
     const chipsEl = document.getElementById('tag-chips');
     const detailEl = document.getElementById('tag-detail');
@@ -227,29 +238,36 @@ function renderTagRow(pendingTodos) {
         revealEl.hidden = true;
         return;
     }
-    // 默认选中待办最多者（或保留上次仍在的选中）
-    if (!activeTag || !tagCount.has(activeTag)) activeTag = tags[0][0];
     const top = tags.slice(0, TAG_TOP_N);
-    const rest = tags.slice(TAG_TOP_N);
-    // Top-3 常驻；若选中不在 Top-3，把它补进来（保证选中的始终可见）
+    // 若当前选中 tag 不在 Top-3，把它补进常驻位（保证选中的始终可见）；
+    // 被挤下的那个（原第 3 高）会进 rest，与其他 tag 一起收进 reveal，不丢失。
     if (activeTag && !top.some(([t]) => t === activeTag)) {
         const picked = tags.find(([t]) => t === activeTag);
         if (picked) top[top.length - 1] = picked;
     }
+    // rest = 所有不在 top 的 tag（按 count 降序），作为「更多标签」reveal 的内容
+    const rest = tags.filter(([t]) => !top.some(([t2]) => t2 === t));
+    // 若当前选中 tag 已不在列表（数据刷新被清空），回退为 neutral；否则默认不预选
+    if (activeTag && !tagCount.has(activeTag)) activeTag = null;
+    // Top-3 常驻；选中态只在该 chip 等于 activeTag 时点亮（默认 neutral，无预选）
     chipsEl.innerHTML = top.map(([t, n]) =>
         `<button type="button" class="tag-chip${t === activeTag ? ' active' : ''}" data-tag="${esc(t)}" aria-pressed="${t === activeTag}">#${esc(t)}<span class="cnt">${n}</span></button>`
     ).join('');
-    // 其余收进「更多标签」reveal（distill：默认不挤占主角）
     revealEl.hidden = !rest.length;
     if (rest.length) {
-        revealEl.textContent = `更多标签 +${rest.length}`;
+        revealEl.textContent = chipsEl.classList.contains('expanded') ? '收起' : `更多标签 +${rest.length}`;
         revealEl.setAttribute('aria-expanded', String(chipsEl.classList.contains('expanded')));
     }
-    const detail = tagCount.get(activeTag) || 0;
-    detailEl.innerHTML = `<span>#${esc(activeTag)}</span><span class="big">${detail} 项待办</span>`;
-    // 摘要行同样可点：进记录视图并按该 tag 筛选（action-first）。
-    detailEl.onclick = () => { setTodoFilter(activeTag); goRecords(); };
-    // 展开/收起其余标签
+    // 详情行：选中 tag 时显示该 tag 计数；否则显示全部（neutral，状态与事实一致）
+    if (activeTag) {
+        const n = tagCount.get(activeTag) || 0;
+        detailEl.innerHTML = `<span>#${esc(activeTag)}</span><span class="big">${n} 项待办</span>`;
+        detailEl.dataset.goTag = activeTag;
+    } else {
+        detailEl.innerHTML = `<span>全部标签</span><span class="big">${pendingTodos.length} 项待办</span>`;
+        delete detailEl.dataset.goTag;
+    }
+    // 展开/收起其余标签（事件委托见 bindTagChips，展开出来的芯片同样可点）
     revealEl.onclick = () => {
         const expanded = chipsEl.classList.toggle('expanded');
         revealEl.textContent = expanded ? '收起' : `更多标签 +${rest.length}`;
@@ -265,20 +283,77 @@ function renderTagRow(pendingTodos) {
             });
         }
     };
-    // 点击切换选中，并据此筛选待办列表（action-first：点 tag 进记录视图并过滤）
-    chipsEl.querySelectorAll('.tag-chip').forEach((chip) => {
-        chip.addEventListener('click', () => {
-            activeTag = chip.dataset.tag;
-            chipsEl.querySelectorAll('.tag-chip').forEach((c) => {
-                const on = c.dataset.tag === activeTag;
-                c.classList.toggle('active', on);
-                c.setAttribute('aria-pressed', String(on));
-            });
-            const n = tagCount.get(activeTag) || 0;
-            detailEl.innerHTML = `<span>#${esc(activeTag)}</span><span class="big">${n} 项待办</span>`;
-            setTodoFilter(activeTag);
+}
+
+/** 点选 tag：切换选中并据此筛选待办；点已选中者取消（toggle off → neutral）。 */
+function selectTag(name) {
+    const chipsEl = document.getElementById('tag-chips');
+    const detailEl = document.getElementById('tag-detail');
+    const wasActive = activeTag === name;
+    activeTag = wasActive ? null : name;
+    chipsEl.querySelectorAll('.tag-chip').forEach((c) => {
+        const on = c.dataset.tag === activeTag;
+        c.classList.toggle('active', on);
+        c.setAttribute('aria-pressed', String(on));
+    });
+    if (activeTag) {
+        const n = tagCountLatest.get(activeTag) || 0;
+        detailEl.innerHTML = `<span>#${esc(activeTag)}</span><span class="big">${n} 项待办</span>`;
+        detailEl.dataset.goTag = activeTag;
+        setTodoFilter(activeTag);
+    } else {
+        detailEl.innerHTML = `<span>全部标签</span><span class="big">${pendingTotalLatest} 项待办</span>`;
+        delete detailEl.dataset.goTag;
+        setTodoFilter(null);
+    }
+    goRecords();
+    scrollListTo();
+}
+
+/** 事件委托：芯片容器上只绑一次，动态插入（更多标签展开）的芯片也能点。 */
+function bindTagChips() {
+    const chipsEl = document.getElementById('tag-chips');
+    if (!chipsEl || chipsEl.dataset.bound) return;
+    chipsEl.dataset.bound = '1';
+    chipsEl.addEventListener('click', (e) => {
+        const chip = e.target.closest('.tag-chip');
+        if (!chip || !chip.dataset.tag) return;
+        e.stopPropagation();
+        selectTag(chip.dataset.tag);
+    });
+    const detailEl = document.getElementById('tag-detail');
+    if (detailEl && !detailEl.dataset.bound) {
+        detailEl.dataset.bound = '1';
+        detailEl.onclick = () => {
+            const go = detailEl.dataset.goTag || null;
+            setTodoFilter(go);
             goRecords();
-        });
+            scrollListTo();
+        };
+    }
+}
+
+/** 进记录视图后滚动到列表第一条（落在待办而非空输入框）。 */
+function scrollListTo() {
+    requestAnimationFrame(() => {
+        const list = document.getElementById('todo-list');
+        if (!list) return;
+        const first = list.querySelector('.entry-item');
+        if (first) first.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        else { const ls = list.closest('.list-section'); if (ls) ls.scrollTop = 0; }
+    });
+}
+
+/** 进记录视图并定位到指定条目，短暂高亮（下一件跳转用）。 */
+function focusEntry(id) {
+    setTodoFilter(null); // 确保目标一定在列表中（不被无关 tag 筛掉）
+    goRecords();
+    requestAnimationFrame(() => {
+        const el = document.querySelector(`.entry-item[data-id="${id}"]`);
+        if (!el) return;
+        el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        el.classList.add('flash');
+        setTimeout(() => el.classList.remove('flash'), 1400);
     });
 }
 
@@ -354,6 +429,7 @@ function bindDashCardNav() {
     }
 }
 bindDashCardNav();
+bindTagChips();
 
 /** 备忘/随手记 → 待办（无截止日期，直接进待办列表） */
 function makePending(id) {
