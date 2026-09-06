@@ -409,6 +409,18 @@
             padding: 0 6px;
         }
         .chat-messages { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 4px; }
+        .chat-empty {
+            margin: auto; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 14px; text-align: center; padding: 8px 12px; max-width: 90%;
+        }
+        .chat-empty h4 { font-family: var(--font-display); font-size: var(--text-title); font-weight: 500; color: var(--text-strong); margin: 0; }
+        .chat-empty p { font-size: var(--text-meta); color: var(--text-tertiary); margin: 0; line-height: 1.6; }
+        .chat-empty .chat-suggest { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 4px; }
+        .chat-empty .chat-suggest button {
+            background: transparent; color: var(--text-secondary); border: 1px solid var(--border-soft);
+            border-radius: var(--radius-btn); padding: 6px 12px; font-size: var(--text-meta); cursor: pointer;
+        }
+        .chat-empty .chat-suggest button:hover { background: var(--button-secondary-hover); color: var(--text-strong); border-color: var(--border-field); }
         .chat-msg { max-width: 85%; padding: 8px 12px; border-radius: var(--radius-card); font-size: var(--text-body); line-height: 1.5; white-space: pre-wrap; }
         .chat-msg.user { align-self: flex-end; background: rgba(212,115,75,0.16); border: 1px solid rgba(212,115,75,0.28); border-bottom-right-radius: 2px; }
         .chat-msg.ai { align-self: flex-start; background: var(--surface-card); border: 1px solid var(--border-subtle); border-bottom-left-radius: 2px; }
@@ -592,7 +604,17 @@
 
         <!-- 对话视图 -->
         <div class="chat-section" id="view-chat" role="tabpanel" aria-labelledby="view-tab-chat">
-            <div class="chat-messages" id="chat-messages"></div>
+            <div class="chat-messages" id="chat-messages">
+                <div class="chat-empty" id="chat-empty">
+                    <h4>你的 nanoSecretary 在线</h4>
+                    <p>问我关于待办、日程、逾期的一切，或从下面挑一个开始。</p>
+                    <div class="chat-suggest">
+                        <button type="button" data-chat="我今天有什么安排？">我今天有什么安排？</button>
+                        <button type="button" data-chat="我这个月逾期了哪些？">我这个月逾期了哪些？</button>
+                        <button type="button" data-chat="帮我整理今天的进度">帮我整理今天的进度</button>
+                    </div>
+                </div>
+            </div>
             <div class="chat-input-row">
                 <label for="chat-input" class="visually-hidden" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);">对话输入</label>
                 <input type="text" id="chat-input" placeholder="问你的 nanoSecretary…（如：我今天有什么安排？）">

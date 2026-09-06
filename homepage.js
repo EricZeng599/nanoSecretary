@@ -346,17 +346,24 @@ function scrollListTo() {
     });
 }
 
-/** 进记录视图并定位到指定条目，短暂高亮（下一件跳转用）。 */
+/** 进记录视图并定位到指定条目，短暂高亮（下一件跳转用）。
+ *  高亮由 focusFlashId 状态驱动、在 renderTodos 里落地，而非事后 poke DOM——
+ *  这样即使列表因数据变更重渲染，flash 也会重新落在目标上，不会随 innerHTML 重建丢失。 */
+let focusFlashId = null;
+let focusFlashTimer = null;
 function focusEntry(id) {
+    focusFlashId = id;
     setTodoFilter(null); // 确保目标一定在列表中（不被无关 tag 筛掉）
     goRecords();
     requestAnimationFrame(() => {
         const el = document.querySelector(`.entry-item[data-id="${id}"]`);
-        if (!el) return;
-        el.scrollIntoView({ block: 'center', behavior: 'smooth' });
-        el.classList.add('flash');
-        setTimeout(() => el.classList.remove('flash'), 1400);
+        if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
     });
+    if (focusFlashTimer) clearTimeout(focusFlashTimer);
+    focusFlashTimer = setTimeout(() => {
+        focusFlashId = null;
+        document.querySelectorAll('.entry-item.flash').forEach((n) => n.classList.remove('flash'));
+    }, 1400);
 }
 
 /** 应用/清除待办 tag 筛选，并刷新列表与筛选条。tag=null 表示清除。 */
@@ -367,6 +374,20 @@ function setTodoFilter(tag) {
     if (bar && tagEl) {
         bar.hidden = !tag;
         if (tag) tagEl.textContent = '#' + tag;
+    }
+    // 清除筛选时同步重置仪表盘 tag 选中态，避免 detail 行与真实筛选不一致
+    if (tag === null && activeTag !== null) {
+        activeTag = null;
+        const chipsEl = document.getElementById('tag-chips');
+        if (chipsEl) chipsEl.querySelectorAll('.tag-chip').forEach((c) => {
+            c.classList.remove('active');
+            c.setAttribute('aria-pressed', 'false');
+        });
+        const detailEl = document.getElementById('tag-detail');
+        if (detailEl) {
+            detailEl.innerHTML = `<span>全部标签</span><span class="big">${pendingTotalLatest} 项待办</span>`;
+            delete detailEl.dataset.goTag;
+        }
     }
     renderTodos();
 }
@@ -491,6 +512,11 @@ function renderTodos() {
             </div>
         </div>`;
     }).join('');
+    // 下一件跳转定位：focusFlashId 由 renderTodos 落地，重渲染也能重新命中
+    if (focusFlashId) {
+        const keep = list.querySelector(`.entry-item[data-id="${focusFlashId}"]`);
+        if (keep) keep.classList.add('flash');
+    }
 }
 
 // 渲染最近记录
@@ -701,28 +727,42 @@ api.onChatReply((reply) => {
 });
 function appendChat(role, content) {
     const box = document.getElementById('chat-messages');
+    // 首条消息出现时移除空态引导
+    const empty = document.getElementById('chat-empty');
+    if (empty) empty.hidden = true;
     const div = document.createElement('div');
     div.className = 'chat-msg ' + role;
     div.textContent = content;
     box.appendChild(div);
     box.scrollTop = box.scrollHeight;
 }
+// 空态建议 chip：点击填入输入框并聚焦，用户按 Enter 或「发送」即问
+const chatEmpty = document.getElementById('chat-empty');
+if (chatEmpty) chatEmpty.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-chat]');
+    if (!btn) return;
+    const input = document.getElementById('chat-input');
+    if (input) { input.value = btn.dataset.chat; input.focus(); }
+});
 document.getElementById('chat-send').addEventListener('click', sendChat);
 document.getElementById('chat-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') sendChat(); });
 
 // AI 状态
 api.getAiStatus();
 let aiStatusTimer = null;
-// 「连接中…」兜底：若几秒内 getAiStatus 未回包，转成明确的离线提示，避免状态永远悬置
+let aiStatusResolved = false; // getAiStatus 是否已回包（用布尔判据，胜过字符串匹配）
+// 「连接中」兜底：若几秒内 getAiStatus 未回包，转成明确的离线提示，避免状态永远悬置
 aiStatusTimer = setTimeout(() => {
+    if (aiStatusResolved) return;
     const el = document.getElementById('ai-status');
-    if (el && el.textContent === 'AI 连接中…') {
+    if (el) {
         el.textContent = 'AI 离线';
         el.title = 'Ollama 未启动';
         el.className = 'ai-status offline';
     }
 }, 4000);
 api.onAiStatus((status) => {
+    aiStatusResolved = true;
     const el = document.getElementById('ai-status');
     if (status.available) {
         el.textContent = 'AI 在线';
@@ -775,7 +815,7 @@ api.onAiStatus((status) => {
     } else {
         const opt = document.createElement('option');
         opt.value = status.model || 'qwen2.5:3b';
-        opt.textContent = (status.model || 'qwen2.5:3b') + '（未检测到，将用此默认值）';
+        opt.textContent = '未检测到（使用默认 ' + (status.model || 'qwen2.5:3b') + '）';
         select.appendChild(opt);
         document.getElementById('set-model-desc').textContent = '未检测到本地模型，请确认 Ollama 已启动';
     }
