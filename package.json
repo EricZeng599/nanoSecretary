@@ -1,6 +1,6 @@
 {
   "name": "nanosecretary",
-  "version": "1.3.0",
+  "version": "2.0.0",
   "description": "nanoSecretary 本地 AI 秘书",
   "main": "main.js",
   "scripts": {
@@ -19,6 +19,6 @@
     "react-dom": "^19.0.0"
   },
   "build": {
-    "icon": "nanoSecretary.ico"
+    "icon": "Nanosecretary_256x256.ico"
   }
 }

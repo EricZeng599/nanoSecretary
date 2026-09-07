@@ -1,5 +1,5 @@
 @echo off
-echo [pack] nanoSecretary v1.3.0
+echo [pack] nanoSecretary v2.0.0
 setlocal
 cd /d "%~dp0"
 
@@ -19,7 +19,7 @@ if errorlevel 1 (
 
 echo [3/3] Adding app code...
 mkdir "%OUT%\resources\app" 2>nul
-for %%f in (main.js preload.js ollama.js index.js homepage.js history.js icons.js date-picker.js date-picker-react.js notes.js index.html homepage.html history.html notes.html tokens.css date-picker.css date-picker-react.css icon.png nanoSecretary.ico package.json) do copy /Y "%%f" "%OUT%\resources\app\%%f" >nul
+for %%f in (main.js preload.js ollama.js index.js homepage.js history.js icons.js date-picker.js date-picker-react.js notes.js index.html homepage.html history.html notes.html tokens.css date-picker.css date-picker-react.css icon.png Nanosecretary_256x256.ico package.json) do copy /Y "%%f" "%OUT%\resources\app\%%f" >nul
 
 if exist "%OUT%\resources\default_app.asar" del /q "%OUT%\resources\default_app.asar"
 if exist "%OUT%\electron.exe" ren "%OUT%\electron.exe" nanoSecretary.exe

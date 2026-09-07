@@ -101,8 +101,10 @@ function broadcastEntriesChanged() {
 }
 
 function getIconPath() {
-  const ico = path.join(__dirname, 'nanoSecretary.ico');
+  const ico = path.join(__dirname, 'Nanosecretary_256x256.ico');
   if (fs.existsSync(ico)) return ico;
+  const legacy = path.join(__dirname, 'nanoSecretary.ico');
+  if (fs.existsSync(legacy)) return legacy;
   return path.join(__dirname, 'icon.png');
 }
 
