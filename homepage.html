@@ -185,9 +185,9 @@
         }
         .legend .row { display: flex; align-items: center; gap: 6px; }
         .legend .swatch { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
-        /* 无日期项在环上与「远期」共用同一弱段色；swatch 用斜纹区分，示意它非单一色相段 */
+        /* 无日期项在环上与「远期」共用同一弱段色；swatch 用空框区分，示意「无日期=空、共享弱段」而非新色相段 */
         .legend .swatch.undated {
-            background: repeating-linear-gradient(45deg, var(--border-soft) 0 2px, transparent 2px 4px);
+            background: transparent; border: 1px solid var(--border-soft); box-sizing: border-box;
         }
         .legend .row .n { margin-left: auto; color: var(--text-secondary); font-family: var(--font-display); }
         /* 「近7天完成」是独立「已完成」轴，不是环段：无 swatch，加分隔线与环段轴明确分离 */
