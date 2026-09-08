@@ -195,9 +195,12 @@ function renderDashboard() {
             const when = nx.dueDate === today ? '今天' : nx.dueDate === dISO(tom) ? '明天' : nx.dueDate;
             nextBox.innerHTML = `<span class="lbl">下一件</span><span class="hl">${esc(nx.title)}</span><span class="lbl">${when}${nx.time ? ' ' + esc(nx.time) : ''}</span>`;
             nextBox.style.display = 'flex';
+            nextBox.dataset.todoId = nx.id; // 供键盘 Enter/Space 定位到该项
+            nextBox.setAttribute('aria-label', '下一件：' + nx.title);
             nextBox.onclick = () => focusEntry(nx.id);
         } else {
             nextBox.style.display = 'none';
+            delete nextBox.dataset.todoId;
         }
     }
 
@@ -217,6 +220,8 @@ function renderDashboard() {
 let activeTag = null;
 /** 当前待办 tag 筛选（来自仪表盘 tag 芯片点击；null = 不过滤）。 */
 let todoFilterTag = null;
+/** 筛选类型：null（全过滤）/ 'tag'（按 tag）/ 'attention'（关注集：逾期+今天+明后天）。 */
+let todoFilterKind = null;
 let tagCountLatest = new Map();
 let pendingTotalLatest = 0;
 const TAG_TOP_N = 3;
@@ -366,17 +371,25 @@ function focusEntry(id) {
     }, 1400);
 }
 
-/** 应用/清除待办 tag 筛选，并刷新列表与筛选条。tag=null 表示清除。 */
-function setTodoFilter(tag) {
+/** 应用/清除待办筛选，并刷新列表与筛选条。
+ *  tag（string）= 按 tag 筛选；'attention'（特值）= 关注集（逾期+今天+明后天）；null/undefined = 清除。 */
+function setTodoFilter(tag, kind) {
     todoFilterTag = tag;
+    // kind 只有显式传入才生效（关注集特值）；否则按 tag 归一。避免把真实名叫 "attention" 的 tag 误读成关注集。
+    todoFilterKind = kind || (tag ? 'tag' : null);
     const bar = document.getElementById('todo-filter');
     const tagEl = document.getElementById('todo-filter-tag');
     if (bar && tagEl) {
-        bar.hidden = !tag;
-        if (tag) tagEl.textContent = '#' + tag;
+        if (todoFilterKind === 'attention') {
+            bar.hidden = false;
+            tagEl.textContent = '关注';
+        } else {
+            bar.hidden = !tag;
+            if (tag) tagEl.textContent = '#' + tag;
+        }
     }
     // 清除筛选时同步重置仪表盘 tag 选中态，避免 detail 行与真实筛选不一致
-    if (tag === null && activeTag !== null) {
+    if ((tag === null || tag === undefined) && activeTag !== null) {
         activeTag = null;
         const chipsEl = document.getElementById('tag-chips');
         if (chipsEl) chipsEl.querySelectorAll('.tag-chip').forEach((c) => {
@@ -427,7 +440,7 @@ document.addEventListener('click', (e) => {
     else if (btn.dataset.action === 'reschedule') toggleDueEdit(id, btn.closest('.entry-item'));
 });
 
-// 可点击仪表盘卡：主卡(关注)、今日卡、本周卡 → 进记录视图（键盘可用，Enter/Space）
+// 可点击仪表盘卡：关注卡(筛到关注集)、今日卡、本周卡 → 进记录视图（键盘可用，Enter/Space）
 function bindDashCardNav() {
     const cardIds = ['card-attention', 'card-today', 'card-week'];
     const handler = (target) => (e) => {
@@ -435,19 +448,23 @@ function bindDashCardNav() {
         if (e.target.closest('.next-todo') || e.target.closest('.tag-chip') || e.target.closest('.tag-reveal')) return;
         if (e.key && e.key !== 'Enter' && e.key !== ' ') return;
         if (e.key === ' ') e.preventDefault();
+        // 关注卡：筛到「逾期+今天+明后天」的真实关注集，而非裸列表（语义与图例一致）。
+        // 显式传 kind='attention'，避免字符串推断。
+        if (target === 'card-attention') setTodoFilter(null, 'attention');
         goRecords();
     };
     for (const id of cardIds) {
         const el = document.getElementById(id);
-        if (el) { el.addEventListener('click', handler(el)); el.addEventListener('keydown', handler(el)); }
+        if (el) { el.addEventListener('click', handler(id)); el.addEventListener('keydown', handler(id)); }
     }
-    // 「下一件」是卡内子交互：自身的 role="button"（键盘 Enter/Space 也进记录）
+    // 「下一件」是卡内子交互：鼠标/键盘都定位到具体项并滚动（键盘不再只进列表）
     const next = document.getElementById('today-next');
     if (next) {
         next.addEventListener('keydown', (e) => {
             if (e.key !== 'Enter' && e.key !== ' ') return;
             e.preventDefault(); e.stopPropagation();
-            goRecords();
+            if (next.dataset.todoId) focusEntry(next.dataset.todoId);
+            else goRecords();
         });
     }
 }
@@ -475,8 +492,14 @@ function renderTodos() {
     let todos = allEntries
         .filter((e) => e.status === 'pending')
         .sort((a, b) => (a.dueDate || '9999') < (b.dueDate || '9999') ? -1 : 1);
-    // 应用来自仪表盘 tag 芯片的筛选（action-first）
-    if (todoFilterTag) {
+    // 应用来自仪表盘 tag 芯片 / 关注卡的筛选（action-first）
+    if (todoFilterKind === 'attention') {
+        const today = localToday();
+        const tom = new Date(); tom.setDate(tom.getDate() + 1);
+        const dayAft = new Date(); dayAft.setDate(dayAft.getDate() + 2);
+        const tomISO = dISO(tom), dayAftISO = dISO(dayAft);
+        todos = todos.filter((e) => e.dueDate && (e.dueDate < today || e.dueDate === today || e.dueDate === tomISO || e.dueDate === dayAftISO));
+    } else if (todoFilterTag) {
         todos = todos.filter((e) => {
             const set = new Set([...(e.tags || []), e.category].filter(Boolean));
             return set.has(todoFilterTag);
@@ -485,9 +508,11 @@ function renderTodos() {
     document.getElementById('record-count').textContent = todos.length ? '(' + todos.length + ')' : '';
 
     if (!todos.length) {
-        list.innerHTML = todoFilterTag
-            ? `<div class="empty">没有「#${esc(todoFilterTag)}」的待办</div>`
-            : '<div class="empty">没有待办，记点什么吧</div>';
+        list.innerHTML = todoFilterKind === 'attention'
+            ? '<div class="empty">没有逾期/今天的待办，一切都在计划内</div>'
+            : todoFilterTag
+                ? `<div class="empty">没有「#${esc(todoFilterTag)}」的待办</div>`
+                : '<div class="empty">没有待办，记点什么吧</div>';
         return;
     }
     const today = localToday();
