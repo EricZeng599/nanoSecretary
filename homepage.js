@@ -244,7 +244,9 @@ function renderTagRow(pendingTodos) {
     const revealEl = document.getElementById('tag-reveal');
     if (!chipsEl || !detailEl || !revealEl) return;
     if (!tags.length) {
-        chipsEl.innerHTML = '<div class="dash-empty">没有待办</div>';
+        // 标签为空 ≠ 待办为空：有待办但未打标签时，别撒谎说「没有待办」（P2 critique）。
+        const hasTodos = pendingTodos.length > 0;
+        chipsEl.innerHTML = `<div class="dash-empty">${hasTodos ? '还没有标签，给待办加一个' : '没有待办'}</div>`;
         detailEl.innerHTML = '';
         revealEl.hidden = true;
         return;
@@ -532,7 +534,7 @@ function renderTodos() {
             <div class="entry-title">${esc(e.title)}</div>
             <div class="entry-meta">
                 ${dueText ? `<span class="due ${overdue ? 'overdue' : ''}">${ic('clock', 'inline')}${esc(dueText)}</span>` : ''}
-                ${e.priority === '高' ? `<span class="priority-high">${ic('fire', 'inline')}高优先级</span>` : e.priority === '中' ? `<span class="priority-mid">中</span>` : ''}
+                ${e.priority === '高' ? `<span class="priority-high">${ic('fire', 'inline')}高优先级</span>` : e.priority === '中' ? `<span class="priority-mid">中</span>` : e.priority === '低' ? `<span class="priority-low">低</span>` : ''}
                 ${e.category ? `<span class="cat">${esc(e.category)}</span>` : ''}
             </div>
             <div class="entry-actions">
@@ -735,6 +737,7 @@ api.onEntriesChanged((entries) => {
 });
 
 // 对话
+let chatReplyTimer = null; // 对话回包兜底：AI 不回包时复位状态，避免「思考中…」永久卡死（P1 critique）
 function sendChat() {
     const input = document.getElementById('chat-input');
     const text = input.value.trim();
@@ -745,14 +748,24 @@ function sendChat() {
     const aiStatus = document.getElementById('ai-status');
     aiStatus.textContent = '思考中…';
     aiStatus.title = '';
+    clearTimeout(chatReplyTimer);
+    // 本地模型若离线/缺失，sendChat 可能永远不回包。给 30s 超时兜底：复位状态并给安抚文案，
+    // 而非让用户永远卡在「思考中…」、后续输入堆积。
+    chatReplyTimer = setTimeout(() => {
+        const el = document.getElementById('ai-status');
+        if (el) { el.textContent = 'AI 离线'; el.title = 'Ollama 未启动'; el.className = 'ai-status offline'; }
+        appendChat('ai', '（本地模型似乎没有回应，请确认 Ollama 已启动后再试一次。）');
+    }, 30000);
     api.sendChat(chatHistory);
 }
 api.onChatReply((reply) => {
+    clearTimeout(chatReplyTimer);
     chatHistory.push({ role: 'assistant', content: reply });
     appendChat('ai', reply);
     const el = document.getElementById('ai-status');
     el.textContent = 'AI 在线';
     el.title = '';
+    el.className = 'ai-status online'; // 回包成功即回到在线态，避免超时兜底残留的 offline class
 });
 function appendChat(role, content) {
     const box = document.getElementById('chat-messages');

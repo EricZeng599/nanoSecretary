@@ -346,6 +346,7 @@
         .entry-meta .due.overdue { color: var(--status-danger-text); }
         .entry-meta .priority-high { color: var(--status-danger-text); }
         .entry-meta .priority-mid { color: var(--status-warning-strong); }
+        .entry-meta .priority-low { color: var(--text-faint); }
         .entry-meta .cat { padding: 1px 8px; border-radius: var(--radius-chip); background: var(--surface-chip); color: var(--text-secondary); }
         .entry-actions { margin-top: 6px; display: flex; gap: 8px; }
         .entry-actions button {
@@ -542,9 +543,9 @@
         </div>
 
         <div class="tabs" role="tablist" aria-label="主视图">
-            <button class="tab active" data-view="dashboard" id="view-tab-dashboard" role="tab" aria-selected="true"><span id="tab-dashboard-icon"></span>仪表盘</button>
-            <button class="tab" data-view="records" id="view-tab-records" role="tab" aria-selected="false"><span id="tab-records-icon"></span>记录<span class="count" id="record-count"></span></button>
-            <button class="tab" data-view="chat" id="view-tab-chat" role="tab" aria-selected="false"><span id="tab-chat-icon"></span>对话</button>
+            <button class="tab active" data-view="dashboard" id="view-tab-dashboard" role="tab" aria-selected="true" aria-controls="view-dashboard"><span id="tab-dashboard-icon"></span>仪表盘</button>
+            <button class="tab" data-view="records" id="view-tab-records" role="tab" aria-selected="false" aria-controls="view-records"><span id="tab-records-icon"></span>记录<span class="count" id="record-count"></span></button>
+            <button class="tab" data-view="chat" id="view-tab-chat" role="tab" aria-selected="false" aria-controls="view-chat"><span id="tab-chat-icon"></span>对话</button>
         </div>
 
         <!-- 仪表盘视图（bento，默认） -->
