@@ -83,7 +83,7 @@
             color: var(--text-strong);
             border-bottom-color: var(--action-primary);
         }
-        .tab .count { opacity: 0.6; font-size: var(--text-meta); margin-left: 4px; }
+        .tab .count { color: var(--text-faint); font-size: var(--text-meta); margin-left: 4px; }
 
         /* ===== 仪表盘视图（bento） ===== */
         #view-dashboard {
@@ -185,6 +185,10 @@
         }
         .legend .row { display: flex; align-items: center; gap: 6px; }
         .legend .swatch { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+        /* 无日期项在环上与「远期」共用同一弱段色；swatch 用斜纹区分，示意它非单一色相段 */
+        .legend .swatch.undated {
+            background: repeating-linear-gradient(45deg, var(--border-soft) 0 2px, transparent 2px 4px);
+        }
         .legend .row .n { margin-left: auto; color: var(--text-secondary); font-family: var(--font-display); }
         /* 「近7天完成」是独立「已完成」轴，不是环段：无 swatch，加分隔线与环段轴明确分离 */
         .legend .done-note { margin-left: 14px; opacity: 0.85; }
@@ -413,7 +417,7 @@
             margin: auto; display: flex; flex-direction: column; align-items: center; justify-content: center;
             gap: 14px; text-align: center; padding: 8px 12px; max-width: 90%;
         }
-        .chat-empty h4 { font-family: var(--font-display); font-size: var(--text-title); font-weight: 500; color: var(--text-strong); margin: 0; }
+        .chat-empty .chat-empty-title { font-family: var(--font-display); font-size: var(--text-title); font-weight: 500; color: var(--text-strong); margin: 0; }
         .chat-empty p { font-size: var(--text-meta); color: var(--text-tertiary); margin: 0; line-height: 1.6; }
         .chat-empty .chat-suggest { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 4px; }
         .chat-empty .chat-suggest button {
@@ -606,7 +610,7 @@
         <div class="chat-section" id="view-chat" role="tabpanel" aria-labelledby="view-tab-chat">
             <div class="chat-messages" id="chat-messages">
                 <div class="chat-empty" id="chat-empty">
-                    <h4>你的 nanoSecretary 在线</h4>
+                    <p class="chat-empty-title">你的 nanoSecretary 在线</p>
                     <p>问我关于待办、日程、逾期的一切，或从下面挑一个开始。</p>
                     <div class="chat-suggest">
                         <button type="button" data-chat="我今天有什么安排？">我今天有什么安排？</button>

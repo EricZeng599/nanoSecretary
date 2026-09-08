@@ -123,8 +123,11 @@ function renderDashboard() {
     const tom = new Date(); tom.setDate(tom.getDate() + 1);
     const dayAft = new Date(); dayAft.setDate(dayAft.getDate() + 2);
     const dueSoonN = pending.filter((e) => e.dueDate === dISO(tom) || e.dueDate === dISO(dayAft)).length;
-    // 其余待办 = 未来到期(>明后天) + 无日期；四段恒等于全部 pending（P0-1 不低报）
-    const restN = pending.length - overdueN - todayDueN - dueSoonN;
+    // 其余待办拆两类：远期（>明后天到期）与无日期；二者是不同语义，图例如实分列（P2 critique）。
+    const farN = pending.filter((e) => e.dueDate && e.dueDate > dISO(dayAft)).length;
+    const undatedN = pending.filter((e) => !e.dueDate).length;
+    // 环上「其余」仍是单一弱段（两者都不是紧迫项），但跨度与总量不变；四段恒等于全部 pending（P0-1 不低报）
+    const restN = farN + undatedN;
     // 近7天完成（含今天，rolling）
     const since = todayLocalDate(); since.setDate(since.getDate() - 6);
     const done7N = done.filter((e) => {
@@ -153,7 +156,8 @@ function renderDashboard() {
         legend.innerHTML = `<div class="row"><span class="swatch" style="background:var(--status-danger-text)"></span>逾期<span class="n">${overdueN}</span></div>
             <div class="row"><span class="swatch" style="background:var(--status-warning-strong)"></span>今天<span class="n">${todayDueN}</span></div>
             <div class="row"><span class="swatch" style="background:var(--status-warning)"></span>明后天<span class="n">${dueSoonN}</span></div>`
-            + (restN > 0 ? `<div class="row"><span class="swatch" style="background:var(--border-soft)"></span>其余待办<span class="n">${restN}</span></div>` : '')
+            + (farN > 0 ? `<div class="row"><span class="swatch" style="background:var(--border-soft)"></span>远期<span class="n">${farN}</span></div>` : '')
+            + (undatedN > 0 ? `<div class="row"><span class="swatch undated"></span>无日期<span class="n">${undatedN}</span></div>` : '')
             + `<div class="axis-divider"></div><div class="row done-note">近7天完成<span class="n">${done7N}</span></div>`;
     }
 
