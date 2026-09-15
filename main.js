@@ -94,6 +94,22 @@ function writeData(data) {
   }
 }
 
+/**
+ * 便签（sticky）是自由记录区，不参与待办体系：
+ * 不进待办列表、不计入角标与统计、不触发提醒、不可被升级为待办。
+ * 所有「判定是不是待办」的地方都必须走这里，否则便签会从某条缝里漏回待办。
+ */
+function isTodo(e) {
+  return e.status === 'pending' && e.sticky !== true;
+}
+
+/** 记录 id：时间戳(36) + 6 位随机(36)，全小写字母数字 */
+function newEntryId() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+/** 只接受 newEntryId() 那种形状的 id；渲染层递过来的字符串要先过这一关 */
+const ID_SHAPE = /^[a-z0-9]{6,32}$/;
+
 /* 向所有窗口广播数据变更，确保主页面/历史/悬浮球实时刷新 */
 function broadcastEntriesChanged() {
   const data = readData();
@@ -333,29 +349,15 @@ function createStickyWindow(entry) {
     },
   });
 
-  // 若没有既有 id：先落一条 note 记录，拿到 id 再加载
+  // 新便签：只分配一个 id 占住窗口槽位，**不落库**。
+  // 便签只有在真正写了东西之后才成为一条记录 —— 否则「开一张、什么也不写、关掉」
+  // 就会在历史里永久留下一条空便签（见 docs/决策日志.md 2026-09-15）。
+  // 首次保存时 note-save 拿这个 id 建记录，所以 id 必须在这里先分配好。
   if (!id) {
-    const data = readData();
-    const noteEntry = {
-      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
-      content: '',
-      title: '便签',
-      dueDate: null,
-      time: null,
-      priority: '低',
-      status: 'note',
-      category: '其他',
-      tags: [],
-      reminded: false,
-      sticky: true,
-      created: new Date().toISOString(),
-    };
-    data.push(noteEntry);
-    writeData(data);
-    broadcastEntriesChanged();
-    stickyWindows.set(noteEntry.id, win);
+    const draftId = newEntryId();
+    stickyWindows.set(draftId, win);
     win.webContents.once('did-finish-load', () => {
-      win.webContents.send('note-loaded', { id: noteEntry.id, title: '', content: '' });
+      win.webContents.send('note-loaded', { id: draftId, title: '', content: '' });
     });
     win.loadFile('notes.html');
   } else {
@@ -395,22 +397,41 @@ function openNewSticky() {
 /* 便签 IPC */
 ipcMain.on('note-save', (event, payload) => {
   if (!payload || typeof payload !== 'object') return;
+  const title = String(payload.title || '').trim();
+  const content = String(payload.content || '');
   const data = readData();
-  let entry = data.find((e) => e.id === payload.id);
-  if (!entry) {
+  const idx = data.findIndex((e) => e.id === payload.id && e.sticky === true);
+
+  // 全空的便签不是一条记录：从没落过库的就什么也不做（窗口开着而已），
+  // 落过库的（写了又全删光）顺手删掉，免得留一条空壳。
+  if (!title && !content.trim()) {
+    if (idx !== -1) {
+      data.splice(idx, 1);
+      writeData(data);
+      broadcastEntriesChanged();
+    }
+    event.reply('note-saved', { id: payload.id || null, empty: true });
+    return;
+  }
+
+  let entry = idx !== -1 ? data[idx] : null;
+  const created = !entry;
+  if (created) {
+    // 首次保存才落库。id 用窗口创建时分配的那个（过了形状校验才认），
+    // 这样便签窗口、stickyWindows 槽位、记录三者始终是同一个 id。
     entry = {
-      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
+      id: ID_SHAPE.test(String(payload.id || '')) ? payload.id : newEntryId(),
       dueDate: null, time: null, priority: '低', status: 'note',
       category: '其他', tags: [], reminded: false, sticky: true,
       created: new Date().toISOString(),
     };
     data.push(entry);
   }
-  entry.title = payload.title || (payload.content || '便签').slice(0, 30) || '便签';
-  entry.content = payload.content || '';
+  entry.title = title || content.trim().slice(0, 30) || '便签';
+  entry.content = content;
   entry.sticky = true;
   writeData(data);
-  event.reply('note-saved', { id: entry.id });
+  event.reply('note-saved', { id: entry.id, created });
   broadcastEntriesChanged();
 });
 
@@ -464,7 +485,7 @@ function scanReminders() {
     let changed = false;
 
     for (const entry of data) {
-      if (entry.status !== 'pending' || !entry.dueDate || entry.reminded) continue;
+      if (!isTodo(entry) || !entry.dueDate || entry.reminded) continue;
       const due = getDueMoment(entry);
       if (isNaN(due.getTime())) continue;
       const diff = due - now;
@@ -626,11 +647,12 @@ ipcMain.on('get-entries', (event) => {
 });
 
 /* 获取最近记录：与主页「待办事项」不相交 —— 已转 pending 的项在列表里，不再重复进最近记录
-   （否则同一待办一屏两处渲染、操作还不同，且 markDone 会淡出错卡。critique P1） */
+   （否则同一待办一屏两处渲染、操作还不同，且 markDone 会淡出错卡。critique P1）
+   便签同样排除：它属便签窗口自己的地盘，不进首页任何一栏。 */
 ipcMain.on('get-recent-entries', (event) => {
   const data = readData();
   const sorted = [...data]
-    .filter((e) => e.status !== 'pending') // note/done 才进最近记录
+    .filter((e) => e.status !== 'pending' && e.sticky !== true) // note/done 且非便签才进最近记录
     .sort((a, b) => new Date(b.created) - new Date(a.created))
     .slice(0, 5);
   event.reply('recent-entries', sorted);
@@ -669,11 +691,12 @@ ipcMain.on('mark-done', (event, id, done) => {
   }
 });
 
-/* 备忘/随手记 → 转为待办（用户主动升级，不设截止日期，进待办列表） */
+/* 备忘/随手记 → 转为待办（用户主动升级，不设截止日期，进待办列表）
+   便签不在此列：它是自由记录区，只存在于便签窗口与历史页。 */
 ipcMain.on('make-pending', (event, id) => {
   const data = readData();
   const entry = data.find((e) => e.id === id);
-  if (entry && entry.status === 'note') {
+  if (entry && entry.status === 'note' && entry.sticky !== true) {
     entry.status = 'pending';
     writeData(data);
     event.reply('entry-updated', entry);
@@ -687,6 +710,13 @@ ipcMain.on('update-due-date', (event, id, dueDate) => {
   const entry = data.find((e) => e.id === id);
   if (entry) {
     entry.dueDate = dueDate || null;
+    // 便签只存日期、不改状态 —— 否则「改期」会变成一条隐形升级路径（见 isTodo 注释）
+    if (entry.sticky === true) {
+      writeData(data);
+      event.reply('entry-updated', entry);
+      broadcastEntriesChanged();
+      return;
+    }
     if (dueDate) entry.status = entry.status === 'done' ? 'done' : 'pending';
     else entry.status = entry.status === 'pending' ? 'note' : entry.status;
     writeData(data);
@@ -747,7 +777,7 @@ ipcMain.on('chat-message', async (event, history) => {
     // 附加待办上下文
     const entries = readData();
     const pending = entries
-      .filter((e) => e.status === 'pending' && e.dueDate)
+      .filter((e) => isTodo(e) && e.dueDate)
       .sort((a, b) => (a.dueDate < b.dueDate ? -1 : 1))
       .slice(0, 10)
       .map((e) => `${e.title}（截止${e.dueDate}${e.time ? ' ' + e.time : ''}）`);
@@ -1051,17 +1081,17 @@ ipcMain.on('get-ai-status', async (event) => {
 });
 
 /* 推送当前待办数给渲染进程（角标用） */
+function countTodos() {
+  return readData().filter(isTodo).length;
+}
+
 function sendTodoCount() {
   if (!mainWindow || mainWindow.isDestroyed()) return;
-  const data = readData();
-  const count = data.filter((e) => e.status === 'pending').length;
-  mainWindow.webContents.send('todo-count', count);
+  mainWindow.webContents.send('todo-count', countTodos());
 }
 
 ipcMain.on('get-todo-count', (event) => {
-  const data = readData();
-  const count = data.filter((e) => e.status === 'pending').length;
-  event.reply('todo-count', count);
+  event.reply('todo-count', countTodos());
 });
 
 /* ================= 生命周期 ================= */

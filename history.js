@@ -71,7 +71,11 @@ function renderEntries() {
     // 若改期行打开则先清理（列表即将重绘，DOM 会失效）
     if (dueEditRow) removeDueEdit();
     const list = document.getElementById('entries-list');
-    let filtered = allEntries;
+    // 便签是自由记录区，默认不混进「全部/待办/已完成」三个视图；
+    // 只有点「便签」chip 才单独调出来 —— 历史页是便签唯一的归档入口（重启后没有别的路能打开旧便签）。
+    let filtered = filters.status === 'sticky'
+        ? allEntries.filter((e) => e.sticky === true)
+        : allEntries.filter((e) => e.sticky !== true);
     if (filters.status === 'pending') filtered = filtered.filter((e) => e.status === 'pending');
     if (filters.status === 'done') filtered = filtered.filter((e) => e.status === 'done');
     if (filters.category !== 'all') filtered = filtered.filter((e) => e.category === filters.category);
@@ -86,6 +90,7 @@ function renderEntries() {
     const today = localToday();
     const ic = (name, cls) => (window.nanoIcons ? window.nanoIcons.ic(name, cls) : '');
     list.innerHTML = filtered.map((e) => {
+        const isSticky = e.sticky === true; // 便签：自由记录区，不可升级、不可改期
         const overdue = e.status === 'pending' && e.dueDate && e.dueDate < today;
         const todayDue = e.status === 'pending' && e.dueDate === today;
         const cls = e.status === 'done' ? 'done' : overdue ? 'overdue' : todayDue ? 'today' : e.dueDate ? '' : 'note';
@@ -97,9 +102,16 @@ function renderEntries() {
             : e.status === 'done'
                 ? '<button class="action-button" type="button" data-action="restore" data-id="' + e.id + '">' + ic('restore', 'inline') + '恢复</button>'
                 : '';
-        const promoteBtn = e.status === 'note'
+        const promoteBtn = (e.status === 'note' && !isSticky)
             ? '<button class="action-button promote" type="button" data-action="topending" data-id="' + e.id + '">' + ic('pin', 'inline') + '转为待办</button>'
             : '';
+        // 便签不给「改期」：主进程已挡住它升级，留个按不出效果的按钮只是误导
+        const dueEditBtn = isSticky
+            ? ''
+            : '<button class="action-button due-edit" type="button" data-action="reschedule" data-id="' + e.id + '">' + ic('edit', 'inline') + '改期</button>';
+        const statusLabel = isSticky
+            ? '<span>便签</span>'
+            : e.status === 'pending' ? '<span style="color:#ff8c42">待办</span>' : e.status === 'done' ? '<span style="color:#4caf50">已完成</span>' : '<span>备忘</span>';
         return `<div class="entry-card ${cls}" data-id="${e.id}">
             <div class="entry-title">${esc(e.title || '(无标题)')}</div>
             <div class="entry-content">${esc(e.content)}</div>
@@ -109,12 +121,12 @@ function renderEntries() {
                 ${e.category ? `<span class="cat">${esc(e.category)}</span>` : ''}
                 ${(e.tags || []).map((t) => `<span class="tag">${ic('tag', 'inline')}#${esc(t)}</span>`).join('')}
                 <span>${esc(formatTime(e.created))}</span>
-                ${e.status === 'pending' ? '<span style="color:#ff8c42">待办</span>' : e.status === 'done' ? '<span style="color:#4caf50">已完成</span>' : '<span>备忘</span>'}
+                ${statusLabel}
             </div>
             <div class="entry-actions">
                 ${doneBtn}
                 ${promoteBtn}
-                <button class="action-button due-edit" type="button" data-action="reschedule" data-id="${e.id}">${ic('edit', 'inline')}改期</button>
+                ${dueEditBtn}
                 <button class="action-button" type="button" data-action="copy" data-id="${e.id}">${ic('copy', 'inline')}复制</button>
                 <button class="action-button delete" type="button" data-action="delete" data-id="${e.id}">${ic('trash', 'inline')}删除</button>
             </div>

@@ -301,7 +301,8 @@ api.onTodoCount((count) => {
 
 // 数据变更广播：刷新角标
 api.onEntriesChanged((entries) => {
-    const pending = (entries || []).filter((e) => e.status === 'pending').length;
+    // 与主进程 isTodo 同判据：便签不算待办，不该让球变成「有到期」态
+    const pending = (entries || []).filter((e) => e.status === 'pending' && e.sticky !== true).length;
     api.onTodoCount && api.getTodoCount();
     if (pending > 0) updateBallStatus(true);
 });

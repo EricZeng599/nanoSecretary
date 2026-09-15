@@ -6,6 +6,12 @@ let allEntries = [];
 let chatHistory = [];
 let currentView = 'dashboard'; // 当前视图（默认仪表盘）
 
+/** 便签（sticky）是自由记录区，不进待办列表、不计入任何待办统计。
+    与主进程 main.js 的 isTodo 是同一判据，改一处要同时改另一处。 */
+function isTodo(e) {
+    return e.status === 'pending' && e.sticky !== true;
+}
+
 // ---- Tab 图标（统一线性图标）----
 const tabIconHolders = {
     dashboard: document.getElementById('tab-dashboard-icon'),
@@ -110,7 +116,7 @@ function multiRingSVG(segments, trackColor, size, stroke) {
 function renderDashboard() {
     if (currentView !== 'dashboard') return;
     const entries = allEntries;
-    const pending = entries.filter((e) => e.status === 'pending');
+    const pending = entries.filter(isTodo);
     const done = entries.filter((e) => e.status === 'done');
     const today = localToday();
     const STROKE = 8;
@@ -496,7 +502,7 @@ function renderTodos() {
     if (dueEditRow) removeDueEdit();
     const list = document.getElementById('todo-list');
     let todos = allEntries
-        .filter((e) => e.status === 'pending')
+        .filter(isTodo)
         .sort((a, b) => (a.dueDate || '9999') < (b.dueDate || '9999') ? -1 : 1);
     // 应用来自仪表盘 tag 芯片 / 关注卡的筛选（action-first）
     if (todoFilterKind === 'attention') {
