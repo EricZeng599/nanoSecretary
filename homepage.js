@@ -829,6 +829,79 @@ document.getElementById('close-button').addEventListener('click', () => api.clos
 let settingsData = null; // 从 ai-status 获取的配置数据
 let settingsTrigger = null; // 打开设置前的焦点锚点（关闭后归还焦点）
 
+// 开关（role="switch"）：悬浮球 / AI 解析共用同一套交互
+function bindSwitch(id) {
+    const sw = document.getElementById(id);
+    sw.addEventListener('click', () => {
+        const on = !sw.classList.contains('on');
+        sw.classList.toggle('on', on);
+        sw.setAttribute('aria-checked', String(on));
+    });
+    sw.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            sw.click();
+        }
+    });
+    return sw;
+}
+const aiSwitch = bindSwitch('set-ai-switch');
+const ballSwitch = bindSwitch('set-ball-switch');
+
+// ---- 全局快捷键录制 ----
+const shortcutField = document.getElementById('set-shortcut');
+const shortcutDesc = document.getElementById('set-shortcut-desc');
+const SHORTCUT_DESC_DEFAULT = shortcutDesc.textContent;
+let shortcutValue = ''; // 规范化后的 accelerator，如 CommandOrControl+Alt+N
+
+// accelerator（Electron 形式）→ 人读形式
+function prettyAccel(accel) {
+    if (!accel) return '';
+    return accel.split('+').map((p) => {
+        if (p === 'CommandOrControl' || p === 'Control') return 'Ctrl';
+        if (p === 'Super') return 'Win';
+        return p;
+    }).join('+');
+}
+
+// 键盘事件 → accelerator。返回 null 表示这次按键还构不成合法组合。
+function accelFromEvent(e) {
+    if (['Control', 'Alt', 'Shift', 'Meta'].includes(e.key)) return null; // 只按住了修饰键
+    if (e.key === 'Escape') return null; // Esc 让给「取消录制」
+    const mods = [];
+    if (e.ctrlKey) mods.push('CommandOrControl');
+    if (e.altKey) mods.push('Alt');
+    if (e.shiftKey) mods.push('Shift');
+    if (e.metaKey) mods.push('Super');
+    if (!mods.length) return null; // 必须至少一个修饰键
+    let key = e.key;
+    if (key.length === 1) key = key.toUpperCase();
+    else if (key === ' ') key = 'Space';
+    return mods.concat(key).join('+');
+}
+
+shortcutField.addEventListener('focus', () => {
+    shortcutField.classList.add('recording');
+    shortcutDesc.textContent = '请按下组合键…（Esc 取消）';
+});
+shortcutField.addEventListener('blur', () => {
+    shortcutField.classList.remove('recording');
+    shortcutField.value = prettyAccel(shortcutValue);
+    shortcutDesc.textContent = SHORTCUT_DESC_DEFAULT;
+});
+shortcutField.addEventListener('keydown', (e) => {
+    e.preventDefault(); // readonly 输入框：拦下所有按键，只做录制
+    if (e.key === 'Escape') { shortcutField.blur(); return; }
+    const accel = accelFromEvent(e);
+    if (!accel) {
+        shortcutDesc.textContent = '需要至少一个修饰键（Ctrl / Alt / Shift）';
+        return;
+    }
+    shortcutValue = accel;
+    shortcutField.value = prettyAccel(accel);
+    shortcutDesc.textContent = '已记录，保存后生效';
+});
+
 function openSettings() {
     const overlay = document.getElementById('settings-overlay');
     overlay.classList.add('show');
@@ -864,10 +937,17 @@ api.onAiStatus((status) => {
     // 提醒提前量
     document.getElementById('set-lead').value = status.remindLeadHours || 24;
     // AI 开关（role="switch"，状态与配置同步）
-    const sw = document.getElementById('set-ai-switch');
-    const on = status.enabled !== false;
-    sw.classList.toggle('on', on);
-    sw.setAttribute('aria-checked', String(on));
+    const aiOn = status.enabled !== false;
+    aiSwitch.classList.toggle('on', aiOn);
+    aiSwitch.setAttribute('aria-checked', String(aiOn));
+    // 显示悬浮球
+    const ballOn = status.showBall !== false;
+    ballSwitch.classList.toggle('on', ballOn);
+    ballSwitch.setAttribute('aria-checked', String(ballOn));
+    // 全局快捷键
+    shortcutValue = status.shortcut || '';
+    shortcutField.value = prettyAccel(shortcutValue);
+    shortcutDesc.textContent = SHORTCUT_DESC_DEFAULT;
 });
 
 // 设置面板：焦点圈定 + Esc 关闭（role="dialog"）
@@ -888,33 +968,35 @@ settingsOverlay.addEventListener('keydown', (e) => {
     else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
 });
 
-// AI 开关点击（role="switch"）
-document.getElementById('set-ai-switch').addEventListener('click', () => {
-    const sw = document.getElementById('set-ai-switch');
-    const on = !sw.classList.contains('on');
-    sw.classList.toggle('on', on);
-    sw.setAttribute('aria-checked', String(on));
-});
-document.getElementById('set-ai-switch').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        document.getElementById('set-ai-switch').click();
-    }
-});
+// 开关的交互统一在 bindSwitch（见文件上方）
 
 // 保存设置
 document.getElementById('set-save').addEventListener('click', () => {
     const model = document.getElementById('set-model').value;
     const lead = parseInt(document.getElementById('set-lead').value, 10) || 24;
-    const aiOn = document.getElementById('set-ai-switch').classList.contains('on');
+    const aiOn = aiSwitch.classList.contains('on');
+    const ballOn = ballSwitch.classList.contains('on');
     api.saveConfig({
         model,
         remindLeadHours: lead,
         aiEnabled: aiOn,
+        showBall: ballOn,
+        shortcut: shortcutValue,
     });
-    api.onConfigSaved(() => {
-        closeSettings();
-    });
+});
+
+// 保存回执：按注册结果给出诚实提示，再关闭面板
+api.onConfigSaved((saved) => {
+    const s = saved && saved._shortcut;
+    if (s && !s.ok) {
+        // 主进程保留了旧键，这里必须说清楚——不能假装保存成功
+        shortcutValue = s.registered || '';
+        shortcutField.value = prettyAccel(shortcutValue);
+        shortcutField.focus(); // 焦点触发的提示文案会覆盖下面这行，所以放在前面
+        shortcutDesc.textContent = `「${prettyAccel(s.shortcut)}」已被占用，仍沿用上一个快捷键`;
+        return;
+    }
+    closeSettings();
 });
 
 // 取消

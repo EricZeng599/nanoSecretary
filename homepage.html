@@ -498,13 +498,17 @@
         #settings-panel h3 { font-family: var(--font-display); font-size: var(--text-title); font-weight: 500; margin-bottom: 14px; color: var(--text-strong); }
         .setting-row { margin-bottom: 14px; }
         .setting-row .label { font-size: var(--text-meta); color: var(--text-tertiary); margin-bottom: 6px; display: block; }
-        .setting-row select, .setting-row input[type="number"] {
+        .setting-row select, .setting-row input[type="number"], .setting-row input[type="text"] {
             width: 100%; padding: 7px 10px;
             background: var(--surface-field);
             color: var(--text-primary); border: 1px solid var(--border-soft);
             border-radius: var(--radius-field); font-size: var(--text-meta);
             color-scheme: dark;
         }
+        /* 快捷键录制框：点击后直接按下组合键录入 */
+        .setting-row input.shortcut-field { cursor: pointer; }
+        .setting-row input.shortcut-field:focus { outline: none; border-color: var(--action-primary); }
+        .setting-row input.shortcut-field.recording { color: var(--text-faint); border-color: var(--action-primary); }
         /* 下拉选项强制暖黑底 */
         select option {
             background-color: #201e1c;
@@ -662,6 +666,19 @@
                     <div class="switch" id="set-ai-switch" role="switch" aria-checked="true" aria-label="AI 智能解析" tabindex="0"></div>
                 </div>
                 <div class="desc">关闭后仅保存文本，不做 AI 提取</div>
+            </div>
+            <div class="setting-row">
+                <div class="switch-row">
+                    <span class="label" style="margin:0;">显示悬浮球</span>
+                    <div class="switch" id="set-ball-switch" role="switch" aria-checked="true" aria-label="显示悬浮球" tabindex="0"></div>
+                </div>
+                <div class="desc">关闭后仅在托盘运行，用快捷键唤起输入面板</div>
+            </div>
+            <div class="setting-row">
+                <label class="label" for="set-shortcut">全局快捷键</label>
+                <input type="text" id="set-shortcut" class="shortcut-field" readonly placeholder="按下组合键…"
+                       aria-describedby="set-shortcut-desc">
+                <div class="desc" id="set-shortcut-desc">点击后按下组合键录入；需至少一个修饰键（Ctrl / Alt / Shift）</div>
             </div>
             <div class="settings-actions">
                 <button id="set-cancel" type="button">取消</button>

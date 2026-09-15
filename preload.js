@@ -36,6 +36,8 @@ contextBridge.exposeInMainWorld('api', {
   dragMove: (dx, dy) => ipcRenderer.send('drag-window-move', dx, dy),
   dragEnd: () => ipcRenderer.send('drag-window-end'),
   showBallMenu: (x, y) => ipcRenderer.send('show-ball-menu', x, y),
+  // 主进程唤起输入面板（全局快捷键 / 托盘单击）
+  onOpenInput: (cb) => ipcRenderer.on('open-input', (e, opts) => cb(opts)),
   openHistory: () => ipcRenderer.send('open-history'),
   closeHomepage: () => ipcRenderer.send('close-homepage'),
   // 主页面窗口拖拽

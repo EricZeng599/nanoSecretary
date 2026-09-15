@@ -134,6 +134,17 @@ document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && currentMode === 'input') switchToBallMode();
 });
 
+// 全局快捷键 / 托盘单击唤起输入面板（主进程推送）
+api.onOpenInput((opts) => {
+    if (currentMode === 'input') {
+        // 已经开着：只把焦点还给输入框
+        if (entryMode === 'quick') textInput.focus();
+        else document.getElementById('f-title').focus();
+        return;
+    }
+    switchToInputMode(opts && opts.skipResize);
+});
+
 // 输入面板拖拽（排除输入控件）
 setupDrag(inputContainer,
     () => api.dragStart(),
@@ -169,7 +180,8 @@ api.onAiPreview && api.onAiPreview((preview) => {
     title.innerHTML = ic + '<span></span>';
     title.lastChild.textContent = preview.title || '';
     const meta = document.createElement('div');
-    meta.textContent = [preview.dueDate ? ('截止 ' + preview.dueDate) : '', preview.priority ? '优先级·' + preview.priority : '', preview.category ? preview.category : ''].filter(Boolean).join(' · ');
+    const dueText = preview.dueDate ? ('截止 ' + preview.dueDate + (preview.time ? ' ' + preview.time : '')) : '';
+    meta.textContent = [dueText, preview.priority ? '优先级·' + preview.priority : '', preview.category ? preview.category : ''].filter(Boolean).join(' · ');
     aiPreview.appendChild(title);
     if (meta.textContent) aiPreview.appendChild(meta);
     aiPreview.style.display = 'block';
@@ -300,14 +312,15 @@ function updateBallStatus(hasDue) {
 }
 
 // 模式切换
-function switchToInputMode() {
+// skipResize：主进程（全局快捷键/托盘）已经定位并设好窗口尺寸，渲染层不要再发 resize-window 打架
+function switchToInputMode(skipResize) {
     currentMode = 'input';
     // 首次从球进入输入态，先收掉任何遗留弹层
     if (window.NSDatePicker) window.NSDatePicker.close();
     ball.classList.remove('breathe', 'due', 'urgent');
     ball.style.transform = 'scale(0)';
     ball.style.opacity = '0';
-    api.resizeWindow('input');
+    if (!skipResize) api.resizeWindow('input');
     // 面板材质化进入
     const wrapper = document.getElementById('input-wrapper');
     wrapper.classList.remove('show');

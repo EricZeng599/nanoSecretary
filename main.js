@@ -1,4 +1,4 @@
-const { app, BrowserWindow, screen, Menu, Tray, ipcMain, Notification, nativeImage } = require('electron');
+const { app, BrowserWindow, screen, Menu, Tray, ipcMain, Notification, nativeImage, globalShortcut } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const ollama = require('./ollama');
@@ -16,6 +16,11 @@ let startX, startY, startWindowX, startWindowY;
 const BALLOON_SIZE = 120; // 加大窗口，给 hover/呼吸/阴影留足余量（球 40px 居中）
 const INPUT_SIZE = { width: 420, height: 190 };
 const INPUT_CAL_SIZE = { width: 440, height: 520 }; // 日历弹层展开时的输入窗尺寸（临时扩大）
+
+// 默认全局快捷键。不要用 Ctrl+单字母（Ctrl+T / Ctrl+N 等）：
+// Windows 应用普遍把「Ctrl+功能首字母」当约定，全局注册会静默劫持它们的同名快捷键。
+const DEFAULT_SHORTCUT = 'CommandOrControl+Alt+N';
+let currentShortcut = null; // 实际注册成功的键；注册失败时用它保留旧键
 
 /* ================= 配置管理 ================= */
 function getConfigFilePath() {
@@ -125,6 +130,9 @@ function createWindow() {
     width: BALLOON_SIZE,
     height: BALLOON_SIZE,
     x, y,
+    // 悬浮球关闭时不创建可见窗口（而非事后 hide），避免透明窗口闪现。
+    // 注意：窗口本身必须存在——它还承载快捷键唤起的输入面板。
+    show: config.showBall !== false,
     frame: false,
     alwaysOnTop: true,
     transparent: true,
@@ -183,7 +191,9 @@ function createTray() {
   };
 
   rebuildMenu();
-  tray.on('click', () => toggleMainWindow());
+  // 托盘与快捷键行为一致：单击打开输入面板。
+  // 「显示/隐藏悬浮球」的切换能力保留在右键菜单第一项。
+  tray.on('click', () => openInputFromShortcut());
 }
 
 function loadIcon() {
@@ -196,8 +206,52 @@ function loadIcon() {
 
 function toggleMainWindow() {
   if (!mainWindow) return;
-  if (mainWindow.isVisible()) mainWindow.hide();
-  else mainWindow.show();
+  if (mainWindow.isVisible()) {
+    mainWindow.hide();
+    return;
+  }
+  // 重新显示前先恢复成球尺寸：窗口可能刚以输入面板形态（420×190）被隐藏
+  const config = readConfig();
+  const work = screen.getPrimaryDisplay().workArea;
+  const pos = (config.windowPosition && typeof config.windowPosition.x === 'number')
+    ? config.windowPosition
+    : { x: work.x + work.width - BALLOON_SIZE - 20, y: work.y + work.height - BALLOON_SIZE - 20 };
+  mainWindow.setBounds({ x: pos.x, y: pos.y, width: BALLOON_SIZE, height: BALLOON_SIZE });
+  mainWindow.show();
+}
+
+/* ================= 全局快捷键 ================= */
+/** 配置里的快捷键；空值回落默认。 */
+function getShortcut() {
+  const s = readConfig().shortcut;
+  return (typeof s === 'string' && s.trim()) ? s.trim() : DEFAULT_SHORTCUT;
+}
+
+/**
+ * 让配置里的快捷键生效。
+ * 先注册新键、成功了再注销旧键——注册失败时旧的仍然可用，不会两头落空。
+ */
+function applyShortcut() {
+  const want = getShortcut();
+  if (want === currentShortcut) {
+    return { ok: true, shortcut: want, registered: currentShortcut };
+  }
+
+  let ok = false;
+  try {
+    ok = globalShortcut.register(want, openInputFromShortcut);
+  } catch (e) {
+    // 非法 accelerator 会抛异常，与「被别的程序占用」一样按失败处理
+    console.warn('快捷键注册失败:', want, e && e.message);
+    ok = false;
+  }
+  if (!ok) return { ok: false, shortcut: want, registered: currentShortcut };
+
+  if (currentShortcut) {
+    try { globalShortcut.unregister(currentShortcut); } catch (e) {}
+  }
+  currentShortcut = want;
+  return { ok: true, shortcut: want, registered: want };
 }
 
 /* ================= 主页面窗口 ================= */
@@ -497,6 +551,7 @@ ipcMain.on('save-entry', async (event, text) => {
       content: cleanText,
       title: cleanText,
       dueDate: null,
+      time: null,
       priority: '低',
       status: 'note',
       category: '其他',
@@ -520,6 +575,8 @@ ipcMain.on('save-entry', async (event, text) => {
         const updated = { ...entry };
         if (parsed.title) updated.title = parsed.title;
         if (parsed.dueDate) updated.dueDate = parsed.dueDate;
+        // 「明天 19:00」里的时刻要留住，否则提醒会退化成当天 00:00（提前 24h 就成了立刻响）
+        if (parsed.dueDate && parsed.time) updated.time = parsed.time;
         if (parsed.type === 'task' || parsed.dueDate) updated.status = 'pending';
         updated.priority = parsed.priority || updated.priority;
         updated.category = category;
@@ -553,6 +610,7 @@ ipcMain.on('save-entry-preview', async (event, text) => {
     event.reply('entry-ai-preview', {
       title: parsed.title,
       dueDate: parsed.dueDate,
+      time: parsed.time,
       priority: parsed.priority,
       type: parsed.type,
       category,
@@ -713,8 +771,26 @@ ipcMain.on('save-config', (event, patch) => {
     app.setLoginItemSettings({ openAtLogin: !!patch.autoStart });
   }
   if (patch.model) ollama.setModel(patch.model);
+
+  // 悬浮球开关：即时生效（关 → 隐藏窗口；开 → 恢复成球并显示）
+  if (patch.showBall !== undefined && mainWindow && !mainWindow.isDestroyed()) {
+    if (patch.showBall === false) {
+      mainWindow.hide();
+    } else {
+      const work = screen.getPrimaryDisplay().workArea;
+      const pos = (config.windowPosition && typeof config.windowPosition.x === 'number')
+        ? config.windowPosition
+        : { x: work.x + work.width - BALLOON_SIZE - 20, y: work.y + work.height - BALLOON_SIZE - 20 };
+      mainWindow.setBounds({ x: pos.x, y: pos.y, width: BALLOON_SIZE, height: BALLOON_SIZE });
+      mainWindow.show();
+    }
+  }
+
   writeConfig(config);
-  event.reply('config-saved', config);
+
+  // 快捷键：重新注册。结果一并回传，注册失败时不静默（旧键仍然有效）
+  const shortcutResult = patch.shortcut !== undefined ? applyShortcut() : null;
+  event.reply('config-saved', { ...config, _shortcut: shortcutResult });
 });
 
 /* 窗口操作 */
@@ -722,20 +798,68 @@ let ballPosBeforeInput = null;  // 进入输入模式前的球位置
 let inputWindowPosAtOpen = null; // 输入面板初始放置位置
 let inputExpanded = false;       // 输入窗是否处于「日历弹层展开」状态
 
+/** 把矩形钳制进工作区。 */
+function clampToWorkArea(x, y, w, h) {
+  const work = screen.getPrimaryDisplay().workArea;
+  return {
+    x: Math.max(work.x, Math.min(Math.round(x), work.x + work.width - w)),
+    y: Math.max(work.y, Math.min(Math.round(y), work.y + work.height - h)),
+  };
+}
+
+/** 输入面板锚定悬浮球（优先球上方，空间不够则下方）。 */
+function inputPosNearBall(height) {
+  const [bx, by] = mainWindow.getPosition();
+  const work = screen.getPrimaryDisplay().workArea;
+  let y = by - height - 10;
+  if (y < work.y) y = by + BALLOON_SIZE + 10;
+  return clampToWorkArea(bx + BALLOON_SIZE / 2 - INPUT_SIZE.width / 2, y, INPUT_SIZE.width, height);
+}
+
+/** 输入面板锚定鼠标（悬浮球关闭时，按下快捷键的一刻你人在哪，面板就在哪）。 */
+function inputPosNearCursor(height) {
+  const pt = screen.getCursorScreenPoint();
+  return clampToWorkArea(
+    pt.x - INPUT_SIZE.width / 2,
+    pt.y - height / 2,
+    INPUT_SIZE.width,
+    height
+  );
+}
+
+/** 输入面板该出现在哪：球开着锚定球，球关着锚定鼠标。 */
+function inputPosForCurrentMode(height) {
+  return readConfig().showBall !== false ? inputPosNearBall(height) : inputPosNearCursor(height);
+}
+
 /** 把输入窗口放到球附近（优先球上方，空间不够则下方）。 */
 function placeInputWindow(height) {
-  const work = screen.getPrimaryDisplay().workArea;
-  const [bx, by] = mainWindow.getPosition();
-  const inputW = INPUT_SIZE.width;
-  const inputH = height;
-  const ballCenterX = bx + BALLOON_SIZE / 2;
-  let x = Math.round(ballCenterX - inputW / 2);
-  let y = by - inputH - 10;
-  if (y < work.y) y = by + BALLOON_SIZE + 10;
-  x = Math.max(work.x, Math.min(x, work.x + work.width - inputW));
-  y = Math.max(work.y, Math.min(y, work.y + work.height - inputH));
-  mainWindow.setSize(inputW, inputH);
+  const { x, y } = inputPosForCurrentMode(height);
+  mainWindow.setSize(INPUT_SIZE.width, height);
   mainWindow.setPosition(x, y);
+}
+
+/**
+ * 全局快捷键 / 托盘单击：把输入面板唤到眼前。
+ * 只负责「开」——收起统一交给 Esc（渲染层 switchToBallMode → resizeWindow('ball')）。
+ */
+function openInputFromShortcut() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  const height = INPUT_SIZE.height;
+  const { x, y } = inputPosForCurrentMode(height);
+
+  // 记录锚点，供日历弹层展开/收起时还原（与 resize-window 的 'input' 分支一致）
+  const [bx, by] = mainWindow.getPosition();
+  ballPosBeforeInput = { x: bx, y: by };
+  inputWindowPosAtOpen = { x, y };
+  inputExpanded = false;
+
+  if (!mainWindow.isVisible()) mainWindow.show();
+  // 用 setBounds 一次性带尺寸移动：避免先 setSize 后 setPosition 时，
+  // Windows 把 x/y 按旧的大窗口尺寸钳制（见 resize-window 里的同类说明）
+  mainWindow.setBounds({ x, y, width: INPUT_SIZE.width, height });
+  mainWindow.webContents.send('open-input', { skipResize: true });
+  mainWindow.focus();
 }
 
 ipcMain.on('resize-window', (event, mode) => {
@@ -743,20 +867,14 @@ ipcMain.on('resize-window', (event, mode) => {
   const work = screen.getPrimaryDisplay().workArea;
 
   if (mode === 'input') {
-    // 记录球位置，把输入面板放到球附近
+    // 记录球位置（退出输入态时还原用）
     const [bx, by] = mainWindow.getPosition();
     ballPosBeforeInput = { x: bx, y: by };
-    const inputW = INPUT_SIZE.width;
     const inputH = INPUT_SIZE.height;
-    const ballCenterX = bx + BALLOON_SIZE / 2;
-    let x = Math.round(ballCenterX - inputW / 2);
-    let y = by - inputH - 10;
-    if (y < work.y) y = by + BALLOON_SIZE + 10;
-    x = Math.max(work.x, Math.min(x, work.x + work.width - inputW));
-    y = Math.max(work.y, Math.min(y, work.y + work.height - inputH));
+    const { x, y } = inputPosForCurrentMode(inputH);
     inputWindowPosAtOpen = { x, y };
     inputExpanded = false;
-    mainWindow.setSize(inputW, inputH);
+    mainWindow.setSize(INPUT_SIZE.width, inputH);
     mainWindow.setPosition(x, y);
     // 确保输入框窗口能获得焦点，否则键盘事件收不到
     mainWindow.focus();
@@ -790,6 +908,14 @@ ipcMain.on('resize-window', (event, mode) => {
   } else {
     // mode === 'ball'：回到小球；若面板被拖过，保持相对位移
     const config = readConfig();
+    // 悬浮球已关闭：不回到球，直接隐藏窗口（下次由快捷键/托盘重新唤出）
+    if (config.showBall === false) {
+      inputExpanded = false;
+      ballPosBeforeInput = null;
+      inputWindowPosAtOpen = null;
+      mainWindow.hide();
+      return;
+    }
     let x, y;
     if (ballPosBeforeInput && inputWindowPosAtOpen) {
       const [px, py] = mainWindow.getPosition();
@@ -918,6 +1044,9 @@ ipcMain.on('get-ai-status', async (event) => {
     models,
     enabled: config.aiEnabled !== false,
     remindLeadHours: getLeadHours(),
+    showBall: config.showBall !== false,
+    shortcut: getShortcut(),
+    shortcutRegistered: currentShortcut,
   });
 });
 
@@ -940,11 +1069,18 @@ app.whenReady().then(() => {
   const config = readConfig();
   if (config.model) ollama.setModel(config.model);
   createWindow();
+  applyShortcut();
   startReminderScheduler();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
+});
+
+// 不释放会在系统里留下残留的全局热键
+app.on('will-quit', () => {
+  globalShortcut.unregisterAll();
+  currentShortcut = null;
 });
 
 app.on('window-all-closed', () => {
