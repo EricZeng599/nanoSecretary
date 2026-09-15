@@ -14,6 +14,7 @@
             background: #1a1918;
             color: var(--text-strong);
             font-family: var(--font-stack);
+            font-size: var(--text-body);
             height: 100vh;
             overflow: hidden;
         }
@@ -23,6 +24,7 @@
             outline-offset: 2px;
             border-radius: 2px;
         }
+        button, input, select, textarea { font-family: var(--font-stack); }
         /* 统一线性图标 */
         .icon { display: inline-block; vertical-align: -2px; }
         .icon.inline { margin-right: 5px; }
@@ -67,7 +69,7 @@
             transition: background var(--dur-fast);
         }
         .entry-card:hover { background: var(--surface-card-hover); }
-        .entry-card.overdue { border-left-color: var(--status-danger); }
+        .entry-card.overdue { border-left-color: var(--status-danger-text); }
         .entry-card.today { border-left-color: var(--status-warning-strong); }
         .entry-card.done { border-left-color: var(--status-success); opacity: 0.6; }
         .entry-card.note { border-left-color: var(--status-note); }

@@ -42,6 +42,8 @@
 - 元信息 `0.75rem`，辅助 `0.6875rem`
 - 分类列表标题：`letter-spacing 0.04em` 小字大写感
 - 中文宋体（2026-09-04）：正文中文由雅黑改为宋体，现代宋优先（思源宋体 Noto/Source Han → 宋体-简 Songti/STSong → SimSun），Windows 未装现代宋时自然落 SimSun；`--font-stack` 仍以系统无衬线打头，保证拉丁/数字不衬线化
+- 表单控件归位（2026-09-08 typeset）：`button/input/select/textarea { font-family: var(--font-stack) }` —— Chromium UA 的 `button { font: … Arial }` 简写会把按钮/标签中文落到无衬线（Arial→雅黑），与正文宋体断层；显式归位让互动文字与正文同栈。历史/便签/主页/悬浮球四页同步。
+- 正文字号下限（2026-09-08 typeset）：`body { font-size: var(--text-body) }`（13px）—— 原来 body 不设字号，未打 token 的文案（如筛选栏「筛选：」）继承 UA 16px 默认，成为全页最大非展示字号、撑开 `flat-type-hierarchy` 的 16px 台阶；设下限后同栈统一。
 
 ## 形状与层级
 
@@ -102,6 +104,7 @@
 - **对话回包兜底**（2026-09-08 critique P1）：`sendChat` 置状态「思考中…」后，若本地模型离线/缺失致 `onChatReply` 永不回包，对话会永久卡死、后续输入堆积。加 30s 超时兜底：超时把状态复位为「AI 离线」并追加一句安抚文案「（本地模型似乎没有回应，请确认 Ollama 已启动后再试一次。）」；回包成功则清除定时器并回到「AI 在线」，避免超时兜底残留 offline class。首载的 4s `getAiStatus` 兜底只跑一次，不覆盖对话途中。
 - **低优先级不静默隐藏**（2026-09-08 critique P2）：待办优先级 badge 高→「高优先级🔥」/中→「中」/低→**「低」**（`--text-faint` 极弱色），三档齐全——原来低优先级整行消失，用户误以为「没标」。规则「无 badge=低」只在三档都显示时才无须自明。
 - **tab `aria-controls`**（2026-09-08 critique P2）：三个 tab（`role="tab"`）均补 `aria-controls="view-dashboard|view-records|view-chat"`，与 panel 的 `aria-labelledby` 形成双向关联，WAI-ARIA tablist 模式满足读屏「tab→面板」关联。
+- **危险双角色拆分**（2026-09-08 colorize）：**「逾期」一律用热红 `#f0716a`** —— 列表色条、`已逾期`/`高优先级` 徽标、环段、图例 swatch 同一色，对暖黑/卡片底 ≥5.49:1，远超标线 3:1；**深红 `#c53a2c` 仅作删除按钮填充**（浅字 `#f5f2ec` 叠其上 4.68:1 ≥4.5:1）。原 `--status-danger` 兼做色条 + 按钮填充，色条仅 3.03:1 贴线、且与 `--status-danger-text` 红意重复 —— 拆成「逾期=亮红、删除填充=暗红」两职，色条获得 1.8× 余量。
 - **设置**：主页面中央遮罩 + 暖黑弹层，switch（40×22）
 
 ## 图标系统

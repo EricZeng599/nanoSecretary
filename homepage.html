@@ -14,9 +14,16 @@
             background: transparent;
             color: var(--text-strong);
             font-family: var(--font-stack);
+            font-size: var(--text-body);
             height: 100vh;
             display: flex;
             flex-direction: column;
+        }
+        /* 表单控件会继承 UA 的 button/input font 简写（默认 Arial），
+           必须显式归位到 --font-stack，否则按钮中文落到无衬线（Arial → YaHei），
+           与正文宋体断层——editorial 世界里互动文字与正文应有同一字栈。 */
+        button, input, select, textarea {
+            font-family: var(--font-stack);
         }
         /* 无障碍：键盘焦点指示（赭橙） */
         :focus-visible {
@@ -331,7 +338,7 @@
             transition: background var(--dur-fast);
         }
         .entry-item:hover { background: var(--surface-card-hover); }
-        .entry-item.overdue { border-left-color: var(--status-danger); }
+        .entry-item.overdue { border-left-color: var(--status-danger-text); }
         .entry-item.today { border-left-color: var(--status-warning-strong); }
         .entry-item.note { border-left-color: var(--status-note); }
         .entry-item.done { border-left-color: var(--status-success); opacity: 0.62; }
