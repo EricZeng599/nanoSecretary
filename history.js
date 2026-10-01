@@ -111,7 +111,7 @@ function renderEntries() {
         // 便签不给「改期」：主进程已挡住它升级，留个按不出效果的按钮只是误导
         const dueEditBtn = isSticky
             ? ''
-            : '<button class="action-button" type="button" data-action="reschedule" data-id="' + e.id + '">' + ic('edit', 'inline') + '改期</button>';
+            : '<button class="action-button quiet" type="button" data-action="reschedule" data-id="' + e.id + '">' + ic('edit', 'inline') + '改期</button>';
         // 状态一律「色底/描边 + 文字」徽标，不做彩色小字
         // （橙字白底 3.12:1、绿字白底也过不了；且新色板里根本没有绿）
         const statusLabel = isSticky
@@ -119,14 +119,21 @@ function renderEntries() {
             : e.status === 'pending' ? '<span class="status pending">待办</span>'
                 : e.status === 'done' ? '<span class="status done">已完成</span>'
                     : '<span class="status">备忘</span>';
+        // 一张卡只说一遍。标题是 AI 从原文里提的那句，正文是原话 ——
+        // 实测 16 条里 14 条正文一个字都没多说（2 条与标题完全相同，12 条整段落在标题里），
+        // 只有 2 条标题更笼统（「读书」对「读完《设计中的设计》第三章」）。
+        // 主页面「记录」那一栏一直只印一行（esc(e.title || e.content)），历史页是唯一印两遍的屏。
+        // 标题为空才退回正文，不留「(无标题)」这种占位。
+        // 分类与标签同词时也只印一遍：16 条里 13 条「工作」+「#工作」是同一个词摆了两块徽标。
+        const cat = e.category || '';
+        const tagList = (e.tags || []).filter((t) => t !== cat);
         return `<div class="entry-card ${cls}" data-id="${e.id}">
-            <div class="entry-title">${esc(e.title || '(无标题)')}</div>
-            <div class="entry-content">${esc(e.content)}</div>
+            <div class="entry-title">${esc(e.title || e.content || '(无标题)')}</div>
             <div class="entry-meta">
                 ${dueText ? `<span class="due ${overdue ? 'overdue' : ''}">${ic('clock', 'inline')}${esc(dueText)}</span>` : ''}
                 ${e.priority === '高' ? '<span class="priority-high">' + ic('fire', 'inline') + '高</span>' : e.priority === '中' ? '<span class="priority-mid">中</span>' : ''}
-                ${e.category ? `<span class="cat">${esc(e.category)}</span>` : ''}
-                ${(e.tags || []).map((t) => `<span class="tag">${ic('tag', 'inline')}#${esc(t)}</span>`).join('')}
+                ${cat ? `<span class="cat">${esc(cat)}</span>` : ''}
+                ${tagList.map((t) => `<span class="tag">${ic('tag', 'inline')}#${esc(t)}</span>`).join('')}
                 <span>${esc(formatTime(e.created))}</span>
                 ${statusLabel}
             </div>
@@ -134,7 +141,7 @@ function renderEntries() {
                 ${doneBtn}
                 ${promoteBtn}
                 ${dueEditBtn}
-                <button class="action-button" type="button" data-action="copy" data-id="${e.id}">${ic('copy', 'inline')}复制</button>
+                <button class="action-button quiet" type="button" data-action="copy" data-id="${e.id}">${ic('copy', 'inline')}复制</button>
                 <button class="action-button delete" type="button" data-action="delete" data-id="${e.id}">${ic('trash', 'inline')}删除</button>
             </div>
         </div>`;

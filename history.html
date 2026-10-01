@@ -67,7 +67,7 @@
             font-size: var(--px-size-2x);
             font-weight: 400;
             letter-spacing: 0;
-            line-height: 1.2;
+            line-height: var(--leading-display);
             color: var(--text-strong);
             display: flex; align-items: center;
             flex: 1; min-width: 0;
@@ -81,14 +81,17 @@
         }
         /* 图标是图形不是文字，按 3:1 判；橙在亮底 3.12:1、暗底 6.0:1 都过 */
         .close-btn:hover { color: var(--px-accent); }
-        /* 模块编号：lshu 的版式签名。橙底主色字，是唯一允许的橙底用法 */
+        /* 模块编号：lshu 的版式签名。橙底主色字，是唯一允许的橙底用法。
+           这份是 homepage.html 同名规则的副本 —— 两边必须一致，
+           行高与字距都自己定，不吃所在标题的继承值（紧贴型，理由见那边）。 */
         .mod-code {
             display: inline-block;
             background: var(--action-primary);
             color: var(--action-on-text);
             font-family: var(--font-display);
             font-size: var(--px-size);
-            line-height: 1.5;
+            line-height: normal;
+            letter-spacing: 0;
             padding: 0 6px;
             margin-right: 8px;
             flex-shrink: 0;
@@ -133,18 +136,30 @@
         .entries-list { display: flex; flex-direction: column; }
         .entry-card {
             position: relative;
-            background: transparent;
             border-radius: 0; padding: 10px 12px;
             border-left: 4px solid transparent;
             border-bottom: 1px solid var(--border-subtle);
-            transition: border-color var(--dur-fast), background var(--dur-fast);
+            /* 只有 border-color 会变 —— hover 走黄左条、不改底色（tokens.css 的
+               --surface-card-hover 就是这么定的）。原来还过渡 background 并显式写了
+               background: transparent，两条都不会被任何规则改到，删掉。 */
+            transition: border-color var(--dur-fast);
         }
         .entry-card:hover { border-left-color: var(--px-mark); }
         .entry-card.done { opacity: 0.62; }
 
-        .entry-title { font-size: var(--text-body); font-weight: var(--weight-strong); margin-bottom: 5px; color: var(--text-strong); }
+        /* 这一行是要**读**的：历史页的标题是整条记录的全文，得让它换行。
+           （主页面 .entry-title 是 nowrap + ellipsis —— 那是「最近记录」栏的读法，
+           一行一条、扫一眼就够；两屏职责不同，不统一。）
+           既然换行，就得自己管住不可断的长串：实测粘一条 300 字无空格的串进来，
+           标题撑到 2933px 而卡片只有 486px，.content 因此长出横向滚动条（2969 / 554）。
+           用 anywhere 而不是主页面 .see-big 那套 word-break: break-all ——
+           标题多数是中文本来就断行，break-all 会把行尾的英文单词也拦腰砍断，
+           anywhere 只在「一个词比整行还长」时才动手。 */
+        .entry-title { font-size: var(--text-body); font-weight: var(--weight-strong); margin-bottom: 5px; color: var(--text-strong); overflow-wrap: anywhere; }
         .entry-card.done .entry-title { text-decoration: line-through; }
-        .entry-content { font-size: var(--text-body); color: var(--text-secondary); line-height: 1.5; margin-bottom: 8px; }
+        /* 这里原来还有一条 .entry-content（正文行）。它已随「一张卡只说一遍」撤掉：
+           实测 16 条里 14 条正文整段落在标题里，只有 2 条标题更笼统。
+           规则一并删掉 —— 留着就是没人用的死 CSS（主页面那栏从不渲染它）。 */
         .entry-meta { display: flex; flex-wrap: wrap; gap: 6px; font-size: var(--text-meta); color: var(--text-tertiary); align-items: center; margin-bottom: 10px; }
 
         /* ---- 状态徽标：一律「色底 + 主色字」，绝不做橙/黄小字 ---- */
@@ -152,7 +167,7 @@
             background: var(--status-warning-bg);
             border: 1px solid var(--px-mark);
             color: var(--text-strong);
-            padding: 0 6px; font-size: var(--px-size); line-height: 1.6;
+            padding: 0 6px; font-size: var(--px-size); line-height: var(--leading-chip);
         }
         .entry-meta .due.overdue {
             background: var(--action-primary);
@@ -163,29 +178,29 @@
             background: var(--action-primary);
             border: 1px solid var(--action-primary);
             color: var(--action-on-text);
-            padding: 0 6px; font-size: var(--px-size); line-height: 1.6;
+            padding: 0 6px; font-size: var(--px-size); line-height: var(--leading-chip);
         }
         .entry-meta .priority-mid {
             background: var(--status-warning-bg);
             border: 1px solid var(--px-mark);
             color: var(--text-strong);
-            padding: 0 6px; font-size: var(--px-size); line-height: 1.6;
+            padding: 0 6px; font-size: var(--px-size); line-height: var(--leading-chip);
         }
         .entry-meta .cat {
             padding: 0 6px; border: 1px solid var(--border-strong);
             background: transparent; color: var(--text-secondary);
-            font-size: var(--px-size); line-height: 1.6;
+            font-size: var(--px-size); line-height: var(--leading-chip);
         }
         /* 标签用黄底（lshu 的「标记」色），与分类的透明描边区分开 */
         .entry-meta .tag {
             background: var(--status-warning-bg);
             color: var(--text-strong);
-            padding: 0 6px; font-size: var(--px-size); line-height: 1.6;
+            padding: 0 6px; font-size: var(--px-size); line-height: var(--leading-chip);
         }
         .entry-meta .status {
             padding: 0 6px; border: 1px solid var(--border-subtle);
             color: var(--text-tertiary);
-            font-size: var(--px-size); line-height: 1.6;
+            font-size: var(--px-size); line-height: var(--leading-chip);
         }
         .entry-meta .status.pending { border-color: var(--border-strong); color: var(--text-strong); }
         .entry-meta .status.done { background: var(--status-success-bg); color: var(--text-strong); }
@@ -202,6 +217,17 @@
             transition: background var(--dur-fast), color var(--dur-fast);
         }
         .action-button:hover { background: var(--button-secondary-hover); color: var(--ink-on-bright); }
+        /* 一行只留一个有分量的按钮。改期 / 复制是偶尔才用一次的动作，原来和「完成」
+           长得一模一样（同为 1px 描边方块）—— 一排四个谁也不突出，16 行就是 64 个同重的框。
+           现在收掉它们的框：hover 才浮出底色。层级变成
+           完成 / 转为待办 = 描边（主）· 改期 / 复制 = 无框（次）· 删除 = 主色描边。
+           「删除」那条描边是有意的既有决定（唯一的破坏性动作要看得出来），不动它。 */
+        .action-button.quiet {
+            background: none;
+            border-color: transparent;
+            padding: 4px 8px;
+        }
+        .action-button.quiet:hover { background: var(--button-secondary-hover); color: var(--ink-on-bright); }
         /* 完成/恢复：lshu 没有「成功色」，绿一律换成主色勾 + 文字 */
         .action-button.done { border-color: var(--border-strong); color: var(--text-strong); }
         .action-button.done:hover { background: var(--status-success-bg); color: var(--text-strong); }

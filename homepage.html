@@ -60,7 +60,7 @@
             font-weight: 400;
             letter-spacing: 0;
             color: var(--text-strong);
-            line-height: 1.2;
+            line-height: var(--leading-display);
             display: flex; align-items: center;
         }
         /* 模块编号：lshu 的版式签名。橙底主色字，是唯一允许的橙底用法 */
@@ -70,7 +70,13 @@
             color: var(--action-on-text);
             font-family: var(--font-display);
             font-size: var(--px-size);
-            line-height: 1.5;
+            /* 行高与字距自己定，不吃所在标题的 ——
+               它落在 h1 / h2 / .card-label / .set-group 里各有各的继承值，
+               同一个方块会长成三样（字距实测 normal / 0.48px / 0.72px）。
+               行高走紧贴型：实心块贴住数字才像 lshu 那个签名，且与所在标题
+               的行盒齐平，不会把自己的容器撑高。 */
+            line-height: normal;
+            letter-spacing: 0;
             padding: 0 6px;
             margin-right: 8px;
             flex-shrink: 0;
@@ -169,7 +175,7 @@
             display: flex; align-items: center; gap: 6px;
         }
         .dash-card .card-label .icon { width: 12px; height: 12px; }
-        .dash-card .card-label .mod-code { margin-right: 2px; line-height: 1.4; }
+        .dash-card .card-label .mod-code { margin-right: 2px; }
         /* 环区 */
         .ring-wrap {
             position: relative;
@@ -224,7 +230,7 @@
             color: var(--text-tertiary);
             margin-top: auto;
             padding-top: 8px;
-            line-height: 1.5;
+            line-height: var(--leading-dense);
         }
         .dash-foot .hl { color: var(--text-strong); font-weight: var(--weight-strong); }
         /* 图例行 */
@@ -309,8 +315,11 @@
         }
         .dash-tags .tag-detail:hover { color: var(--text-strong); }
         .dash-tags .tag-detail:hover .big { color: var(--action-primary); }
+        /* 24px 点阵显示层：与页头 / 设置标题 / 右栏大单值同一档行高。
+           原来不写，吃字体度量（32px），于是同一档里出现 28.8 / 24 / 32 三个值。 */
         .dash-tags .tag-detail .big {
             font-family: var(--font-display); font-size: var(--px-size-2x); color: var(--text-strong);
+            line-height: var(--leading-display);
         }
         .dash-empty {
             text-align: center; color: var(--text-tertiary);
@@ -382,7 +391,7 @@
         .list-section h2 {
             font-size: var(--px-size); color: var(--text-tertiary);
             margin: 6px 0 4px; font-weight: 400;
-            letter-spacing: 0.06em;
+            letter-spacing: 0.04em;
             padding-bottom: 6px;
             border-bottom: 1px solid var(--border-subtle);
         }
@@ -417,7 +426,7 @@
             color: var(--text-strong);
             padding: 0 6px;
             font-size: var(--px-size);
-            line-height: 1.6;
+            line-height: var(--leading-chip);
         }
         .entry-meta .due.overdue {
             background: var(--action-primary);
@@ -428,23 +437,23 @@
             background: var(--action-primary);
             border: 1px solid var(--action-primary);
             color: var(--action-on-text);
-            padding: 0 6px; font-size: var(--px-size); line-height: 1.6;
+            padding: 0 6px; font-size: var(--px-size); line-height: var(--leading-chip);
         }
         .entry-meta .priority-mid {
             background: var(--status-warning-bg);
             border: 1px solid var(--px-mark);
             color: var(--text-strong);
-            padding: 0 6px; font-size: var(--px-size); line-height: 1.6;
+            padding: 0 6px; font-size: var(--px-size); line-height: var(--leading-chip);
         }
         .entry-meta .priority-low {
             border: 1px solid var(--border-subtle);
             color: var(--text-tertiary);
-            padding: 0 6px; font-size: var(--px-size); line-height: 1.6;
+            padding: 0 6px; font-size: var(--px-size); line-height: var(--leading-chip);
         }
         .entry-meta .cat {
             padding: 0 6px; border-radius: 0; border: 1px solid var(--border-strong);
             background: transparent; color: var(--text-secondary);
-            font-size: var(--px-size); line-height: 1.6;
+            font-size: var(--px-size); line-height: var(--leading-chip);
         }
         .entry-actions { margin-top: 8px; display: flex; gap: 6px; }
         .entry-actions button {
@@ -519,7 +528,7 @@
             gap: 14px; text-align: center; padding: 8px 12px; max-width: 90%;
         }
         .chat-empty .chat-empty-title { font-family: var(--font-display); font-size: var(--px-size-2x); font-weight: 400; color: var(--text-strong); margin: 0; }
-        .chat-empty p { font-size: var(--text-meta); color: var(--text-secondary); margin: 0; line-height: 1.6; }
+        .chat-empty p { font-size: var(--text-meta); color: var(--text-secondary); margin: 0; line-height: var(--leading-read); }
         .chat-empty .chat-suggest { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 4px; }
         .chat-empty .chat-suggest button {
             background: transparent; color: var(--text-secondary); border: 1px solid var(--border-strong);
@@ -527,7 +536,7 @@
         }
         .chat-empty .chat-suggest button:hover { background: var(--button-secondary-hover); color: var(--ink-on-bright); border-color: var(--px-mark); }
         /* 气泡不靠底色区分，靠对齐 + 边框 —— lshu 知识页合同 */
-        .chat-msg { max-width: 85%; padding: 8px 12px; border-radius: 0; font-size: var(--text-body); line-height: 1.5; white-space: pre-wrap; }
+        .chat-msg { max-width: 85%; padding: 8px 12px; border-radius: 0; font-size: var(--text-body); line-height: var(--leading-dense); white-space: pre-wrap; }
         .chat-msg.user { align-self: flex-end; background: transparent; border: 2px solid var(--action-primary); }
         .chat-msg.ai { align-self: flex-start; background: transparent; border: 1px solid var(--border-strong); }
         .chat-input-row {
@@ -603,7 +612,7 @@
             padding-bottom: 10px; margin-bottom: 12px;
             border-bottom: 2px solid var(--border-strong);
         }
-        .set-head h3 { font-family: var(--font-display); font-size: var(--px-size-2x); font-weight: 400; color: var(--text-strong); line-height: 1.2; }
+        .set-head h3 { font-family: var(--font-display); font-size: var(--px-size-2x); font-weight: 400; color: var(--text-strong); line-height: var(--leading-display); }
         .set-head .set-close {
             margin-left: auto; width: 26px; height: 26px; padding: 0;
             display: inline-flex; align-items: center; justify-content: center;
@@ -633,7 +642,7 @@
             display: flex; align-items: center; gap: 6px;
         }
         .set-list > .set-group:first-child { padding-top: 0; }
-        .set-group .mod-code { margin-right: 2px; line-height: 1.4; }
+        .set-group .mod-code { margin-right: 2px; }
 
         .set-row { padding: 9px 0; border-bottom: 1px solid var(--border-subtle); }
         .set-group + .set-row { padding-top: 7px; }
@@ -657,7 +666,7 @@
             color: var(--text-primary);
         }
         .set-row .switch-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-        .set-row .desc { font-size: var(--text-meta); color: var(--text-tertiary); margin-top: 5px; line-height: 1.5; }
+        .set-row .desc { font-size: var(--text-meta); color: var(--text-tertiary); margin-top: 5px; line-height: var(--leading-dense); }
         /* 次要按钮：与右下角取消/保存同一套壳，用在行内（打开文件夹这类） */
         .set-btn {
             padding: 7px 14px; border-radius: 0; cursor: pointer; font-size: var(--px-size);
@@ -679,14 +688,29 @@
             border-bottom: 1px solid var(--border-subtle);
             display: flex; align-items: center; gap: 6px;
         }
-        .see-head .mod-code { margin-right: 2px; line-height: 1.4; }
-        .see-line { display: flex; gap: 8px; font-size: var(--text-meta); line-height: 1.7; margin-bottom: 6px; }
+        .see-head .mod-code { margin-right: 2px; }
+        .see-line { display: flex; gap: 8px; font-size: var(--text-meta); line-height: var(--leading-dense); margin-bottom: 6px; }
         .see-line .k { color: var(--text-faint); flex-shrink: 0; }
         .see-line .v { color: var(--text-strong); word-break: break-all; }
-        .see-note { font-size: var(--text-meta); color: var(--text-tertiary); line-height: 1.6; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border-subtle); }
-        .see-empty { font-size: var(--text-meta); color: var(--text-tertiary); line-height: 1.7; }
+        .see-note { font-size: var(--text-meta); color: var(--text-tertiary); line-height: var(--leading-read); margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border-subtle); }
+        .see-empty { font-size: var(--text-meta); color: var(--text-tertiary); line-height: var(--leading-read); }
+
+        /* 成段的宋体正文：别在末行剩一个字。
+           中文没有词间空格，浏览器默认的「谁先放下谁断行」很容易把最后一个字
+           单独甩到下一行（设置页「0 = 仅当天提醒」那一行实测只剩 1.5 个字）。
+           pretty 会为末行回头调整断点，代价是排版稍慢一点 —— 这些都是一次性
+           渲染的短说明，不构成顾虑。Chromium 117+ 支持，Electron 28 = 120。 */
+        .set-row .desc,
+        .see-note,
+        .see-empty,
+        .see-src,
+        .chat-msg,
+        .chat-empty p,
+        .empty {
+            text-wrap: pretty;
+        }
         /* 大字：快捷键、模型名这类需要一眼读清的单值 */
-        .see-big { font-family: var(--font-display); font-size: var(--px-size-2x); font-weight: 400; color: var(--text-strong); line-height: 1.3; word-break: break-all; margin-bottom: 10px; }
+        .see-big { font-family: var(--font-display); font-size: var(--px-size-2x); font-weight: 400; color: var(--text-strong); line-height: var(--leading-display); word-break: break-all; margin-bottom: 10px; }
         /* 真实控件的样张：直接复用真身类名（.tabs/.entry-item/.save-btn…），
            不另画一套假控件 —— 它们本来就读的是同一份 token，主题一翻全跟着翻。 */
         /* 样张一律不吃指针：里面的东西看着像控件，但不接任何行为 ——
@@ -702,12 +726,15 @@
             padding: 9px 8px 9px 12px; border-top: 1px solid var(--border-subtle);
         }
         .see-demo .demo-switch-row .t { font-size: var(--text-body); font-weight: var(--weight-strong); color: var(--text-strong); }
-        .see-demo .save-btn { display: inline-block; padding: 6px 14px; line-height: 1.4; }
+        /* 样张在窄栏里，按钮的内边距按比例收小才放得下 —— 这是唯一一处让步，
+           行高不再另改：1.4 会让样张按钮比真身矮一截，而这块的立身之本
+           就是「所见即真身」。 */
+        .see-demo .save-btn { display: inline-block; padding: 6px 14px; }
         /* 原文 → 解析结果 的对照 */
         .see-src {
             font-size: var(--text-meta); color: var(--text-primary);
             background: var(--surface-field); border: 1px solid var(--border-subtle);
-            padding: 8px 10px; margin-bottom: 10px; line-height: 1.6;
+            padding: 8px 10px; margin-bottom: 10px; line-height: var(--leading-read);
         }
         .see-arrow { text-align: center; color: var(--text-faint); font-size: var(--px-size); margin: 0 0 10px; }
         .see-off { color: var(--text-tertiary); text-decoration: line-through; }

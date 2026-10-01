@@ -251,7 +251,9 @@
             font-size: var(--text-meta);
             color: var(--text-primary);
             margin-bottom: 8px;
-            line-height: 1.5;
+            line-height: var(--leading-dense);
+            /* 解析出来的文字给人读，末行别留孤字 */
+            text-wrap: pretty;
         }
         #ai-preview .ai-title { font-weight: var(--weight-strong); }
         /* 橙不做小字，链接式操作改走主色下划线 */
