@@ -55,6 +55,14 @@ contextBridge.exposeInMainWorld('api', {
   onConfigSaved: (cb) => ipcRenderer.on('config-saved', (e, data) => cb(data)),
   getConfig: () => ipcRenderer.send('get-config'),
   onConfig: (cb) => ipcRenderer.on('config', (e, data) => cb(data)),
+  // 设置页的主题是即点即生效的：这一条只翻 nativeTheme，不落盘。
+  // 取消 / 关闭时用进来时记下的取值再翻回去，盘上的 config.json 全程没被动过。
+  previewTheme: (value) => ipcRenderer.send('preview-theme', value),
+
+  // 本地数据台账（设置页 05 数据：条数 / 路径 / 占用 / 最后写入）
+  getDataStats: () => ipcRenderer.send('get-data-stats'),
+  onDataStats: (cb) => ipcRenderer.on('data-stats', (e, data) => cb(data)),
+  openDataFolder: () => ipcRenderer.send('open-data-folder'),
 
   // AI 状态
   getAiStatus: () => ipcRenderer.send('get-ai-status'),

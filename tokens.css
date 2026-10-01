@@ -270,6 +270,14 @@
 #settings-panel h3,
 .settings-actions button,
 .theme-seg button,
+/* 设置页右栏的后果样张：标题、编号、单值大字都是机器生成的短串，落点阵；
+   样张里的正文、路径、模型说明是给人读的句子，仍走宋体 */
+.set-head h3,
+.set-group,
+.see-head,
+.see-big,
+.see-arrow,
+.set-btn,
 /* index.html —— 悬浮球 + 输入窗 */
 #save-button,
 #save-button-form,

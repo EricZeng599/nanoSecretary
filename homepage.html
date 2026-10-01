@@ -569,53 +569,148 @@
         }
         body { position: relative; }
 
-        /* 设置面板 */
+        /* ===== 设置：一整屏，不是浮在中间的对话框 =====
+           两栏结构（左改 / 右看）需要整个窗口的宽度，320px 的居中浮层装不下；
+           面板铺满窗口之后，遮罩也没有可压暗的背景了 —— 收掉遮罩，
+           改成与 .container 同几何的一整屏（12px 边距 + 2px 主色框 + 16px 内边距）。
+           它仍然 role="dialog" aria-modal="true"：焦点圈定、下面的容器确实够不着，
+           只是不再假装自己是个浮动对话框。 */
         #settings-overlay {
             position: fixed; inset: 0; z-index: 20;
-            background: var(--surface-scrim);
+            background: var(--surface-main);
             display: none;
-            align-items: center;
-            justify-content: center;
         }
-        #settings-overlay.show { display: flex; }
+        #settings-overlay.show { display: block; }
         #settings-panel {
-            width: 80%;
-            max-width: 320px;
-            background: var(--surface-raised);
+            position: absolute; inset: 12px;
+            background: var(--surface-main);
             border-radius: 0;
             padding: 16px;
             border: 2px solid var(--border-strong);
             box-shadow: none;
-            transform-origin: center;
+            display: flex; flex-direction: column;
+            /* 入场只做透明度：旧实现是 scale(0.97)→scale(1)，
+               点阵字一缩放就重采样发虚，与全站「不用 scale 做动效」的规矩冲突。 */
             animation: settings-in 0.14s steps(3, end);
         }
         @keyframes settings-in {
-            from { transform: scale(0.97); opacity: 0; }
-            to { transform: scale(1); opacity: 1; }
+            from { opacity: 0; }
+            to { opacity: 1; }
         }
-        #settings-panel h3 { font-family: var(--font-display); font-size: var(--px-size-2x); font-weight: 400; margin-bottom: 14px; color: var(--text-strong); padding-bottom: 8px; border-bottom: 2px solid var(--border-strong); }
-        .setting-row { margin-bottom: 14px; }
-        .setting-row .label { font-size: var(--text-meta); color: var(--text-secondary); margin-bottom: 6px; display: block; }
-        .setting-row select, .setting-row input[type="number"], .setting-row input[type="text"] {
+        .set-head {
+            flex-shrink: 0;
+            display: flex; align-items: center; gap: 10px;
+            padding-bottom: 10px; margin-bottom: 12px;
+            border-bottom: 2px solid var(--border-strong);
+        }
+        .set-head h3 { font-family: var(--font-display); font-size: var(--px-size-2x); font-weight: 400; color: var(--text-strong); line-height: 1.2; }
+        .set-head .set-close {
+            margin-left: auto; width: 26px; height: 26px; padding: 0;
+            display: inline-flex; align-items: center; justify-content: center;
+            background: transparent; color: var(--text-secondary);
+            border: 1px solid var(--border-strong); border-radius: 0; cursor: pointer;
+            transition: background var(--dur-fast), color var(--dur-fast);
+        }
+        .set-head .set-close:hover { background: var(--button-secondary-hover); color: var(--ink-on-bright); }
+
+        /* 两栏：左 5 改，右 7 看 */
+        .set-body { flex: 1; min-height: 0; display: flex; gap: 12px; }
+        /* 两栏各自滚动；左右各留 6px 给 :focus-visible 的 3px 环 + 2px offset */
+        .set-list { flex: 5; min-width: 0; overflow-y: auto; padding: 0 6px; }
+        .set-see {
+            flex: 7; min-width: 0; overflow-y: auto;
+            border-left: 1px solid var(--border-subtle);
+            padding: 0 6px 0 13px;
+        }
+        /* 组标题吸顶：左栏要滚，滚起来还得知道自己在哪一组 */
+        .set-group {
+            position: sticky; top: 0; z-index: 1;
+            background: var(--surface-main);
+            font-size: var(--px-size); color: var(--text-tertiary);
+            letter-spacing: 0.04em;
+            margin: 0 0 2px; padding: 9px 0 5px;
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex; align-items: center; gap: 6px;
+        }
+        .set-list > .set-group:first-child { padding-top: 0; }
+        .set-group .mod-code { margin-right: 2px; line-height: 1.4; }
+
+        .set-row { padding: 9px 0; border-bottom: 1px solid var(--border-subtle); }
+        .set-group + .set-row { padding-top: 7px; }
+        .set-row .label { font-size: var(--text-meta); color: var(--text-secondary); margin-bottom: 6px; display: block; }
+        .set-row select, .set-row input[type="number"], .set-row input[type="text"] {
             width: 100%; padding: 7px 10px;
             background: var(--surface-field);
             color: var(--text-primary); border: 1px solid var(--border-strong);
             border-radius: 0; font-size: var(--text-meta);
             transition: border-color var(--dur-fast);
         }
-        .setting-row select:focus, .setting-row input[type="number"]:focus, .setting-row input[type="text"]:focus { border-color: var(--border-field); }
+        .set-row select:focus, .set-row input[type="number"]:focus, .set-row input[type="text"]:focus { border-color: var(--border-field); }
         /* 快捷键录制框：点击后直接按下组合键录入 */
-        .setting-row input.shortcut-field { cursor: pointer; }
-        .setting-row input.shortcut-field:focus { outline: none; border-color: var(--action-primary); }
-        .setting-row input.shortcut-field.recording { color: var(--text-faint); border-color: var(--action-primary); }
+        .set-row input.shortcut-field { cursor: pointer; }
+        .set-row input.shortcut-field:focus { outline: none; border-color: var(--action-primary); }
+        .set-row input.shortcut-field.recording { color: var(--text-faint); border-color: var(--action-primary); }
         /* 下拉选项跟随主题（色值走 token，不再硬编码暖黑，
            否则亮色主题下会掉出一个黑底弹层） */
         select option {
             background-color: var(--surface-field);
             color: var(--text-primary);
         }
-        .setting-row .switch-row { display: flex; align-items: center; justify-content: space-between; }
-        .setting-row .desc { font-size: var(--text-meta); color: var(--text-tertiary); margin-top: 4px; }
+        .set-row .switch-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+        .set-row .desc { font-size: var(--text-meta); color: var(--text-tertiary); margin-top: 5px; line-height: 1.5; }
+        /* 次要按钮：与右下角取消/保存同一套壳，用在行内（打开文件夹这类） */
+        .set-btn {
+            padding: 7px 14px; border-radius: 0; cursor: pointer; font-size: var(--px-size);
+            background: transparent; color: var(--text-secondary);
+            border: 1px solid var(--border-strong);
+            transition: background var(--dur-fast), color var(--dur-fast);
+        }
+        .set-btn:hover { background: var(--button-secondary-hover); color: var(--ink-on-bright); }
+        .demo-actions { display: flex; gap: 8px; margin-top: 8px; }
+
+        /* ===== 右栏：后果样张 =====
+           不是配图，是「你现在碰的这一项，生效之后长什么样 / 会发生什么」。
+           内容随左栏焦点切换；数据一律来自本机真实记录，没有可展示的真实数据时
+           老实说没有，不摆假样本。 */
+        .see-head {
+            position: sticky; top: 0; z-index: 1; background: var(--surface-main);
+            font-size: var(--px-size); color: var(--text-tertiary);
+            letter-spacing: 0.04em; margin: 0 0 12px; padding: 9px 0 5px;
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex; align-items: center; gap: 6px;
+        }
+        .see-head .mod-code { margin-right: 2px; line-height: 1.4; }
+        .see-line { display: flex; gap: 8px; font-size: var(--text-meta); line-height: 1.7; margin-bottom: 6px; }
+        .see-line .k { color: var(--text-faint); flex-shrink: 0; }
+        .see-line .v { color: var(--text-strong); word-break: break-all; }
+        .see-note { font-size: var(--text-meta); color: var(--text-tertiary); line-height: 1.6; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border-subtle); }
+        .see-empty { font-size: var(--text-meta); color: var(--text-tertiary); line-height: 1.7; }
+        /* 大字：快捷键、模型名这类需要一眼读清的单值 */
+        .see-big { font-family: var(--font-display); font-size: var(--px-size-2x); font-weight: 400; color: var(--text-strong); line-height: 1.3; word-break: break-all; margin-bottom: 10px; }
+        /* 真实控件的样张：直接复用真身类名（.tabs/.entry-item/.save-btn…），
+           不另画一套假控件 —— 它们本来就读的是同一份 token，主题一翻全跟着翻。 */
+        /* 样张一律不吃指针：里面的东西看着像控件，但不接任何行为 ——
+           点它不做事，比点它做错事好。 */
+        .see-demo { border: 1px solid var(--border-strong); padding: 10px 10px 2px; margin-bottom: 12px; pointer-events: none; }
+        .see-demo .tabs { margin-bottom: 10px; }
+        .see-demo .tab { padding: 7px 0; }
+        .see-demo .tab:last-child { border-right: none; }
+        .see-demo .entry-item { border-bottom: none; padding: 8px 8px 8px 12px; }
+        .see-demo .entry-item + .entry-item { border-top: 1px solid var(--border-subtle); }
+        .see-demo .demo-switch-row {
+            display: flex; align-items: center; justify-content: space-between; gap: 10px;
+            padding: 9px 8px 9px 12px; border-top: 1px solid var(--border-subtle);
+        }
+        .see-demo .demo-switch-row .t { font-size: var(--text-body); font-weight: var(--weight-strong); color: var(--text-strong); }
+        .see-demo .save-btn { display: inline-block; padding: 6px 14px; line-height: 1.4; }
+        /* 原文 → 解析结果 的对照 */
+        .see-src {
+            font-size: var(--text-meta); color: var(--text-primary);
+            background: var(--surface-field); border: 1px solid var(--border-subtle);
+            padding: 8px 10px; margin-bottom: 10px; line-height: 1.6;
+        }
+        .see-arrow { text-align: center; color: var(--text-faint); font-size: var(--px-size); margin: 0 0 10px; }
+        .see-off { color: var(--text-tertiary); text-decoration: line-through; }
         /* 开关：直角方块，开启态橙底，不用绿色 */
         .switch {
             position: relative; width: 36px; height: 20px; flex-shrink: 0;
@@ -773,48 +868,110 @@
         </div>
     </div>
 
-    <!-- 设置面板 -->
+    <!--
+      ============================================================================
+      IMPECCABLE 方向合同 · seed cb38865e · scope surface · mode operate
+      THESIS      左栏改，右栏看。右栏不是配图，是你正碰的那一项的后果：
+                  主题翻真身、解析摆原文对结果、提醒画时间轴、数据报自家的账。
+      OWN-WORLD   像素打印终端。色只认 #FFFFFF/#111111/#FF5A1F/#FFC928 两套；
+                  2px 硬边、全直角、零阴影；模块编号橙底主色字；点阵字只做
+                  标题/编号/按钮，正文落宋体栈。样式全部取自 tokens.css。
+      STORY       改之前先看见改完的样子；走的时候知道自己的数据在哪、出去没出去。
+      FIRST VIEWPORT
+                  与主容器同几何的一整屏（12px 边距 + 2px 框 + 16px 内边距）。
+                  顶部 NS-04 标题行 + 关闭；左 5/12 是 01 外观…05 数据 五组带编号
+                  的设置（组标题吸顶、自身滚动），右 7/12 是后果样张；底部取消/保存。
+      FORM        结构 #6/7（按共鸣度排序），骰子 cb38865e 发到桌上。code-led，不欠 comp。
+      FINISH      unreviewed and undocumented is unfinished; this build ends with the
+                  finish review, the verdict, DESIGN.md, and every shipping raster
+                  carrying its provenance.
+      ============================================================================
+    -->
     <div id="settings-overlay" role="dialog" aria-modal="true" aria-labelledby="settings-title">
         <div id="settings-panel">
-            <h3 id="settings-title">设置</h3>
-            <div class="setting-row">
-                <span class="label" id="set-theme-label">主题</span>
-                <div class="theme-seg" role="radiogroup" aria-labelledby="set-theme-label" id="set-theme">
-                    <button type="button" role="radio" data-theme="system" aria-checked="true">跟随系统</button>
-                    <button type="button" role="radio" data-theme="light" aria-checked="false">亮色</button>
-                    <button type="button" role="radio" data-theme="dark" aria-checked="false">暗色</button>
+            <div class="set-head">
+                <h3 id="settings-title"><span class="mod-code">NS-04</span>设置</h3>
+                <button class="set-close" id="set-close" type="button" aria-label="关闭设置">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"
+                         shape-rendering="crispEdges" aria-hidden="true">
+                        <path d="M5 5l14 14M19 5L5 19"></path>
+                    </svg>
+                </button>
+            </div>
+            <div class="set-body">
+                <!-- 改在这一栏 -->
+                <div class="set-list" id="set-list">
+                    <div class="set-group"><span class="mod-code">01</span>外观</div>
+                    <div class="set-row" data-see="theme">
+                        <span class="label" id="set-theme-label">主题</span>
+                        <div class="theme-seg" role="radiogroup" aria-labelledby="set-theme-label" id="set-theme">
+                            <button type="button" role="radio" data-theme="system" aria-checked="true">跟随系统</button>
+                            <button type="button" role="radio" data-theme="light" aria-checked="false">亮色</button>
+                            <button type="button" role="radio" data-theme="dark" aria-checked="false">暗色</button>
+                        </div>
+                        <div class="desc">即点即生效。点「取消」或关掉这一屏会退回进来时的取值</div>
+                    </div>
+
+                    <div class="set-group"><span class="mod-code">02</span>AI</div>
+                    <div class="set-row" data-see="model">
+                        <label class="label" for="set-model">Ollama 模型</label>
+                        <select id="set-model"></select>
+                        <div class="desc" id="set-model-desc">未检测到本地模型</div>
+                    </div>
+                    <div class="set-row" data-see="parse">
+                        <div class="switch-row">
+                            <span class="label" id="set-ai-label">AI 智能解析</span>
+                            <div class="switch" id="set-ai-switch" role="switch" aria-checked="true"
+                                 aria-labelledby="set-ai-label" tabindex="0"></div>
+                        </div>
+                        <div class="desc">关闭后只原样保存文本，不提取日期、优先级、分类</div>
+                    </div>
+
+                    <div class="set-group"><span class="mod-code">03</span>提醒</div>
+                    <div class="set-row" data-see="lead">
+                        <label class="label" for="set-lead">提醒提前量（小时）</label>
+                        <input type="number" id="set-lead" min="0" max="168" value="24">
+                        <div class="desc">截止前多久开始提醒，0 = 仅当天提醒</div>
+                    </div>
+
+                    <div class="set-group"><span class="mod-code">04</span>系统</div>
+                    <div class="set-row" data-see="ball">
+                        <div class="switch-row">
+                            <span class="label" id="set-ball-label">显示悬浮球</span>
+                            <div class="switch" id="set-ball-switch" role="switch" aria-checked="true"
+                                 aria-labelledby="set-ball-label" tabindex="0"></div>
+                        </div>
+                        <div class="desc">关闭后仅在托盘运行，用快捷键唤起输入面板</div>
+                    </div>
+                    <div class="set-row" data-see="shortcut">
+                        <label class="label" for="set-shortcut">全局快捷键</label>
+                        <input type="text" id="set-shortcut" class="shortcut-field" readonly placeholder="按下组合键…"
+                               aria-describedby="set-shortcut-desc">
+                        <div class="desc" id="set-shortcut-desc">点击后按下组合键录入；需至少一个修饰键（Ctrl / Alt / Shift）</div>
+                    </div>
+                    <div class="set-row" data-see="autostart">
+                        <div class="switch-row">
+                            <span class="label" id="set-autostart-label">开机自启</span>
+                            <div class="switch" id="set-autostart-switch" role="switch" aria-checked="false"
+                                 aria-labelledby="set-autostart-label" tabindex="0"></div>
+                        </div>
+                        <div class="desc">登录 Windows 后自动运行，悬浮球会自己出现</div>
+                    </div>
+
+                    <div class="set-group"><span class="mod-code">05</span>数据</div>
+                    <div class="set-row" data-see="data">
+                        <span class="label">本地数据</span>
+                        <div class="desc" id="set-data-desc">正在读取…</div>
+                        <div class="demo-actions">
+                            <button type="button" class="set-btn" id="set-open-folder">打开存储文件夹</button>
+                        </div>
+                    </div>
                 </div>
-                <div class="desc">跟随系统时会随 Windows 明暗设置实时切换</div>
-            </div>
-            <div class="setting-row">
-                <label class="label" for="set-model">Ollama 模型</label>
-                <select id="set-model"></select>
-                <div class="desc" id="set-model-desc">未检测到本地模型</div>
-            </div>
-            <div class="setting-row">
-                <label class="label" for="set-lead">提醒提前量（小时）</label>
-                <input type="number" id="set-lead" min="0" max="168" value="24">
-                <div class="desc">截止前多久开始提醒，0 = 仅当天提醒</div>
-            </div>
-            <div class="setting-row">
-                <div class="switch-row">
-                    <span class="label" style="margin:0;">AI 智能解析</span>
-                    <div class="switch" id="set-ai-switch" role="switch" aria-checked="true" aria-label="AI 智能解析" tabindex="0"></div>
-                </div>
-                <div class="desc">关闭后仅保存文本，不做 AI 提取</div>
-            </div>
-            <div class="setting-row">
-                <div class="switch-row">
-                    <span class="label" style="margin:0;">显示悬浮球</span>
-                    <div class="switch" id="set-ball-switch" role="switch" aria-checked="true" aria-label="显示悬浮球" tabindex="0"></div>
-                </div>
-                <div class="desc">关闭后仅在托盘运行，用快捷键唤起输入面板</div>
-            </div>
-            <div class="setting-row">
-                <label class="label" for="set-shortcut">全局快捷键</label>
-                <input type="text" id="set-shortcut" class="shortcut-field" readonly placeholder="按下组合键…"
-                       aria-describedby="set-shortcut-desc">
-                <div class="desc" id="set-shortcut-desc">点击后按下组合键录入；需至少一个修饰键（Ctrl / Alt / Shift）</div>
+
+                <!-- 看在这一栏：跟着左栏焦点换内容。纯视觉扩写，
+                     信息在左栏都有对应的可读文本，故对读屏隐藏，避免重复念一遍 -->
+                <div class="set-see" id="set-see" aria-hidden="true"></div>
             </div>
             <div class="settings-actions">
                 <button id="set-cancel" type="button">取消</button>

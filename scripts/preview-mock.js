@@ -50,7 +50,7 @@
   // 深拷贝一份发给页面：页面会随交互改数组，别让下一次回调拿到被改过的数据
   const clone = () => JSON.parse(JSON.stringify(ENTRIES));
 
-  const listeners = { entries: [], recent: [], ai: [], config: [], chat: [], configSaved: [] };
+  const listeners = { entries: [], recent: [], ai: [], config: [], chat: [], configSaved: [], dataStats: [] };
   const fire = (key, payload) => listeners[key].forEach((cb) => { try { cb(payload); } catch (e) { console.error(e); } });
 
   const AI_STATUS = {
@@ -78,7 +78,30 @@
   // 预览态配置。主题走 <html data-preview-theme>：preview-server 会把 tokens.css 里
   // 亮/暗两套 token 各复制一份到 [data-preview-theme=...] 选择器下，所以这里改属性
   // 就能真实地翻主题（而不是给预览造一套假样式）。
-  let config = { ...AI_STATUS, theme: 'system' };
+  let config = { ...AI_STATUS, theme: 'system', autoStart: false };
+
+  // 设置页右栏的「数据台账」要吃的回包（对齐主进程 get-data-stats 的字段）。
+  // 主进程那边是 try/catch 兜底的只读探针，失败时回 { error: true }；
+  // 这个开关让那条分支在预览里也跑得到：__previewDataStatsError(true) → 重开设置。
+  let dataStatsError = false;
+  window.__previewDataStatsError = (on) => { dataStatsError = !!on; };
+
+  const dataStats = () => {
+    if (dataStatsError) return { error: true };
+    const list = clone();
+    const bytes = new Blob([JSON.stringify(list, null, 2)]).size;
+    return {
+      total: list.length,
+      pending: list.filter((e) => e.status === 'pending' && e.sticky !== true).length,
+      done: list.filter((e) => e.status === 'done').length,
+      note: list.filter((e) => e.sticky === true).length,
+      free: list.filter((e) => e.status === 'note' && e.sticky !== true).length,
+      dir: 'C:\\Users\\EricZeng\\Desktop\\cyber-secretary\\history_files',
+      dataBytes: bytes,
+      configBytes: 312,
+      lastWrite: new Date(Date.now() - 42 * 60e3).toISOString(),
+    };
+  };
 
   window.api = {
     // —— 记录查询 ——
@@ -109,6 +132,12 @@
     // —— 配置 / 主题 ——
     getConfig: () => setTimeout(() => fire('config', { ...config }), 0),
     onConfig: (cb) => listeners.config.push(cb),
+    // 设置页里「主题」是即点即生效的：previewTheme 只翻主题、不落 config，
+    // 与主进程一致（那边只调 nativeTheme.themeSource，不写 config.json）。
+    previewTheme: (value) => {
+      if (value === 'system') delete document.documentElement.dataset.previewTheme;
+      else document.documentElement.dataset.previewTheme = value;
+    },
     saveConfig: (patch) => {
       config = { ...config, ...patch };
       if (patch.theme) {
@@ -118,6 +147,11 @@
       setTimeout(() => fire('configSaved', { ...config, _shortcut: { ok: true, shortcut: config.shortcut } }), 80);
     },
     onConfigSaved: (cb) => listeners.configSaved.push(cb),
+
+    // —— 本地数据台账（设置页 05 数据）——
+    getDataStats: () => setTimeout(() => fire('dataStats', dataStats()), 60),
+    onDataStats: (cb) => listeners.dataStats.push(cb),
+    openDataFolder: () => console.info('[preview] openDataFolder'),
 
     // —— 对话 ——
     sendChat: () => setTimeout(() => fire('chat', '（预览态没有接本地模型，这里是一段占位回复，用来核对气泡的对齐与边框。）'), 400),

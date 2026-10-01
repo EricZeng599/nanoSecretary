@@ -1,4 +1,4 @@
-const { app, BrowserWindow, screen, Menu, Tray, ipcMain, Notification, nativeImage, globalShortcut, nativeTheme } = require('electron');
+const { app, BrowserWindow, screen, Menu, Tray, ipcMain, Notification, nativeImage, globalShortcut, nativeTheme, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const ollama = require('./ollama');
@@ -9,6 +9,10 @@ let homePageWindow;   // 主页面
 let historyWindow;    // 历史记录
 let stickyWindows = new Map(); // noteId -> BrowserWindow（便签多开）
 let tray;
+/* 托盘菜单的重建函数。开机自启现在有两处入口（托盘勾选 / 设置页开关），
+ * 两边都要能让对方的那份勾选状态立刻跟上 —— 菜单项的 checked 是建菜单时快照的，
+ * 不重建就会一直显示成旧值。 */
+let refreshTrayMenu = null;
 let reminderTimer = null;
 let isDragging = false;
 let startX, startY, startWindowX, startWindowY;
@@ -216,6 +220,8 @@ function createTray() {
     ]);
     tray.setContextMenu(contextMenu);
   };
+
+  refreshTrayMenu = rebuildMenu;
 
   rebuildMenu();
   // 托盘与快捷键行为一致：单击打开输入面板。
@@ -848,6 +854,9 @@ ipcMain.on('save-config', (event, patch) => {
   const config = { ...readConfig(), ...patch };
   if (patch.autoStart !== undefined) {
     app.setLoginItemSettings({ openAtLogin: !!patch.autoStart });
+    // 托盘菜单里的「开机自启」是一份快照，改完必须重建，
+    // 否则设置页开了、托盘那行还打着叉，两处说法不一致。
+    if (typeof refreshTrayMenu === 'function') refreshTrayMenu();
   }
   if (patch.model) ollama.setModel(patch.model);
 
@@ -875,9 +884,64 @@ ipcMain.on('save-config', (event, patch) => {
   event.reply('config-saved', { ...config, _shortcut: shortcutResult });
 });
 
-/* 读取配置（设置面板回填当前主题选择用） */
+/* 读取配置（设置面板回填主题与开机自启用）
+ * autoStart 以系统登录项为准而不是 config.json：用户第一次打开设置页时
+ * config.json 里可能压根没有这个键，而登录项的真实状态只有系统知道。 */
 ipcMain.on('get-config', (event) => {
-  event.reply('config', readConfig());
+  event.reply('config', { ...readConfig(), autoStart: app.getLoginItemSettings().openAtLogin });
+});
+
+/* 主题预览：只翻 nativeTheme，不写盘。
+ * 设置页里「主题」是即点即生效的（右栏那块样张演示的就是这件事），
+ * 但取消 / 直接关掉时用户没同意保存 —— 所以预览走这条路，盘上的取值全程不动，
+ * 关闭时再按进来时记下的值翻回去。
+ * 单向的：渲染层发完就走，不看回执（预览翻不翻得动，它自己那屏立刻就能看见）。 */
+ipcMain.on('preview-theme', (event, value) => {
+  applyTheme(value);
+});
+
+/* 本地数据台账（设置页 05 数据）：条数、占用、最后写入、两个文件的实际路径。
+ * 这一屏唯一想证明的事是「东西都在你自己机器上」，那就把实际路径交出来，
+ * 不用一句形容词代替。 */
+function statOrNull(p) {
+  try {
+    const st = fs.statSync(p);
+    return { bytes: st.size, mtime: st.mtime.toISOString() };
+  } catch (e) {
+    return null;
+  }
+}
+
+ipcMain.on('get-data-stats', (event) => {
+  try {
+    const entries = readData();
+    const dataPath = getDataFilePath();
+    const configPath = getConfigFilePath();
+    const dataStat = statOrNull(dataPath);
+    const configStat = statOrNull(configPath);
+    event.reply('data-stats', {
+      total: entries.length,
+      pending: entries.filter(isTodo).length,
+      done: entries.filter((e) => e.status === 'done').length,
+      note: entries.filter((e) => e.sticky === true).length,
+      free: entries.filter((e) => e.status !== 'pending' && e.status !== 'done' && e.sticky !== true).length,
+      dir: path.dirname(dataPath),
+      dataBytes: dataStat ? dataStat.bytes : 0,
+      configBytes: configStat ? configStat.bytes : 0,
+      // statOrNull 已经转成 ISO 串了，这里不要再 toISOString 一次
+      lastWrite: dataStat ? dataStat.mtime : null,
+    });
+  } catch (err) {
+    /* 这是个只读探针。让它抛出去就是主进程未捕获异常 —— 用户看到的是一个盖住整屏的
+       系统错误弹窗，而右栏永远停在「正在读取…」，两个后果都比失败本身更糟。
+       回一个能被认出来的失败，让右栏说句实话。 */
+    console.error('[data-stats]', err);
+    event.reply('data-stats', { error: true });
+  }
+});
+
+ipcMain.on('open-data-folder', () => {
+  shell.openPath(path.dirname(getDataFilePath()));
 });
 
 /* 窗口操作 */

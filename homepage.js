@@ -734,7 +734,13 @@ function formatTime(iso) {
 
 // IPC 回调
 api.onRecentEntries((entries) => { renderRecent(entries || []); });
-api.onEntries((entries) => { allEntries = entries || []; renderTodos(); renderDashboard(); });
+api.onEntries((entries) => {
+    allEntries = entries || [];
+    renderTodos();
+    renderDashboard();
+    // 设置页右栏吃的是真实记录（解析样张 / 提醒时间轴），开着就跟着重画
+    if (isSettingsOpen()) refreshSee();
+});
 api.onAiRefined(() => setTimeout(loadData, 400));
 api.onSaveSuccess(() => {});
 api.onEntryUpdated(() => setTimeout(loadData, 150));
@@ -744,6 +750,7 @@ api.onEntriesChanged((entries) => {
     renderTodos();
     renderDashboard();
     api.getRecentEntries();
+    if (isSettingsOpen()) { refreshSee(); api.getDataStats(); }
 });
 
 // 对话
@@ -850,28 +857,57 @@ document.getElementById('sticky-button').addEventListener('click', () => api.ope
 document.getElementById('settings-button').addEventListener('click', openSettings);
 document.getElementById('close-button').addEventListener('click', () => api.closeHomepage());
 
-// ---- 设置面板 ----
-let settingsData = null; // 从 ai-status 获取的配置数据
-let settingsTrigger = null; // 打开设置前的焦点锚点（关闭后归还焦点）
+// ================= 设置页：左栏改，右栏看 =================
+// 旧版是主页面正中的一个 320×604 浮层：吃掉窗口 86% 的高度、内部已经零滚动余量
+// （再加一行「开机自启」就顶出去，所以它一直只能待在托盘菜单里），
+// 六行同构同重、一个模块编号都没有，而且「主题」是全键盘设置里唯一免费可预览的一项，
+// 偏偏只有它没有预览。现在改成与主容器同几何的一整屏：左 5/12 改、右 7/12 看。
+//
+// 右栏的约定：每个设置项用 data-see 声明「生效之后会变出什么」，
+// 焦点或点击落在哪一项，右栏就画哪一项的后果。内容全部取自本机真实数据 ——
+// 没有可展示的真实数据时老实说没有，不摆假样本。
+const settingsOverlay = document.getElementById('settings-overlay');
+const settingsPanel = document.getElementById('settings-panel');
+const setListEl = document.getElementById('set-list');
+const seeEl = document.getElementById('set-see');
+let settingsTrigger = null;   // 打开设置前的焦点锚点（关闭后归还焦点）
+let settingsData = null;      // 最近一次 ai-status 回包
+let dataStats = null;         // 最近一次 data-stats 回包
+let themeOnOpen = 'system';   // 进来时的主题取值（取消 / 直接关掉要退回它）
 
-// 开关（role="switch"）：悬浮球 / AI 解析共用同一套交互
-function bindSwitch(id) {
+/* 草稿态＝面板上控件的当前值。右栏画的永远是草稿而不是盘上的值：
+   「保存才生效」这条约定下，草稿才是用户正在做的那一个决定。 */
+const draft = { theme: 'system', model: '', ai: true, lead: 24, ball: true, shortcut: '', autoStart: false };
+function syncDraft() {
+    draft.theme = themeValue;
+    draft.model = document.getElementById('set-model').value;
+    draft.ai = aiSwitch.classList.contains('on');
+    draft.ball = ballSwitch.classList.contains('on');
+    draft.autoStart = autoSwitch.classList.contains('on');
+    const n = parseInt(document.getElementById('set-lead').value, 10);
+    draft.lead = (isNaN(n) || n < 0 || n > 168) ? 24 : n;
+    draft.shortcut = shortcutValue;
+}
+function refreshSee() { syncDraft(); renderSee(); }
+
+// 开关（role="switch"）：AI 解析 / 悬浮球 / 开机自启共用同一套交互
+function bindSwitch(id, onChange) {
     const sw = document.getElementById(id);
-    sw.addEventListener('click', () => {
+    const toggle = () => {
         const on = !sw.classList.contains('on');
         sw.classList.toggle('on', on);
         sw.setAttribute('aria-checked', String(on));
-    });
+        if (onChange) onChange(on);
+    };
+    sw.addEventListener('click', toggle);
     sw.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            sw.click();
-        }
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); }
     });
     return sw;
 }
-const aiSwitch = bindSwitch('set-ai-switch');
-const ballSwitch = bindSwitch('set-ball-switch');
+const aiSwitch = bindSwitch('set-ai-switch', refreshSee);
+const ballSwitch = bindSwitch('set-ball-switch', refreshSee);
+const autoSwitch = bindSwitch('set-autostart-switch', refreshSee);
 
 // ---- 全局快捷键录制 ----
 const shortcutField = document.getElementById('set-shortcut');
@@ -925,17 +961,21 @@ shortcutField.addEventListener('keydown', (e) => {
     shortcutValue = accel;
     shortcutField.value = prettyAccel(accel);
     shortcutDesc.textContent = '已记录，保存后生效';
+    refreshSee();
 });
 
 // ---- 主题三态（跟随系统 / 亮色 / 暗色）----
 // 真正的换肤由主进程的 nativeTheme.themeSource 完成，渲染层只用
-// prefers-color-scheme 媒体查询取色 —— 所以这里不碰任何样式，
-// 只负责「回填用户选的是三态中的哪一个」和「保存时提交它」。
-// 面板内其余设置都是「保存才生效」，主题沿用同一约定：点选只记值，
-// 按「保存」才落库。这样「取消」不需要回滚，少一类状态不一致的 bug。
+// prefers-color-scheme 媒体查询取色，所以这里不碰样式。
+// 这一项是全页唯一「即点即生效」的设置 —— 右栏那块样张演示的就是这件事本身，
+// 让用户先点保存再看见效果，等于把唯一当场能证明的东西藏起来。
+// 代价是多一条回滚路径：取消 / 直接关掉时按进来时记下的取值翻回去（见 closeSettings）。
+// 盘上的 config.json 全程没被写过，所以回滚是精确的 —— 一个值，没有数据。
 const THEME_VALUES = ['system', 'light', 'dark'];
+const THEME_LABELS = { system: '跟随系统', light: '亮色', dark: '暗色' };
 let themeValue = 'system';
 const themeSeg = document.getElementById('set-theme');
+
 /** 同步分段控制的选中态，并把未选中项移出 Tab 序列（ARIA radiogroup 的漫游焦点约定）。 */
 function paintThemeSeg() {
     themeSeg.querySelectorAll('button[data-theme]').forEach((b) => {
@@ -944,11 +984,16 @@ function paintThemeSeg() {
         b.tabIndex = on ? 0 : -1;
     });
 }
+function pickTheme(next) {
+    if (!THEME_VALUES.includes(next) || next === themeValue) return;
+    themeValue = next;
+    paintThemeSeg();
+    api.previewTheme(themeValue); // 即时换肤（不落盘）
+    refreshSee();
+}
 themeSeg.addEventListener('click', (e) => {
     const btn = e.target.closest('button[data-theme]');
-    if (!btn || !THEME_VALUES.includes(btn.dataset.theme)) return;
-    themeValue = btn.dataset.theme;
-    paintThemeSeg();
+    if (btn) pickTheme(btn.dataset.theme);
 });
 themeSeg.addEventListener('keydown', (e) => {
     if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) return;
@@ -959,26 +1004,319 @@ themeSeg.addEventListener('keydown', (e) => {
     const step = (e.key === 'ArrowRight' || e.key === 'ArrowDown') ? 1 : -1;
     const next = btns[(i + step + btns.length) % btns.length];
     next.focus();
-    themeValue = next.dataset.theme;
-    paintThemeSeg();
+    pickTheme(next.dataset.theme);
 });
-api.onConfig((cfg) => {
-    if (!cfg || !THEME_VALUES.includes(cfg.theme)) return;
-    themeValue = cfg.theme;
-    paintThemeSeg();
-});
-paintThemeSeg();
+paintThemeSeg(); // 初始把未选中的两项移出 Tab 序列
+
+// ---- 右栏：后果样张 ----
+let seeKey = 'theme';
+
+/* 右栏一律对读屏隐藏（见 homepage.html 的 aria-hidden）：它是视觉扩写，
+   信息在左栏都有对应的可读文本，念两遍是噪音。 */
+
+function seeLine(k, v) {
+    if (v === null || v === undefined || v === '') return '';
+    return `<div class="see-line"><span class="k">${esc(k)}</span><span class="v">${esc(String(v))}</span></div>`;
+}
+function fmtBytes(n) {
+    if (!n) return '0 B';
+    if (n < 1024) return n + ' B';
+    if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+    return (n / 1024 / 1024).toFixed(1) + ' MB';
+}
+function fmtDT(d) {
+    const p = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+/** 最近一条非便签记录。 */
+function latestRecord() {
+    const list = allEntries.filter((e) => !e.sticky && (e.content || e.title));
+    if (!list.length) return null;
+    return list.reduce((a, b) => ((a.created || '') >= (b.created || '') ? a : b));
+}
+/** 最近一条「真的抽出了结构化字段」的记录；没有就退回最近一条。
+    判据只认日期和优先级：只有分类的（比如随手记）不算「被拆过」。 */
+function latestStructured() {
+    const list = allEntries.filter((e) => !e.sticky
+        && (e.dueDate || (e.priority && e.priority !== '低')));
+    if (!list.length) return latestRecord();
+    return list.reduce((a, b) => ((a.created || '') >= (b.created || '') ? a : b));
+}
+/** 到期时刻：与主进程 getDueMoment 同一套算法（dueDate + T(具体时刻或 00:00)）。 */
+function dueMoment(e) {
+    if (e.time && /^\d{1,2}:\d{2}$/.test(e.time)) {
+        const [h, m] = e.time.split(':').map(Number);
+        return new Date(e.dueDate + `T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`);
+    }
+    return new Date(e.dueDate + 'T00:00:00');
+}
+function ic(name, cls) { return window.nanoIcons ? window.nanoIcons.ic(name, cls) : ''; }
+/** 一条真实记录的行内样式，用于外观样张。 */
+function demoRowHTML(e) {
+    if (!e) {
+        return `<div class="entry-item">
+            <div class="entry-title">还没有记录</div>
+            <div class="entry-meta"><span class="cat">记点什么，这里就换成你自己的</span></div>
+        </div>`;
+    }
+    const overdue = e.status === 'pending' && e.dueDate && e.dueDate < localToday();
+    return `<div class="entry-item${overdue ? ' overdue' : ''}">
+        <div class="entry-title">${esc(e.title || e.content)}</div>
+        <div class="entry-meta">
+            ${e.dueDate ? `<span class="due${overdue ? ' overdue' : ''}">${ic('clock', 'inline')}${esc(e.dueDate < localToday() && e.status === 'pending' ? '已逾期 ' + e.dueDate : '截止 ' + e.dueDate)}</span>` : ''}
+            ${e.priority === '高' ? `<span class="priority-high">${ic('fire', 'inline')}高优先级</span>` : ''}
+            ${e.category ? `<span class="cat">${esc(e.category)}</span>` : ''}
+        </div>
+    </div>`;
+}
+
+/** 最该被看见的一条逾期待办——样张里用来说明亮色/暗色下橙色标记怎么落。 */
+function overdueSample(excludeId) {
+    const list = allEntries.filter((e) => !e.sticky && e.status === 'pending'
+        && e.dueDate && e.dueDate < localToday() && e.id !== excludeId);
+    if (!list.length) return null;
+    return list.reduce((a, b) => (dueMoment(a) <= dueMoment(b) ? a : b));
+}
+
+const SEE = {
+    theme: {
+        head: '主题',
+        body: () => {
+            const label = THEME_LABELS[draft.theme] || '跟随系统';
+            const first = latestStructured();
+            return `
+                <div class="see-big">${esc(label)}</div>
+                ${seeLine('取值', draft.theme === 'system' ? '跟着 Windows 的明暗设置走' : '不跟系统，固定用' + label)}
+                <div class="see-demo">
+                    <div class="tabs">
+                        <div class="tab active">仪表盘</div>
+                        <div class="tab">记录</div>
+                        <div class="tab">对话</div>
+                    </div>
+                    ${demoRowHTML(first)}
+                    ${demoRowHTML(overdueSample(first && first.id))}
+                    <div class="demo-switch-row">
+                        <span class="t">AI 智能解析</span>
+                        <span class="switch on" aria-hidden="true"></span>
+                    </div>
+                    <div class="demo-actions"><span class="save-btn">保存</span></div>
+                </div>
+                <div class="see-note">这块样张就是真身：同一批类名、同一份 token，只是窄一点。点上面的按钮，它当场翻。</div>`;
+        },
+    },
+
+    model: {
+        head: 'Ollama 模型',
+        body: () => {
+            const s = settingsData;
+            if (!s) return '<div class="see-empty">正在问 Ollama…</div>';
+            const models = Array.isArray(s.chatModels) ? s.chatModels : (s.models || []);
+            const lines = seeLine('当前使用', draft.model || s.model || '未配置')
+                + seeLine('配置的模型', s.configuredModel && s.configuredModel !== draft.model ? s.configuredModel : '')
+                + seeLine('可对话的模型', models.length ? models.length + ' 个' : '0 个');
+            if (!models.length) {
+                return `<div class="see-big">没有可用的对话模型</div>${lines}
+                    <div class="see-note">${s.available
+                        ? 'Ollama 在跑，但本地没有能对话的模型。执行 ollama pull qwen2.5:7b 之后回到这里。'
+                        : '没连上本机 Ollama（127.0.0.1:11434）。先把它启动起来。'}</div>`;
+            }
+            return `<div class="see-big">${esc(draft.model || s.model || '未配置')}</div>${lines}
+                <div class="see-note">改这里只是换一个回答问题的人，记录本身还是存在你机器上。</div>`;
+        },
+    },
+
+    parse: {
+        head: 'AI 智能解析',
+        body: () => {
+            const e = latestStructured();
+            if (!e) {
+                return '<div class="see-empty">还没有记录。去输入面板记一条，这里就会显示那句话被拆成了什么。</div>';
+            }
+            const src = e.content || e.title || '';
+            const fields = [
+                ['标题', e.title],
+                ['截止', e.dueDate ? e.dueDate + (e.time ? ' ' + e.time : '') : null],
+                ['优先级', e.priority && e.priority !== '低' ? e.priority : null],
+                ['分类', e.category && e.category !== '其他' ? e.category : null],
+            ].filter(([, v]) => v);
+            const on = draft.ai;
+            const body = fields.length
+                ? fields.map(([k, v]) => `<div class="see-line${on ? '' : ' see-off'}"><span class="k">${esc(k)}</span><span class="v">${esc(String(v))}</span></div>`).join('')
+                : '<div class="see-empty">这条没有拆出任何结构化字段。</div>';
+            return `<div class="see-src">${esc(src)}</div>
+                <div class="see-arrow">↓</div>
+                ${body}
+                <div class="see-note">${on
+                    ? '右栏这些字段就是从左边那句话里拆出来的。关掉「AI 智能解析」，新记录只留原文，日期、优先级、分类都不会再有。'
+                    : '已关掉：新记录只会原样存成一条文本，上面这些字段不会再产生（已经存过的保持原样）。'}</div>`;
+        },
+    },
+
+    lead: {
+        head: '提醒提前量',
+        body: () => {
+            // 与主进程 scanReminders / getDueMoment 用同一套判据与算法：
+            // 候选只算「没提醒过的待办」，到期时刻取 dueDate + T(具体时刻或 00:00)，
+            // 提醒窗口 = [到期 − 提前量, 到期 + 8 天)，进入窗口响一次。
+            const todos = allEntries.filter(isTodo)
+                .filter((e) => e.dueDate && e.reminded !== true)
+                .sort((a, b) => dueMoment(a) - dueMoment(b));
+            const next = todos[0];
+            if (!next) {
+                const anyTodo = allEntries.filter((e) => isTodo(e) && e.dueDate).length;
+                return `<div class="see-empty">${anyTodo
+                    ? '带日期的待办都已经提醒过了，不会重复打扰。'
+                    : '现在没有带截止时间的待办。'}${seeLine('当前提前量', draft.lead + ' 小时')}记一条带日期的，这里就会画出它的提醒时刻。</div>`;
+            }
+            const due = dueMoment(next);
+            const fire = new Date(due.getTime() - draft.lead * 3600 * 1000);
+            const late = fire.getTime() < Date.now();
+            return `<div class="see-src">${esc(next.title || next.content)}</div>
+                ${seeLine('提前量', draft.lead + ' 小时')}
+                ${seeLine(late ? '提醒已经该响' : '什么时候响', fmtDT(fire))}
+                ${seeLine('截止', fmtDT(due))}
+                <div class="see-note">进入这个窗口就提醒一次，之后不再重复。如果在截止后 8 天内才启动，下次扫描会补上；超过 8 天就不提了。</div>`;
+        },
+    },
+
+    ball: {
+        head: '显示悬浮球',
+        body: () => {
+            const on = draft.ball;
+            return `<div class="see-big">${on ? '球在桌面上' : '球已隐藏'}</div>
+                ${seeLine('输入面板', on ? '点球打开' : '只能在托盘或快捷键打开')}
+                ${seeLine('托盘图标', '一直在，' + (on ? '右键可以再把它显示回来' : '右键「显示/隐藏悬浮球」可以把它叫回来'))}
+                ${seeLine('全局快捷键', draft.shortcut ? prettyAccel(draft.shortcut) + ' 照常可用' : '尚未设置')}
+                <div class="see-note">${on ? '球是本应用的常驻入口，关掉之后它不会再占桌面。' : '关的是桌面上的球，程序还在托盘里跑着，记录和提醒都不受影响。'}</div>`;
+        },
+    },
+
+    shortcut: {
+        head: '全局快捷键',
+        body: () => {
+            const pretty = prettyAccel(draft.shortcut);
+            return `<div class="see-big">${esc(pretty || '未设置')}</div>
+                ${seeLine('作用', '在任何程序里按一下，直接从桌面唤起输入面板')}
+                ${seeLine('注册情况', pretty ? '保存时向系统注册' : '没有快捷键时只能用托盘或悬浮球打开')}
+                <div class="see-note">快捷键是全局独占的：和别的程序撞了会注册失败，那时这一项会告诉你撞的是哪个键，并且继续用原来那个 —— 不会静默失效。</div>`;
+        },
+    },
+
+    autostart: {
+        head: '开机自启',
+        body: () => {
+            const on = draft.autoStart;
+            return `<div class="see-big">${on ? '随系统启动' : '不自动启动'}</div>
+                ${seeLine('登录之后', on ? '程序自动运行，悬浮球自己出现' : '需要你自己打开它')}
+                ${seeLine('托盘', on ? '和手动打开时一样常驻' : '手动打开后照常常驻')}
+                <div class="see-note">这一项写进 Windows 的登录启动项；托盘菜单里也有同一个开关，改哪边另一边都会跟着变。</div>`;
+        },
+    },
+
+    data: {
+        head: '本地数据',
+        body: () => {
+            const s = dataStats;
+            if (!s) return '<div class="see-empty">正在读取…</div>';
+            // 主进程读不到（文件被占用 / 权限 / 还没写过）时回 error，别停在「正在读取…」
+            if (s.error) return '<div class="see-empty">读不到本地数据。文件可能正被占用，或者还没写入过。</div>';
+            return seeLine('记录', s.total + ' 条')
+                + seeLine('其中', `待办 ${s.pending} · 已完成 ${s.done} · 便签 ${s.note} · 纯记录 ${s.free}`)
+                + seeLine('占用', fmtBytes(s.dataBytes + s.configBytes))
+                + seeLine('最后写入', s.lastWrite ? fmtDT(new Date(s.lastWrite)) : '还没有写过')
+                + `<div class="see-line"><span class="k">位置</span><span class="v">${esc(s.dir)}</span></div>`
+                + '<div class="see-note">全部在这台机器上：记录就存在上面这个目录里，AI 走本机 Ollama，不经过任何服务器。</div>';
+        },
+    },
+};
+
+// 右栏表头沿用左栏的分节标题形状（编号 + 下边线 + 吸顶），不是压在标题上的小字眉题。
+// 文字与左栏那一行的标签逐一对应，左栏滚走了也能认出在看哪一项。
+const SEE_GROUP = {
+    theme: '01', model: '02', parse: '02', lead: '03',
+    ball: '04', shortcut: '04', autostart: '04', data: '05',
+};
+
+function renderSee() {
+    const spec = SEE[seeKey] || SEE.theme;
+    seeEl.innerHTML = `<div class="see-head"><span class="mod-code">${SEE_GROUP[seeKey] || '01'}</span>${esc(spec.head)}</div>`
+        + spec.body();
+}
+
+// 焦点或点击落在哪一行，右栏就画哪一行的后果。
+// 焦点走两条：捕获相的 focus（focus 不冒泡，必须 capture，这也是 React onFocus 走的那条）
+// 加 focusin 兜底。两条都幂等 —— seeKey 已经是这一行就直接返回。
+function seeRowFrom(target) {
+    const row = target && target.closest ? target.closest('.set-row') : null;
+    if (!row || !row.dataset.see || seeKey === row.dataset.see) return;
+    seeKey = row.dataset.see;
+    renderSee();
+}
+setListEl.addEventListener('focus', (e) => seeRowFrom(e.target), true);
+setListEl.addEventListener('focusin', (e) => seeRowFrom(e.target));
+setListEl.addEventListener('pointerdown', (e) => seeRowFrom(e.target));
 
 function openSettings() {
-    const overlay = document.getElementById('settings-overlay');
-    overlay.classList.add('show');
+    themeOnOpen = themeValue;
+    seeKey = 'theme'; // 每次进来都从 01 外观开始，不沿用上次看到哪一项
+    settingsOverlay.classList.add('show');
     settingsTrigger = document.getElementById('settings-button');
-    // 焦点圈定：进入面板第一个可聚焦元素
-    const first = overlay.querySelector('select, input, button, [tabindex]');
+    syncDraft();
+    renderSee();
+    // 焦点圈定：进入左栏第一个可聚焦元素（主题分段控制）
+    const first = setListEl.querySelector('select, input, button, [tabindex]');
     if (first) first.focus();
-    api.getAiStatus(); // 刷新后填充面板
-    api.getConfig();   // 回填当前主题选择
+    api.getAiStatus();  // 刷新后填充左栏控件与右栏样张
+    api.getConfig();    // 回填主题与开机自启
+    api.getDataStats();
 }
+
+/* role="dialog" 的焦点圈定：**只圈左栏**。
+   右栏是 aria-hidden 的样张，本来就没有可聚焦元素，圈进来只会多绕一圈。 */
+settingsOverlay.addEventListener('keydown', (e) => {
+    if (e.key !== 'Tab') return;
+    const focusables = settingsPanel.querySelectorAll('select, input, button, [tabindex]');
+    if (!focusables.length) return;
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+});
+
+function closeSettings(opts) {
+    // 主题是即点即生效的，但「取消」的意思是没同意保存 —— 把预览翻回进来时的取值。
+    // 保存路径不走进这里（saved: true），因为那时这个值已经落盘，翻回去就是撤销用户的决定。
+    if (!(opts && opts.saved) && themeValue !== themeOnOpen) {
+        themeValue = themeOnOpen;
+        paintThemeSeg();
+        api.previewTheme(themeOnOpen);
+    }
+    settingsOverlay.classList.remove('show');
+    if (settingsTrigger) { settingsTrigger.focus(); settingsTrigger = null; }
+}
+function isSettingsOpen() { return settingsOverlay.classList.contains('show'); }
+
+// 左栏控件改动 → 草稿变 → 右栏重画
+document.getElementById('set-model').addEventListener('change', refreshSee);
+document.getElementById('set-lead').addEventListener('input', refreshSee);
+document.getElementById('set-open-folder').addEventListener('click', () => api.openDataFolder());
+
+api.onConfig((cfg) => {
+    if (!cfg) return;
+    if (THEME_VALUES.includes(cfg.theme)) {
+        themeValue = cfg.theme;
+        themeOnOpen = cfg.theme; // 盘上的取值就是「进来时」的取值
+        paintThemeSeg();
+    }
+    // 开机自启：以主进程报回来的系统登录项状态为准
+    if (typeof cfg.autoStart === 'boolean') {
+        autoSwitch.classList.toggle('on', cfg.autoStart);
+        autoSwitch.setAttribute('aria-checked', String(cfg.autoStart));
+    }
+    refreshSee();
+});
+
+api.onDataStats((s) => { dataStats = s; refreshSee(); });
 
 api.onAiStatus((status) => {
     settingsData = status;
@@ -1029,39 +1367,17 @@ api.onAiStatus((status) => {
     shortcutValue = status.shortcut || '';
     shortcutField.value = prettyAccel(shortcutValue);
     shortcutDesc.textContent = SHORTCUT_DESC_DEFAULT;
+    refreshSee();
 });
-
-// 设置面板：焦点圈定 + Esc 关闭（role="dialog"）
-const settingsOverlay = document.getElementById('settings-overlay');
-const settingsPanel = document.getElementById('settings-panel');
-function closeSettings() {
-    settingsOverlay.classList.remove('show');
-    if (settingsTrigger) { settingsTrigger.focus(); settingsTrigger = null; }
-}
-settingsOverlay.addEventListener('keydown', (e) => {
-    if (e.key !== 'Tab') return;
-    // 焦点圈定在面板内
-    const focusables = settingsPanel.querySelectorAll('select, input, button');
-    if (!focusables.length) return;
-    const first = focusables[0];
-    const last = focusables[focusables.length - 1];
-    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
-});
-
-// 开关的交互统一在 bindSwitch（见文件上方）
 
 // 保存设置
 document.getElementById('set-save').addEventListener('click', () => {
-    const model = document.getElementById('set-model').value;
-    const lead = parseInt(document.getElementById('set-lead').value, 10) || 24;
-    const aiOn = aiSwitch.classList.contains('on');
-    const ballOn = ballSwitch.classList.contains('on');
     api.saveConfig({
-        model,
-        remindLeadHours: lead,
-        aiEnabled: aiOn,
-        showBall: ballOn,
+        model: document.getElementById('set-model').value,
+        remindLeadHours: draft.lead,
+        aiEnabled: aiSwitch.classList.contains('on'),
+        showBall: ballSwitch.classList.contains('on'),
+        autoStart: autoSwitch.classList.contains('on'),
         shortcut: shortcutValue,
         theme: themeValue,
     });
@@ -1076,41 +1392,46 @@ api.onConfigSaved((saved) => {
         shortcutField.value = prettyAccel(shortcutValue);
         shortcutField.focus(); // 焦点触发的提示文案会覆盖下面这行，所以放在前面
         shortcutDesc.textContent = `「${prettyAccel(s.shortcut)}」已被占用，仍沿用上一个快捷键`;
+        refreshSee();
         return;
     }
-    closeSettings();
+    closeSettings({ saved: true });
 });
 
-// 取消
-document.getElementById('set-cancel').addEventListener('click', closeSettings);
-// 点击遮罩关闭
-settingsOverlay.addEventListener('click', (e) => {
-    if (e.target.id === 'settings-overlay') closeSettings();
-});
+document.getElementById('set-close').addEventListener('click', () => closeSettings());
+document.getElementById('set-cancel').addEventListener('click', () => closeSettings());
+
 
 // 窗口拖拽（顶部区域，Pointer Events + 指针捕获）
-const header = document.querySelector('.header');
-let isDrag = false, dragSX = 0, dragSY = 0;
-header.addEventListener('pointerdown', (e) => {
-    if (e.button !== 0) return;
-    isDrag = true;
-    dragSX = e.screenX;
-    dragSY = e.screenY;
-    try { header.setPointerCapture(e.pointerId); } catch (_) {}
-    api.dragHomepageStart();
-});
-header.addEventListener('pointermove', (e) => {
-    if (!isDrag) return;
-    api.dragHomepageMove(e.screenX - dragSX, e.screenY - dragSY);
-});
-const endHomeDrag = (e) => {
-    if (!isDrag) return;
-    isDrag = false;
-    try { header.releasePointerCapture(e.pointerId); } catch (_) {}
-    api.dragHomepageEnd();
-};
-header.addEventListener('pointerup', endHomeDrag);
-header.addEventListener('pointercancel', endHomeDrag);
+function attachWindowDrag(el) {
+    let isDrag = false, dragSX = 0, dragSY = 0;
+    el.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0) return;
+        // 落在控件里的指针不参与拖窗：一旦 setPointerCapture，click 就改派给捕获元素，
+        // 控件自己的 click 根本收不到（这条坑记在 DESIGN.md 里，输入面板为此吃过一次亏）。
+        if (e.target.closest('input, select, button, textarea, [role="switch"]')) return;
+        isDrag = true;
+        dragSX = e.screenX;
+        dragSY = e.screenY;
+        try { el.setPointerCapture(e.pointerId); } catch (_) {}
+        api.dragHomepageStart();
+    });
+    el.addEventListener('pointermove', (e) => {
+        if (!isDrag) return;
+        api.dragHomepageMove(e.screenX - dragSX, e.screenY - dragSY);
+    });
+    const end = (e) => {
+        if (!isDrag) return;
+        isDrag = false;
+        try { el.releasePointerCapture(e.pointerId); } catch (_) {}
+        api.dragHomepageEnd();
+    };
+    el.addEventListener('pointerup', end);
+    el.addEventListener('pointercancel', end);
+}
+attachWindowDrag(document.querySelector('.header'));
+// 设置页整屏盖住了 .header：标题行也做成拖拽区，否则进了设置就再也挪不动窗口
+attachWindowDrag(document.querySelector('.set-head'));
 
 // Esc：从最内层向上逐层关闭（critique P1：不能按一下就把整窗关掉）
 document.addEventListener('keydown', (e) => {
