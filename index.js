@@ -152,11 +152,14 @@ setupDrag(inputContainer,
     () => api.dragEnd()
 );
 // 输入面板只在空白区域开始拖拽
+// 判据是「按下点是否落在控件内部」，不能只看 e.target.tagName：
+// 日期字段是 <button id="f-due-field"><span class="nsdp-field-value">…</span></button>，
+// 按在文字或图标上时 target 是内层 SPAN，tag 判断会漏掉它 —— 于是 setupDrag 照常
+// setPointerCapture，pointerup/mouseup/click 全被改派给 #input-container，
+// 字段自己的 click 收不到，日历永远点不开（只有正好按在按钮内边距上才生效，
+// 表现出来就是「要点好几次才开」）。closest 能穿过 span 找到外面那个 button。
 inputContainer.addEventListener('pointerdown', (e) => {
-    const tag = e.target.tagName;
-    if (tag === 'INPUT' || tag === 'SELECT' || tag === 'BUTTON' || tag === 'TEXTAREA') {
-        e.stopPropagation();
-    }
+    if (e.target.closest('input, select, button, textarea')) e.stopPropagation();
 }, true);
 
 // 快速记录：输入时实时 AI 预览（防抖 300ms）
@@ -224,10 +227,10 @@ function initFormDuePicker() {
         onOpenStateChange(open) {
             // 弹层打开时把输入窗口临时加高，避免日历被窗口裁掉；关闭后还原
             api.resizeWindow(open ? 'input-expand' : 'input-collapse');
-            // 窗口尺寸变更后重新定位弹层（展开动画/尺寸变化需等一帧）
-            if (open && formDuePicker) {
-                setTimeout(() => formDuePicker.reposition(), 30);
-            }
+            // 窗口尺寸变更后的重新定位不在这里做：date-picker.js 自己监听 window.resize
+            // 与 ResizeObserver。原先这里是 setTimeout(reposition, 30)，
+            // 那是一个「猜」出来的延迟 —— 在 240Hz 屏上它晚于 openPop 的双 rAF，
+            // 反而把刚显示的日历藏掉（见 date-picker.js positionPop 的注释）。
         },
     });
 }
@@ -319,10 +322,11 @@ function switchToInputMode(skipResize) {
     // 首次从球进入输入态，先收掉任何遗留弹层
     if (window.NSDatePicker) window.NSDatePicker.close();
     ball.classList.remove('breathe', 'due', 'urgent');
-    ball.style.transform = 'scale(0)';
+    // 收球用位移不用 scale：点阵圆一缩放就重采样，边缘会糊
+    ball.style.transform = 'translateY(6px)';
     ball.style.opacity = '0';
     if (!skipResize) api.resizeWindow('input');
-    // 面板材质化进入
+    // 面板从下方升入
     const wrapper = document.getElementById('input-wrapper');
     wrapper.classList.remove('show');
     void wrapper.offsetWidth; // 强制回流，重置过渡起点
@@ -345,8 +349,8 @@ function switchToBallMode() {
         inputContainer.style.display = 'none';
         api.resizeWindow('ball');
         ball.style.display = 'flex';
-        // 球 pop 出现
-        ball.style.transform = 'scale(0.8)';
+        // 球升起（同样避开 scale）
+        ball.style.transform = 'translateY(6px)';
         ball.style.opacity = '0';
         requestAnimationFrame(() => requestAnimationFrame(() => {
             ball.style.transform = '';

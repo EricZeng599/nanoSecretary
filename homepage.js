@@ -77,7 +77,8 @@ function todayLocalDate() {
     const d = new Date(); d.setHours(0, 0, 0, 0); return d;
 }
 
-/** 绘制单段进度环。ratio∈[0,1]。返回 svg 字符串。 */
+/** 绘制单段进度环。ratio∈[0,1]。返回 svg 字符串。
+ *  linecap 用 butt：像素打印终端世界里圆弧两端是切平的，不做圆头收尾。 */
 function ringSVG(ratio, color, trackColor, size, stroke) {
     const r = (size - stroke) / 2;
     const c = 2 * Math.PI * r;
@@ -85,7 +86,7 @@ function ringSVG(ratio, color, trackColor, size, stroke) {
     return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
         <circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="${trackColor}" stroke-width="${stroke}"/>
         <circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="${color}" stroke-width="${stroke}"
-            stroke-linecap="round" stroke-dasharray="${filled.toFixed(1)} ${c.toFixed(1)}"
+            stroke-linecap="butt" stroke-dasharray="${filled.toFixed(1)} ${c.toFixed(1)}"
             transform="rotate(-90 ${size / 2} ${size / 2})"/>
     </svg>`;
 }
@@ -143,26 +144,28 @@ function renderDashboard() {
 
     const attBox = document.getElementById('ring-attention');
     if (attBox) {
-        // 四段 = 逾期(热红 #f0716a,满宽) / 今天(强调赭橙,满宽) / 明后天(轻橙,细) / 其余(描边色弱段)。
-        // 「今天」与「明后天」都是暖橙、易混淆，故让明后天用更细笔画从属，令今天成为环上唯一突出赭橙。
+        // 四段 = 逾期(橙,满宽) / 今天(黄,满宽) / 明后天(主色,细) / 其余(最弱段)。
+        // 新色板只有橙黄两专色，四段改用「色相 + 笔画权重」双重编码：
+        // 「今天」与「明后天」都占不到新色相，故让明后天用更细的主色笔画从属，
+        // 令今天成为环上唯一突出黄色。色值走 --chart-* 专用 token，不挪用状态文字色。
         // 四段之和恒等于全部 pending（P0-1 不低报）；done7N 属「已完成」轴，不混进「待处理」环。
         const segs = [
-            { ratio: overdueN, color: 'var(--status-danger-text)' },
-            { ratio: todayDueN, color: 'var(--status-warning-strong)' },
-            { ratio: dueSoonN, color: 'var(--status-warning)', stroke: 5 },
-            { ratio: restN, color: 'var(--border-soft)' },
+            { ratio: overdueN, color: 'var(--chart-overdue)' },
+            { ratio: todayDueN, color: 'var(--chart-today)' },
+            { ratio: dueSoonN, color: 'var(--chart-soon)', stroke: 5 },
+            { ratio: restN, color: 'var(--chart-rest)' },
         ];
-        attBox.innerHTML = multiRingSVG(segs, 'var(--border-soft)', 124, STROKE);
+        attBox.innerHTML = multiRingSVG(segs, 'var(--chart-track)', 124, STROKE);
         let center = attBox.querySelector('.ring-center');
         if (!center) { center = document.createElement('div'); center.className = 'ring-center'; attBox.appendChild(center); }
         center.innerHTML = `<div class="big">${pending.length}</div><div class="sub">待处理</div>`;
     }
     const legend = document.getElementById('attention-legend');
     if (legend) {
-        legend.innerHTML = `<div class="row"><span class="swatch" style="background:var(--status-danger-text)"></span>逾期<span class="n">${overdueN}</span></div>
-            <div class="row"><span class="swatch" style="background:var(--status-warning-strong)"></span>今天<span class="n">${todayDueN}</span></div>
-            <div class="row"><span class="swatch" style="background:var(--status-warning)"></span>明后天<span class="n">${dueSoonN}</span></div>`
-            + (farN > 0 ? `<div class="row"><span class="swatch" style="background:var(--border-soft)"></span>远期<span class="n">${farN}</span></div>` : '')
+        legend.innerHTML = `<div class="row"><span class="swatch" style="background:var(--chart-overdue)"></span>逾期<span class="n">${overdueN}</span></div>
+            <div class="row"><span class="swatch" style="background:var(--chart-today)"></span>今天<span class="n">${todayDueN}</span></div>
+            <div class="row"><span class="swatch" style="background:var(--chart-soon)"></span>明后天<span class="n">${dueSoonN}</span></div>`
+            + (farN > 0 ? `<div class="row"><span class="swatch" style="background:var(--chart-rest)"></span>远期<span class="n">${farN}</span></div>` : '')
             + (undatedN > 0 ? `<div class="row"><span class="swatch undated"></span>无日期<span class="n">${undatedN}</span></div>` : '')
             + `<div class="axis-divider"></div><div class="row done-note">近7天完成<span class="n">${done7N}</span></div>`;
     }
@@ -184,8 +187,8 @@ function renderDashboard() {
     const todayBox = document.getElementById('ring-today');
     if (todayBox) {
         todayBox.innerHTML = (totalToday === 0)
-            ? ringSVG(0, 'transparent', 'var(--border-soft)', 84, STROKE)
-            : ringSVG(todayDone.length / totalToday, 'var(--action-primary)', 'var(--border-soft)', 84, STROKE);
+            ? ringSVG(0, 'transparent', 'var(--chart-track)', 84, STROKE)
+            : ringSVG(todayDone.length / totalToday, 'var(--action-primary)', 'var(--chart-track)', 84, STROKE);
         let center = todayBox.querySelector('.ring-center');
         if (!center) { center = document.createElement('div'); center.className = 'ring-center'; todayBox.appendChild(center); }
         // 今日中心：无到期时显示「—」而非「0/0」（0/0 读着别扭；逾期归关注环负责）
@@ -587,16 +590,17 @@ function renderRecent(entries) {
 }
 
 function markDone(id, done) {
-    // 找到对应的卡片元素，先做完成动效再刷新（reduced-motion 时跳过动效）
+    // 找到对应的数据行，先做完成动效再刷新（reduced-motion 时跳过动效）
     const card = document.querySelector(`.entry-item[data-id="${id}"]`);
     const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (card && !reduced) {
-        card.style.transition = 'opacity 0.25s ease, transform 0.25s ease';
+        // 只做透明度 + 横向位移：像素字体一旦被 scale 会重采样发虚
+        card.style.transition = 'opacity var(--dur-med) ease, transform var(--dur-med) ease';
         card.style.opacity = '0';
-        card.style.transform = 'scale(0.96) translateX(8px)';
+        card.style.transform = 'translateX(8px)';
     }
     api.markDone(id, done);
-    setTimeout(loadData, reduced ? 20 : 280); // 等动效播完再刷新
+    setTimeout(loadData, reduced ? 20 : 180); // 等动效播完再刷新
 }
 
 // 改期（内联编辑）：点「改期」→ 展开日历弹层 → 选择日期 → 确定
@@ -655,7 +659,7 @@ function toggleDueEdit(id, card) {
         const input = document.createElement('input');
         input.type = 'date';
         input.value = entry.dueDate || '';
-        input.style.cssText = 'flex:1;min-width:0;background:var(--surface-field);color:var(--text-primary);border:1px solid var(--border-soft);border-radius:var(--radius-field);padding:5px 8px;font-size:var(--text-meta);color-scheme:dark;';
+        input.style.cssText = 'flex:1;min-width:0;background:var(--surface-field);color:var(--text-primary);border:1px solid var(--border-strong);border-radius:0;padding:5px 8px;font-size:var(--text-meta);color-scheme:inherit;';
         mount.appendChild(input);
         saveBtn.addEventListener('click', () => {
             api.updateDueDate(id, input.value || null);
@@ -755,23 +759,32 @@ function sendChat() {
     aiStatus.textContent = '思考中…';
     aiStatus.title = '';
     clearTimeout(chatReplyTimer);
-    // 本地模型若离线/缺失，sendChat 可能永远不回包。给 30s 超时兜底：复位状态并给安抚文案，
-    // 而非让用户永远卡在「思考中…」、后续输入堆积。
+    // 本地模型若迟迟不回包，给 30s 兜底：说一句话安抚，但**不改状态、不判离线**。
+    //
+    // 旧实现到这里会把状态改成「AI 离线」并说「请确认 Ollama 已启动」——
+    // 可后端最坏预算是 解析 60s + 回复 120s，30s 时什么都没失败，
+    // 那句话纯属无依据的谎报（用户看到的正是「AI 在线」和「Ollama 未启动」同屏）。
+    // 后端改造后单次 chat 预算就有 120s，前端更不该抢在最前面下结论。
+    // 这个定时器的职责只剩「解卡提示」，最终态一律等主进程回包。
     chatReplyTimer = setTimeout(() => {
-        const el = document.getElementById('ai-status');
-        if (el) { el.textContent = 'AI 离线'; el.title = 'Ollama 未启动'; el.className = 'ai-status offline'; }
-        appendChat('ai', '（本地模型似乎没有回应，请确认 Ollama 已启动后再试一次。）');
+        appendChat('ai', '（还在生成中…本地模型较慢时可以再等一会儿；要放弃就按 Esc 收起窗口，稍后再试。）');
     }, 30000);
     api.sendChat(chatHistory);
 }
-api.onChatReply((reply) => {
+api.onChatReply((payload) => {
     clearTimeout(chatReplyTimer);
-    chatHistory.push({ role: 'assistant', content: reply });
+    // 主进程回包形如 { ok, text }；兼容旧的纯文本回包
+    const reply = typeof payload === 'string' ? payload : (payload && payload.text) || '';
+    if (!reply) return;
+    // 失败提示只给用户看，**不进对话历史** —— 否则下一轮模型会把
+    // 「模型没安装」当成自己说过的话，越聊越偏
+    if (typeof payload === 'string' || payload.ok) {
+        chatHistory.push({ role: 'assistant', content: reply });
+    }
     appendChat('ai', reply);
-    const el = document.getElementById('ai-status');
-    el.textContent = 'AI 在线';
-    el.title = '';
-    el.className = 'ai-status online'; // 回包成功即回到在线态，避免超时兜底残留的 offline class
+    // 头部按真实状态刷新：成功 → 在线；模型缺失/没装 → 无对话模型。
+    // 不再无条件写「AI 在线」—— 那正是「界面说在线、模型没回应」的成因。
+    api.getAiStatus();
 });
 function appendChat(role, content) {
     const box = document.getElementById('chat-messages');
@@ -812,14 +825,20 @@ aiStatusTimer = setTimeout(() => {
 api.onAiStatus((status) => {
     aiStatusResolved = true;
     const el = document.getElementById('ai-status');
-    if (status.available) {
-        el.textContent = 'AI 在线';
-        el.title = status.model || ''; // 完整模型号放 tooltip，避免淹没头部
-        el.className = 'ai-status online';
-    } else {
+    // 三态：服务不可达 / 服务可达但无对话模型 / 正常。
+    // hasChatModel 为 undefined 时按「有」处理（兼容旧主进程，不误报）。
+    if (!status.available) {
         el.textContent = 'AI 离线';
         el.title = 'Ollama 未启动';
         el.className = 'ai-status offline';
+    } else if (status.hasChatModel === false) {
+        el.textContent = '无对话模型';
+        el.title = '本地的模型都不能对话（只有嵌入模型）。到设置里换一个，或 ollama pull qwen2.5:7b';
+        el.className = 'ai-status warn';
+    } else {
+        el.textContent = 'AI 在线';
+        el.title = status.model || ''; // 完整模型号放 tooltip，避免淹没头部
+        el.className = 'ai-status online';
     }
     // 一旦拿到状态就撤销「连接中」超时兜底（避免离线判定被覆盖）
     if (aiStatusTimer) { clearTimeout(aiStatusTimer); aiStatusTimer = null; }
@@ -908,6 +927,48 @@ shortcutField.addEventListener('keydown', (e) => {
     shortcutDesc.textContent = '已记录，保存后生效';
 });
 
+// ---- 主题三态（跟随系统 / 亮色 / 暗色）----
+// 真正的换肤由主进程的 nativeTheme.themeSource 完成，渲染层只用
+// prefers-color-scheme 媒体查询取色 —— 所以这里不碰任何样式，
+// 只负责「回填用户选的是三态中的哪一个」和「保存时提交它」。
+// 面板内其余设置都是「保存才生效」，主题沿用同一约定：点选只记值，
+// 按「保存」才落库。这样「取消」不需要回滚，少一类状态不一致的 bug。
+const THEME_VALUES = ['system', 'light', 'dark'];
+let themeValue = 'system';
+const themeSeg = document.getElementById('set-theme');
+/** 同步分段控制的选中态，并把未选中项移出 Tab 序列（ARIA radiogroup 的漫游焦点约定）。 */
+function paintThemeSeg() {
+    themeSeg.querySelectorAll('button[data-theme]').forEach((b) => {
+        const on = b.dataset.theme === themeValue;
+        b.setAttribute('aria-checked', String(on));
+        b.tabIndex = on ? 0 : -1;
+    });
+}
+themeSeg.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-theme]');
+    if (!btn || !THEME_VALUES.includes(btn.dataset.theme)) return;
+    themeValue = btn.dataset.theme;
+    paintThemeSeg();
+});
+themeSeg.addEventListener('keydown', (e) => {
+    if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) return;
+    e.preventDefault();
+    const btns = Array.from(themeSeg.querySelectorAll('button[data-theme]'));
+    const i = btns.indexOf(document.activeElement);
+    if (i < 0) return;
+    const step = (e.key === 'ArrowRight' || e.key === 'ArrowDown') ? 1 : -1;
+    const next = btns[(i + step + btns.length) % btns.length];
+    next.focus();
+    themeValue = next.dataset.theme;
+    paintThemeSeg();
+});
+api.onConfig((cfg) => {
+    if (!cfg || !THEME_VALUES.includes(cfg.theme)) return;
+    themeValue = cfg.theme;
+    paintThemeSeg();
+});
+paintThemeSeg();
+
 function openSettings() {
     const overlay = document.getElementById('settings-overlay');
     overlay.classList.add('show');
@@ -916,13 +977,18 @@ function openSettings() {
     const first = overlay.querySelector('select, input, button, [tabindex]');
     if (first) first.focus();
     api.getAiStatus(); // 刷新后填充面板
+    api.getConfig();   // 回填当前主题选择
 }
 
 api.onAiStatus((status) => {
     settingsData = status;
-    // 模型下拉框
+    // 模型下拉框：只列**能对话**的模型。
+    // 把嵌入模型摆进下拉框，用户选中它就等于亲手把对话打死（400 does not support chat）——
+    // 那正是这条问题的一个入口，堵在这里。
     const select = document.getElementById('set-model');
-    const models = status.models && status.models.length ? status.models : [];
+    const all = status.models && status.models.length ? status.models : [];
+    const models = Array.isArray(status.chatModels) ? status.chatModels : all; // 旧主进程无此字段则退回全量
+    const desc = document.getElementById('set-model-desc');
     select.innerHTML = '';
     if (models.length) {
         models.forEach((m) => {
@@ -932,13 +998,22 @@ api.onAiStatus((status) => {
             if (m === status.model) opt.selected = true;
             select.appendChild(opt);
         });
-        document.getElementById('set-model-desc').textContent = status.available ? 'Ollama 在线' : 'Ollama 离线';
+        if (status.configuredModel && !models.includes(status.configuredModel)) {
+            // 点名说清楚，否则用户看不出「我设的模型为什么没被用上」
+            desc.textContent = '配置的 ' + status.configuredModel + ' 不能对话，已回退到 ' + status.model;
+        } else if (all.length > models.length) {
+            desc.textContent = 'Ollama 在线（已隐藏 ' + (all.length - models.length) + ' 个不能对话的模型）';
+        } else {
+            desc.textContent = 'Ollama 在线';
+        }
     } else {
         const opt = document.createElement('option');
         opt.value = status.model || 'qwen2.5:3b';
-        opt.textContent = '未检测到（使用默认 ' + (status.model || 'qwen2.5:3b') + '）';
+        opt.textContent = status.available ? '未检测到可对话的模型' : '未检测到（使用默认 ' + (status.model || 'qwen2.5:3b') + '）';
         select.appendChild(opt);
-        document.getElementById('set-model-desc').textContent = '未检测到本地模型，请确认 Ollama 已启动';
+        desc.textContent = status.available
+            ? '本地没有可用于对话的模型，请执行 ollama pull qwen2.5:7b'
+            : '未检测到本地模型，请确认 Ollama 已启动';
     }
     // 提醒提前量
     document.getElementById('set-lead').value = status.remindLeadHours || 24;
@@ -988,6 +1063,7 @@ document.getElementById('set-save').addEventListener('click', () => {
         aiEnabled: aiOn,
         showBall: ballOn,
         shortcut: shortcutValue,
+        theme: themeValue,
     });
 });
 

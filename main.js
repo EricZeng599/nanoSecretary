@@ -1,4 +1,4 @@
-const { app, BrowserWindow, screen, Menu, Tray, ipcMain, Notification, nativeImage, globalShortcut } = require('electron');
+const { app, BrowserWindow, screen, Menu, Tray, ipcMain, Notification, nativeImage, globalShortcut, nativeTheme } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const ollama = require('./ollama');
@@ -48,6 +48,17 @@ function writeConfig(config) {
     console.error('写入配置失败:', e);
     return false;
   }
+}
+
+/* ---- 主题（跟随系统 / 亮色 / 暗色）----
+ * 只在主进程设 nativeTheme.themeSource，四个窗口的 prefers-color-scheme 会一起翻转，
+ * 各页 CSS 里的 @media (prefers-color-scheme: dark) 自动生效。
+ * 这样渲染层不需要主题 JS、不需要给每个窗口注入脚本，也不会出现首帧闪白/闪黑。
+ * 必须在创建任何窗口之前调用，否则第一帧会按旧主题画。 */
+const THEME_VALUES = ['system', 'light', 'dark'];
+function applyTheme(value) {
+  nativeTheme.themeSource = THEME_VALUES.includes(value) ? value : 'system';
+  return nativeTheme.themeSource;
 }
 
 /* ================= 数据管理 ================= */
@@ -308,8 +319,16 @@ function createHistoryWindow() {
   historyWindow = new BrowserWindow({
     width: 720,
     height: 820,
+    // 无系统描边，与另外三个窗口一致 —— 顶部不再叠「原生标题栏 + 菜单栏」两层，
+    // 只剩 history.html 里那条兼作拖拽条的单行标题。
+    // 这里原先四个窗口里唯一的 frame 默认(true) + autoHideMenuBar:false 组合，
+    // 而全仓库没有任何 Menu.setApplicationMenu() 调用（下面两处 Menu.buildFromTemplate
+    // 是托盘/悬浮球的右键菜单，不是应用菜单），于是 Electron 装了默认菜单 ——
+    // 就是用户看到的 File / Edit / View / Window / Help。
+    // title 保留：无边框后它只在任务栏/Alt-Tab 显示，那里正需要说清是哪个窗口。
     title: '历史记录 - nanoSecretary',
-    autoHideMenuBar: false,
+    frame: false,
+    autoHideMenuBar: true,
     icon: getIconPath(),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -783,16 +802,46 @@ ipcMain.on('chat-message', async (event, history) => {
       .map((e) => `${e.title}（截止${e.dueDate}${e.time ? ' ' + e.time : ''}）`);
     const ctx = pending.length ? `\n\n我的待办清单：\n- ${pending.join('\n- ')}` : '';
 
-    const reply = await ollama.chatReply([
+    const result = await ollama.chatReply([
       ...history.slice(0, -1),
       { role: 'user', content: userMsg + actionNote + ctx },
     ]);
-    event.reply('chat-reply', reply || '（本地模型暂时不可用，请确认 Ollama 已启动）');
+    // 回包带 ok：渲染层据此决定要不要把这句话写进对话历史
+    // （失败提示只是给用户看的，不能当成「秘书说过的话」喂回模型）
+    event.reply('chat-reply', {
+      ok: result.ok,
+      text: result.ok ? result.text : chatFailText(result.reason),
+    });
   } catch (e) {
     console.error('对话失败:', e);
-    event.reply('chat-reply', '（对话出错了，稍后再试）');
+    // 同样带 ok:false —— 否则这条提示会被渲染层当成正常回复写进对话历史
+    event.reply('chat-reply', { ok: false, text: '（对话出错了，稍后再试）' });
   }
 });
+
+/**
+ * 对话失败的文案：按真实原因分别说清楚。
+ * 旧实现一律回「请确认 Ollama 已启动」—— 在服务明明可达、头部还写着
+ * 「AI 在线」的时候，那句话是自相矛盾的假信息，用户照着做也修不好。
+ */
+function chatFailText(reason) {
+  const secs = Math.round(ollama.CHAT_TIMEOUT / 1000);
+  switch (reason) {
+    case 'model_missing':
+      return `（配置的模型 ${ollama.MODEL} 没有安装。到设置里换一个，或在终端执行 ollama pull ${ollama.MODEL}。）`;
+    case 'no_chat_model':
+      return '（本地没找到可用于对话的模型（只有嵌入模型）。先执行 ollama pull qwen2.5:7b。）';
+    case 'timeout':
+      return `（本地模型超过 ${secs} 秒没有返回，可能是首次加载较慢，再试一次通常就快了。）`;
+    case 'empty':
+      // 两种成因合并在这一个 reason 里：模型真的回了空白，或**只输出了思维链**
+      // （推理模型被截断时的典型表现，见 ollama.js 的 stripThinking）。
+      // 后者的处理动作是「换个模型」，所以文案要把这条路也指出来。
+      return '（本地模型没有给出正文，多半只输出了推理过程。再试一次，或到设置里换一个对话模型。）';
+    default:
+      return '（本地模型返回了错误，稍后再试。）';
+  }
+}
 
 /* 保存配置 */
 ipcMain.on('save-config', (event, patch) => {
@@ -801,6 +850,9 @@ ipcMain.on('save-config', (event, patch) => {
     app.setLoginItemSettings({ openAtLogin: !!patch.autoStart });
   }
   if (patch.model) ollama.setModel(patch.model);
+
+  // 主题：即时生效（nativeTheme 一改，四个窗口的 prefers-color-scheme 同步翻转，无需重启）
+  if (patch.theme !== undefined) applyTheme(patch.theme);
 
   // 悬浮球开关：即时生效（关 → 隐藏窗口；开 → 恢复成球并显示）
   if (patch.showBall !== undefined && mainWindow && !mainWindow.isDestroyed()) {
@@ -821,6 +873,11 @@ ipcMain.on('save-config', (event, patch) => {
   // 快捷键：重新注册。结果一并回传，注册失败时不静默（旧键仍然有效）
   const shortcutResult = patch.shortcut !== undefined ? applyShortcut() : null;
   event.reply('config-saved', { ...config, _shortcut: shortcutResult });
+});
+
+/* 读取配置（设置面板回填当前主题选择用） */
+ipcMain.on('get-config', (event) => {
+  event.reply('config', readConfig());
 });
 
 /* 窗口操作 */
@@ -920,18 +977,25 @@ ipcMain.on('resize-window', (event, mode) => {
     // 若原窗口贴近屏幕底，向上扩展（保留弹层在输入窗内）
     let y = py;
     if (y + h > work.y + work.height) y = Math.max(work.y, work.y + work.height - h);
-    mainWindow.setSize(w, h);
-    mainWindow.setPosition(x, y);
+    // setBounds 一次性带尺寸设置：先 setSize 再 setPosition 会被 Windows 按旧尺寸回滚
+    // （与下方 'ball' 分支同一个坑，见那里的注释与 DESIGN.md「窗口缩放」）
+    mainWindow.setBounds({ x: Math.round(x), y: Math.round(y), width: w, height: h });
   } else if (mode === 'input-collapse') {
     // 弹层关闭：还原输入窗
     if (!inputExpanded) return;
     inputExpanded = false;
     const inputH = INPUT_SIZE.height;
-    const [px, py] = mainWindow.getPosition();
     // 回到展开前的锚点（若展开时挪了位置，尽量靠回）
+    // 同样必须 setBounds：原先是 setSize + setPosition，2026-09-29 真机实测
+    // **位置回得来、尺寸回不去** —— 关掉日历后输入窗滞留在 440x520，
+    // 底部空一大片，看起来就像问题 3 没修好。
     if (inputWindowPosAtOpen) {
-      mainWindow.setSize(INPUT_SIZE.width, inputH);
-      mainWindow.setPosition(inputWindowPosAtOpen.x, inputWindowPosAtOpen.y);
+      mainWindow.setBounds({
+        x: Math.round(inputWindowPosAtOpen.x),
+        y: Math.round(inputWindowPosAtOpen.y),
+        width: INPUT_SIZE.width,
+        height: inputH,
+      });
     } else {
       placeInputWindow(inputH);
     }
@@ -1059,17 +1123,57 @@ ipcMain.on('drag-homepage-end', () => {
   homepageDragSize = null;
 });
 
+/* 历史记录窗口：无边框后由 history.html 的单行标题兼作拖拽条，与主页面同款增量模式 */
+ipcMain.on('close-history', () => {
+  if (historyWindow) historyWindow.hide();
+});
+
+let historyDragStart = null;
+let historyDragSize = null;
+
+ipcMain.on('drag-history-start', () => {
+  if (!historyWindow) return;
+  historyDragStart = historyWindow.getPosition();
+  // 全程用拖拽开始时的尺寸：getSize() 在高缩放下可能返回已放大的值，形成正反馈
+  historyDragSize = historyWindow.getSize();
+});
+
+ipcMain.on('drag-history-move', (event, dx, dy) => {
+  if (!historyWindow || !historyDragStart || !historyDragSize) return;
+  // setBounds 位置+尺寸一起设 —— 先 setSize 再 setPosition 会被旧尺寸钳制
+  historyWindow.setBounds({
+    x: Math.round(historyDragStart[0] + dx),
+    y: Math.round(historyDragStart[1] + dy),
+    width: historyDragSize[0],
+    height: historyDragSize[1],
+  });
+});
+
+ipcMain.on('drag-history-end', () => {
+  historyDragStart = null;
+  historyDragSize = null;
+});
+
 ipcMain.on('get-ai-status', async (event) => {
   const available = await ollama.isAvailable();
   const models = available ? await ollama.listModels() : [];
+  /* 「AI 在线」的诚实判据：服务可达 ≠ 能对话。
+     旧实现只问 isAvailable()，于是配置的模型没装、甚至本地只剩嵌入模型时，
+     头部照样写「AI 在线」—— 用户提问却得不到回复，界面和事实互相打脸。
+     chatModels 为空时头部改报「无对话模型」。 */
+  const chatModels = available ? await ollama.listChatModels() : [];
+  const hasChatModel = chatModels.length > 0;
   const config = readConfig();
+  // 配置的模型优先；它不在能对话的列表里就退回第一个能对话的（与实际回退一致）
   let effectiveModel = ollama.MODEL;
-  // 若配置的模型不在已安装列表里，报告第一个可用的模型（与实际对话回退一致）
-  if (available && models.length && !models.includes(ollama.MODEL)) {
-    effectiveModel = models[0];
+  if (hasChatModel && !chatModels.includes(ollama.MODEL)) {
+    effectiveModel = chatModels[0];
   }
   event.reply('ai-status', {
     available,
+    hasChatModel,
+    chatModels,
+    configuredModel: ollama.MODEL,
     model: effectiveModel,
     models,
     enabled: config.aiEnabled !== false,
@@ -1098,6 +1202,8 @@ ipcMain.on('get-todo-count', (event) => {
 app.whenReady().then(() => {
   const config = readConfig();
   if (config.model) ollama.setModel(config.model);
+  // 先定主题再开窗：晚一步第一帧会按系统默认主题画，出现闪一下的换肤
+  applyTheme(config.theme);
   createWindow();
   applyShortcut();
   startReminderScheduler();

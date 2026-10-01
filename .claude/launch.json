@@ -2,6 +2,12 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "nanosecretary-homepage",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["scripts/preview-server.mjs", "3158"],
+      "port": 3158
+    },
+    {
       "name": "deeptutor-ref",
       "url": "http://localhost:3157",
       "port": 3157

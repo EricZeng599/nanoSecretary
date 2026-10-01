@@ -44,10 +44,17 @@ contextBridge.exposeInMainWorld('api', {
   dragHomepageStart: () => ipcRenderer.send('drag-homepage-start'),
   dragHomepageMove: (dx, dy) => ipcRenderer.send('drag-homepage-move', dx, dy),
   dragHomepageEnd: () => ipcRenderer.send('drag-homepage-end'),
+  // 历史记录窗口（无边框窗，顶部单行标题兼作拖拽条）
+  dragHistoryStart: () => ipcRenderer.send('drag-history-start'),
+  dragHistoryMove: (dx, dy) => ipcRenderer.send('drag-history-move', dx, dy),
+  dragHistoryEnd: () => ipcRenderer.send('drag-history-end'),
+  closeHistory: () => ipcRenderer.send('close-history'),
 
   // 配置
   saveConfig: (patch) => ipcRenderer.send('save-config', patch),
   onConfigSaved: (cb) => ipcRenderer.on('config-saved', (e, data) => cb(data)),
+  getConfig: () => ipcRenderer.send('get-config'),
+  onConfig: (cb) => ipcRenderer.on('config', (e, data) => cb(data)),
 
   // AI 状态
   getAiStatus: () => ipcRenderer.send('get-ai-status'),

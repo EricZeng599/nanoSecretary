@@ -21,6 +21,20 @@ echo [3/5] Adding app code...
 mkdir "%OUT%\resources\app" 2>nul
 for %%f in (main.js preload.js ollama.js index.js homepage.js history.js icons.js date-picker.js date-picker-react.js notes.js index.html homepage.html history.html notes.html tokens.css date-picker.css date-picker-react.css icon.png Nanosecretary_256x256.ico package.json) do copy /Y "%%f" "%OUT%\resources\app\%%f" >nul
 
+rem 像素字体（Fusion Pixel，OFL 1.1）：许可要求再分发时必须随附授权文件，
+rem 所以整个 fonts\ 目录（含 OFL.txt 与 LICENSES\）一起进包，不能只拷 woff2。
+if not exist "fonts" (
+    echo [ERROR] fonts\ not found. Pixel font missing; all four windows will fall back to monospace.
+    pause
+    exit /b 1
+)
+xcopy fonts "%OUT%\resources\app\fonts\" /E /I /Y >nul
+if errorlevel 1 (
+    echo [ERROR] Failed to copy fonts\.
+    pause
+    exit /b 1
+)
+
 if exist "%OUT%\resources\default_app.asar" del /q "%OUT%\resources\default_app.asar"
 if exist "%OUT%\electron.exe" ren "%OUT%\electron.exe" nanoSecretary.exe
 

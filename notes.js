@@ -1,7 +1,8 @@
 /**
- * notes.js — 小便签（纯单色暖黑）
+ * notes.js — 小便签（像素打印终端主题：白底黑框 / 暗色黑底白框）
  * 每张便签 = 一条 note 记录（sticky:true），经主进程读写 data.json。
  * 自动保存（输入防抖）；关闭 = 收起（主进程 hide），数据保留。
+ * 视觉全部由 notes.html 的 <style> + tokens.css 承担，本文件不含任何样式。
  */
 const titleInput = document.getElementById('note-title');
 const bodyInput = document.getElementById('note-body');
@@ -40,6 +41,9 @@ noteDate.textContent = nowLabel();
 function setSaveState(text) {
     saveState.textContent = text || '';
 }
+function updateCharCount() {
+    charCount.textContent = bodyInput.value.length ? bodyInput.value.length + ' 字' : '';
+}
 
 // 保存（去抖）
 function scheduleSave() {
@@ -61,9 +65,7 @@ titleInput.addEventListener('input', scheduleSave);
 bodyInput.addEventListener('input', scheduleSave);
 
 // 字符数
-bodyInput.addEventListener('input', () => {
-    charCount.textContent = bodyInput.value.length ? bodyInput.value.length + ' 字' : '';
-});
+bodyInput.addEventListener('input', updateCharCount);
 
 // IPC 响应
 api.onNoteLoaded((data) => {
@@ -71,7 +73,7 @@ api.onNoteLoaded((data) => {
     noteId = data.id;
     titleInput.value = data.title || '';
     bodyInput.value = data.content || '';
-    charCount.textContent = bodyInput.value.length ? bodyInput.value.length + ' 字' : '';
+    updateCharCount();
     setSaveState('');
 });
 api.onNoteSaved((data) => {
@@ -102,6 +104,7 @@ let allEntries = []; // 全量记录缓存
 let pickOpen = false;
 let pickItems = [];  // 当前过滤后的待办
 let pickActive = -1; // 高亮项下标
+let insertPos = 0;   // 勾选条目插入点：顶部按钮=正文末尾；正文 / =光标处
 
 function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -127,6 +130,31 @@ function dueLabel(e) {
     return e.time ? `${day} ${e.time}` : day;
 }
 
+/** 正文里代表「已勾选该待办」的那一行：`- [ ] 标题（9/16 19:00）`，无日期省略括号 */
+function lineFor(e) {
+    const label = dueLabel(e);
+    return '- [ ] ' + (e.title || e.content || '未命名') + (label ? `（${label}）` : '');
+}
+/** 该行是否就是这个待办的条目（`- [ ]` / `- [x]` 都认，日期尾巴需一致） */
+function lineMatches(line, e) {
+    const t = String(line || '').trim();
+    if (!/^- \[[ xX]\] /.test(t)) return false;
+    const rest = t.slice(6); // 去掉 "- [ ] " 六字符
+    return rest === (e.title || e.content || '未命名') + (dueLabel(e) ? `（${dueLabel(e)}）` : '');
+}
+/** 这条待办当前是否已勾在正文里 */
+function isPicked(e) {
+    return bodyInput.value.split('\n').some((l) => lineMatches(l, e));
+}
+/** 在 body 的 pos 处插入一行，保证它独占一行（pos 不在行首先补换行） */
+function insertLineAt(body, line, pos) {
+    const before = body.slice(0, pos);
+    const after = body.slice(pos);
+    const prefix = (pos === 0 || before.endsWith('\n')) ? '' : '\n';
+    const suffix = (pos >= body.length || after.startsWith('\n')) ? '' : '\n';
+    return before + prefix + line + suffix + after;
+}
+
 function renderPickList() {
     const q = pickFilter.value.trim().toLowerCase();
     pickItems = pickableTodos().filter((e) => {
@@ -134,7 +162,8 @@ function renderPickList() {
         const hay = [e.title, e.content, e.category].concat(e.tags || []).join(' ').toLowerCase();
         return hay.includes(q);
     });
-    pickActive = pickItems.length ? 0 : -1;
+    // 高亮只在越界时回卷，勾选一条后别把焦点跳回首项
+    if (pickActive < 0 || pickActive >= pickItems.length) pickActive = pickItems.length ? 0 : -1;
 
     if (!pickItems.length) {
         pickList.innerHTML = `<div class="pick-empty">${q ? '没有匹配的任务' : '还没有未完成的任务'}</div>`;
@@ -143,7 +172,9 @@ function renderPickList() {
     }
     pickList.innerHTML = pickItems.map((e, i) => {
         const d = dueLabel(e);
-        return `<div class="pick-item" role="option" id="pick-opt-${i}" data-i="${i}" data-active="false" aria-selected="false">`
+        const checked = isPicked(e); // 勾选态 = 正文里已有这一行
+        return `<div class="pick-item" role="option" id="pick-opt-${i}" data-i="${i}" data-active="false" data-checked="${checked}" aria-selected="${checked}">`
+            + `<span class="box">${window.nanoIcons ? window.nanoIcons.ic('check') : ''}</span>`
             + `<span class="t">${esc(e.title || e.content || '未命名')}</span>`
             + (d ? `<span class="d">${esc(d)}</span>` : '')
             + '</div>';
@@ -154,8 +185,7 @@ function renderPickList() {
 function syncPickActive() {
     pickList.querySelectorAll('.pick-item').forEach((el) => {
         const on = +el.dataset.i === pickActive;
-        el.dataset.active = String(on);
-        el.setAttribute('aria-selected', String(on));
+        el.dataset.active = String(on); // 有多选时 aria-selected 已被勾选态占用，高亮只靠 active-descendant + data-active
         if (on) el.scrollIntoView({ block: 'nearest' });
     });
     const cur = pickList.querySelector(`.pick-item[data-i="${pickActive}"]`);
@@ -168,19 +198,26 @@ function movePick(delta) {
     syncPickActive();
 }
 
-/** 追加一行清单条目到正文末尾，然后走现成的防抖保存 */
-function insertTask(e) {
-    const label = dueLabel(e);
-    const line = '- ' + (e.title || e.content || '未命名') + (label ? `（${label}）` : '');
-    const cur = bodyInput.value;
-    const sep = (cur && !cur.endsWith('\n')) ? '\n' : '';
-    bodyInput.value = cur + sep + line + '\n';
-    charCount.textContent = bodyInput.value.length ? bodyInput.value.length + ' 字' : '';
+/** 勾选/取消勾选一条待办：在正文里加/删那一行勾选条目。多选——浮层不关。 */
+function toggleTask(e) {
+    const lines = bodyInput.value.split('\n');
+    const idx = lines.findIndex((l) => lineMatches(l, e));
+    if (idx !== -1) {
+        lines.splice(idx, 1); // 取消勾选 = 删掉那一行
+        bodyInput.value = lines.join('\n');
+    } else {
+        const next = insertLineAt(bodyInput.value, lineFor(e), insertPos);
+        // 插入点跟着往后挪：连勾多条时按勾选先后排，而不是次次插在同一处、把后勾的顶到前面
+        insertPos += next.length - bodyInput.value.length;
+        bodyInput.value = next;
+    }
+    updateCharCount();
     scheduleSave();
-    closePicker(true); // 收起才看得见插入结果
+    renderPickList(); // 勾选态即时刷新；浮层保持打开，可继续勾下一条
 }
 
-function openPicker() {
+function openPicker(atPos) {
+    insertPos = (typeof atPos === 'number') ? atPos : bodyInput.value.length;
     pickOpen = true;
     pickPanel.hidden = false;
     pickBtn.setAttribute('aria-expanded', 'true');
@@ -206,7 +243,7 @@ function closePicker(refocus) {
 
 pickBtn.addEventListener('click', (e) => {
     e.stopPropagation(); // 别让下面的 document 关掉刚打开的浮层
-    if (pickOpen) closePicker(true); else openPicker();
+    if (pickOpen) closePicker(true); else openPicker(bodyInput.value.length);
 });
 
 // 点浮层以外的地方（拖拽条等）关闭
@@ -219,8 +256,22 @@ document.addEventListener('click', (e) => {
 pickList.addEventListener('click', (e) => {
     const el = e.target.closest('.pick-item');
     if (!el) return;
+    // 必须在 toggleTask 之前截住：它会重渲染列表，被点的这一项随即脱离文档，
+    // 等事件冒到 document 时 pickPanel.contains(target) 已是 false，
+    // 下面那个「点外面关闭」会把刚勾完的浮层一并关掉。
+    e.stopPropagation();
     const item = pickItems[+el.dataset.i];
-    if (item) insertTask(item);
+    if (item) toggleTask(item);
+});
+
+// 正文里打 `/`（行首）唤出下拉；吞掉这个 /，不落进正文
+bodyInput.addEventListener('keydown', (e) => {
+    if (e.key !== '/') return;
+    const pos = bodyInput.selectionStart;
+    const before = bodyInput.value.slice(0, pos);
+    if (before && before[before.length - 1] !== '\n') return; // 只有行首的 / 才触发
+    e.preventDefault();
+    openPicker(pos);
 });
 
 pickFilter.addEventListener('input', renderPickList);
@@ -229,7 +280,7 @@ pickFilter.addEventListener('keydown', (e) => {
     else if (e.key === 'ArrowUp') { e.preventDefault(); movePick(-1); }
     else if (e.key === 'Enter') {
         e.preventDefault();
-        if (pickActive >= 0 && pickItems[pickActive]) insertTask(pickItems[pickActive]);
+        if (pickActive >= 0 && pickItems[pickActive]) toggleTask(pickItems[pickActive]); // 勾一下，不收浮层
     }
     // Esc 不在这里处理：留给下面的分层 Esc，关浮层而不关便签
 });

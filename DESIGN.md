@@ -1,7 +1,12 @@
 # 赛博秘书 · DESIGN.md
 
-> 当前视觉系统的快照。记录了 2026-08 各窗口的实际设计语言。
+> 当前视觉系统的快照。记录了 2026-09 各窗口的实际设计语言。
 > 它是「现在是什么样」的权威记录；任何改动前以此为基线，改动后同步更新本文件。
+>
+> **迁移已完成（2026-09-29）**：设计世界已从「暖暗色 editorial」整体迁到
+> 「像素打印终端」。四个窗口、两套主题全部落地，覆盖层 `pixel.css` 已合并回
+> `tokens.css` 并删除 —— **`tokens.css` 现在是全站唯一的色彩来源**，
+> 不存在「两套世界并存」的中间态。
 
 ## 模式
 
@@ -9,7 +14,61 @@
 
 ## 设计世界
 
-**暖暗色 editorial（Warm Editorial）** —— 移植自 DeepTutor（`D:\my-deeptutor`）的视觉语言。核心是「暖近黑底上的一层纸墨质感」：暖黑背景承载极简输入框与细边框卡片，赭橙只用于动作与状态锚点。无玻璃、无蓝、无渐变——靠层次分明的暖色阶与衬线标题制造编辑部气质。
+**像素打印终端（Pixel Print Terminal）** —— 移植自 lshu-workbench（`C:\Users\EricZeng\Desktop\lshu-workbench-v0.1.0`，MIT）的视觉语言。
+核心是「白纸上的一台点阵打印机」：纯白底、黑色结构与分隔、橙黄两种专色只做信号，全直角、2px 硬边、模块编号，标题与数字用点阵字体，正文用宋体。
+
+**一套语言，两个主题**：亮色是白底黑框，暗色是黑底白框，橙黄不变（仅提亮保对比度）。
+主题由主进程 `nativeTheme.themeSource` 驱动，三态可选（跟随系统 / 亮色 / 暗色）。
+
+### 四色规则（硬约束）
+
+全站只允许四种实体颜色：
+
+| 角色 | 亮色 | 暗色 | 用途 |
+|---|---|---|---|
+| 实体底 | `#FFFFFF` | `#111111` | 唯一底色 |
+| 结构 / 文字 | `#111111` | `#FFFFFF` | 文字、边框、分隔、图标 |
+| 强调 | `#FF5A1F` | `#FF6B33` | 当前 / 选中 / 主按钮 / 高风险 / 逾期 |
+| 提醒 | `#FFC928` | `#FFD24D` | 优先级 / 今日标记 / hover |
+
+- **不新建灰色实体**：次级文字 = 主色 @ 62%（`--ink-tertiary`），更次 = @ 72%，禁用 = @ 38%。
+  62% 是实测下限（白底上 ≈5.6:1，过 AA）。
+- **橙黄只做底、框、条、角标，绝不做小字**。实测：橙字白底 3.12:1、黄字白底 1.6:1，**都过不了 AA**；
+  橙底黑字 6.06:1、黄底黑字 12.3:1，**都过**。所以一切状态表达走「色底 + 主色字」的徽标，而不是彩色小字。
+  这条是从旧世界的 `--status-danger-text` 教训（危险双角色拆分）直接继承来的。
+- **落在橙底上的字永远是深墨 `#111111`，不随主题翻转**（`--ink-on-accent`）。
+  这是移植时踩到的坑：暗色主题下「主色字」=`--px-line`=`#FFF`，白字压橙 `#FF6B33` 只有 **2.84:1**，
+  连大字号的 3:1 都过不了。lshu 的词表里根本没有「白字压橙底」这一格 —— 橙是亮色相，它只配黑字。
+  所以 `--action-on-text` 指向一个**暗色块里不重定义**的固定值，而不是 `--px-line`。
+- **禁止第三种强调色**：没有蓝、绿、红、紫、棕。**成功用主色勾 + 文字**，不用绿色。
+- **状态不能只靠颜色**，必须同时有文字或图标（AI 在线 = 方块点 + 文字；完成 = 勾 + 文字）。
+
+### 明文禁止
+
+灰/米/奶油/暗底、纸纹与噪点、渐变、毛玻璃、模糊、发光、大圆角与胶囊、作为 UI 图标的 emoji、
+用点阵字体排长段中文。
+
+## 迁移状态
+
+**四个窗口全部已迁移，无旧世界残留。**
+
+| 窗口 | 状态 | 说明 |
+|---|---|---|
+| `homepage.html` | 已迁移 | 试点窗口；内联样式全量改写 |
+| `index.html`（悬浮球 + 输入窗） | 已迁移 | 球改为 1-bit 圆（游程填充，非 `border-radius`）；面板/表单/按钮全量改写 |
+| `history.html` | 已迁移 | 数据行取代卡片+左色条；无硬编码色值；顶端**单行拖拽条**（`NS-02 历史记录` + 关闭），无系统描边 |
+| `notes.html` | 已迁移 | 便签 = 透明窗上唯一一层 2px 主色框 |
+| `date-picker.css` / `date-picker-react.css` | 已迁移 | 「暖纸卡」调色板删除，全部改走全局 token |
+
+**单一色彩来源：`tokens.css`。** 迁移期曾用覆盖层 `pixel.css` 把尚未迁移的三页隔离在旧世界外；
+四页迁完后已合并回 `tokens.css` 并删除该文件。合并的价值在于消灭一个隐患：
+两个样式表、引入顺序一旦写错就会出「新几何 + 旧配色」的错误配色**且不报错**。
+现在 `tokens.css` 里的 `:root` 是亮色、`@media (prefers-color-scheme: dark)` 是暗色，
+四个页面各自 `link` 同一个文件，没有第二处可漂移的色板。
+
+`date-picker-react.css` 是 react-day-picker 的构建产物（第三方基样式），
+其中 `--rdp-accent-color: blue` / `--rdp-accent-background-color: #f0f0ff` 等默认色
+**全部被 `date-picker.css` 的 `.nsdp-cal-host .rdp-root` 覆盖**，不会泄漏到页面上。
 
 ## 设计原则（critique 沉淀）
 
@@ -18,118 +77,218 @@
 1. **AI 之魂应在登录核心**（2026-09-08 critique 挑衅性结论，本轮未动手、单列待重设计）：这个产品是可对话的本地 AI 秘书，招牌是「一句话→todo→提醒」。默认落地页（仪表盘 bento）不应长成任何任务 app 都能渲染的通用状态环，而该有「甩一句话给 AI」或「这些待办是 AI 抽出来的」的在场宣示。当前 AI 的在场感被关在 tab 2（记录）与 tab 3（对话），而用户 90% 看的是 dashboard——这是**战略缺口，非缺陷**，留给一次独立的 redesign/new-work 处理，不与逐项修复混修。
 2. **诚实作为硬标准贯穿全页**（2026-09-08 critique）：每个数字与文案背后的事实必须自洽，尤其空态。已落地的诚实：hero 环**无日期也计入**（不低报）、近7天完成单列为「已完成」轴、关注卡筛真实关注集（逾期+今天+明后天）、标签空态区分「无待办」与「无标签」（2026-09-08 P2——有待办但未打标签时不再撒谎说「没有待办」）。审查新改动时逐条问「这个数字/文案背后的事实是什么」。
 
-## 色彩 token（`tokens.css` 统一维护，语义命名）
+## 色彩 token
 
-| Token 族 | 值 | 用途 |
-|---|---|---|
-| 主表面 | `#1a1918` | 页面底（暖近黑，同 deeptutor） |
-| 面板/卡片 | `#201e1c` `#242220` | 输入面板、列表卡 |
-| 弹层/激活 | `#2a2725` `#302d2a` | 设置弹层、导航激活 |
-| 边框 | `#2e2b28` `#3a3634` | 分隔线、控件描边 |
-| 主色（赭橙） | `#d4734b` | 主按钮、tab 下划线、focus、switch |
-| 按钮文字 | `#1a1918` 深字 | 赭橙按钮上的深色字（5.31:1） |
-| 危险（热红文字） | `#c53a2c` 列表色条 / `#f0716a` 环段文字 | 逾期、删除、仪表盘逾期环段 |
-| 成功 | `#6fa86b` | 完成、AI 在线 |
-| 文字主 | `#e8e4de` 暖白 | 正文 |
-| 文字次 | `#c2bbb2` | 元信息 |
-| 文字弱 | `#9c9388` | 占位、提示 |
-| 文字更弱 | `#9c9388` | 空态、弱提示 |
+四色本体定义在 `tokens.css` 的 `:root`（亮色）与 `@media (prefers-color-scheme: dark)`（暗色）；
+其余同名语义 token（`--surface-*` / `--text-*` / `--action-*` / `--status-*` / `--border-*` / `--chart-*`）
+都是对这四个值的**别名**，自身不含色值。改配色只改那八行。
+
+| Token 族 | 亮色 | 暗色 | 用途 |
+|---|---|---|---|
+| `--px-base` | `#FFFFFF` | `#111111` | 实体底 |
+| `--px-line` | `#111111` | `#FFFFFF` | 结构 / 文字 |
+| `--px-accent` | `#FF5A1F` | `#FF6B33` | 强调 / 主按钮 / 逾期 |
+| `--px-mark` | `#FFC928` | `#FFD24D` | 提醒 / 优先级 / hover |
+| `--ink-secondary` | `#111` @72% | `#FFF` @72% | 次级文字 |
+| `--ink-tertiary` | `#111` @62% | `#FFF` @62% | 更次 / 备忘 |
+| `--ink-on-accent` | `#111111` | **`#111111`（不翻）** | 落在橙底上的字，两个主题都是深墨 |
+| `--ink-on-bright` | `#111111` | **`#111111`（不翻）** | 落在黄底上的字，同上 |
+| `--surface-scrim` | `#111` @52% | `#000` @62% | 遮罩（见下方例外 1） |
+| `--border-subtle` | `#111` @18% | `#FFF` @22% | 行间细线、轴分隔 |
+| `--chart-*` | 橙/黄/主色/@34% | 同左（提亮） | 环图专用，**不挪用状态文字色** |
+
+`--ink-on-bright` 是 `--ink-on-accent` 的孪生：黄比橙更亮，白字压黄 `#FFD24D` 只有 **1.44:1**
+（比橙底的 2.84:1 还糟），所以「黄底 hover」和「橙底选中」两处都必须显式指定深墨，
+不能靠 `--text-strong` 跟随主题翻转。
+
+`--chart-*` 是独立一族：环段颜色与文字状态色职责不同，旧实现让 `--status-warning-strong`
+一色两用（既是环段又是文字），换成橙黄后会出现「文字看不见」的静默回归，故拆开。
+
+### 已记录的两处越界例外
+
+审计（沿祖先链合成实际底色后算 WCAG 对比度）在四页两主题下均为 0 违规，
+只有下面两处是有意保留的偏离，不是疏漏：
+
+1. **暗色遮罩用 `#000` 而不是 `#111`。** 暗色主题的实体底就是 `#111`，比它更暗只能取黑。
+   遮罩的职责是压暗背景，不需要满足对比度阈值（它不承载文字）。这是「四色规则」唯一的扩展点。
+2. **日历日格的焦点环用负偏移 `outline-offset: -3px`。** 全局合同是「3px 橙环 + 2px 留白」，
+   但 34px 的日期按钮装在 36px 的格子里，正偏移的环会压到相邻格上。
+   这是**为网格布局让路**，不是风格偏好；环本身仍是 3px 橙。
 
 ## 排版
 
-- 标题：`Georgia, "Times New Roman", "Noto Serif CJK SC", "Source Han Serif SC", "Songti SC", "STSong", "SimSun", serif`（拉丁衬线标题 + 中文宋体）；`1.125–1.25rem / 500`，负字距 `-0.02em`
-- 正文：`system-ui, -apple-system, "Segoe UI", "Noto Serif CJK SC", "Source Han Serif SC", "Songti SC", "STSong", "SimSun", serif`（拉丁/数字走系统无衬线，中文按字形落宋体）`0.8125rem`
-- 元信息 `0.75rem`，辅助 `0.6875rem`
-- 分类列表标题：`letter-spacing 0.04em` 小字大写感
-- 中文宋体（2026-09-04）：正文中文由雅黑改为宋体，现代宋优先（思源宋体 Noto/Source Han → 宋体-简 Songti/STSong → SimSun），Windows 未装现代宋时自然落 SimSun；`--font-stack` 仍以系统无衬线打头，保证拉丁/数字不衬线化
-- 表单控件归位（2026-09-08 typeset）：`button/input/select/textarea { font-family: var(--font-stack) }` —— Chromium UA 的 `button { font: … Arial }` 简写会把按钮/标签中文落到无衬线（Arial→雅黑），与正文宋体断层；显式归位让互动文字与正文同栈。历史/便签/主页/悬浮球四页同步。
-- 正文字号下限（2026-09-08 typeset）：`body { font-size: var(--text-body) }`（13px）—— 原来 body 不设字号，未打 token 的文案（如筛选栏「筛选：」）继承 UA 16px 默认，成为全页最大非展示字号、撑开 `flat-type-hierarchy` 的 16px 台阶；设下限后同栈统一。
+**两套字体，按「是不是正文」分工**：
+
+- **点阵**：`--font-pixel: "Nano Pixel", ui-monospace, Consolas, monospace`
+  （Fusion Pixel 12px Proportional，OFL 1.1，本地托管于 `fonts/`，`@font-face` 声明在 `tokens.css`）
+  用于：页面标题、模块编号、卡片标签、数字指标、Tab、按钮、Chip、徽标、短状态码。
+  恒 `font-weight: 400` + `font-synthesis: none` + `-webkit-font-smoothing: none`
+  ——**不用浏览器合成粗体造层级**，那是点阵字变形的主要来源。
+  「哪里用点阵」集中写在 `tokens.css` 末尾的**选择器清单**里（照 lshu `global.css` 的写法），
+  不在各页内联样式里零散写 `font-family`；新增点阵元素时往那份清单加一行。
+
+  清单**不包含**用户自己写的内容 —— 便签标题/正文、对话正文、表单输入的值一律走宋体。
+  判据是「这串字是谁写的」：机器生成的短标签用点阵，用户写的字用宋体。
+  便签页上这条最明显：`.title-input` / `.body-input` 是宋体，`.drag-bar` / `.status-bar` / 行内日期是点阵。
+
+- **正文**：`--font-stack` 不变（`system-ui … "Noto Serif CJK SC" … SimSun, serif`，中文落宋体）。
+  用于：笔记标题与内容、对话正文、表单输入、说明文案、长中文句子。
+  lshu 明文禁止用点阵字体排长段中文，这条不破。
+
+**字号锁在 12 的整数倍上**（`--px-size` 12 / `--px-size-2x` 24 / `--px-size-3x` 36）：
+点阵字体有原生网格，只在整数倍上渲染才锐利；13/20/28px 会被浏览器线性重采样，边缘发糊。
+所以按钮/徽标一律 12px，页标题与大数字跳到 24px，主卡中心数字 36px。
+**正文不受此约束**（非点阵，走 `--text-body` 13px）。
+
+字号下限：`--text-body` 与 `--text-meta` 均 ≥13px（lshu 正文级下限）；`--text-tiny` 12px
+只留给非正文的编号与角标。
 
 ## 形状与层级
 
-- 圆角：极简 editorial —— 输入框 2px、按钮 6px、卡片 8px、面板 10px（deeptutor 输入框 0 圆角）
-- 阴影：柔和深影（无玻璃高光），`0 8px 30-40px rgba(0,0,0,0.5)` + 极淡内高光
-- 卡片左侧 2px 色条作为状态锚：逾期红 / 今天赭橙 / 完成绿 / 备忘暖灰
-- 滚动条：细窄 6–8px，暖灰
+- 圆角：**全部 0**（`--radius-field/btn/card/panel/chip`）
+- 阴影：**全部 none**，唯一例外是主按钮的硬边影 `--shadow-action: 2px 2px 0 <主色>`
+  （hover 压到 `1px 1px 0`、active 归零，做出「按下去」的物理感）
+- 线宽：一级模块与主按钮 2px，行间与分组 1px，弱分隔用主色 @18%
+- 层级靠**边框粗细 + 是否带模块编号**表达，不靠阴影
+- 滚动条：直角窄条 8px（覆盖 `tokens.css` 的华为胶囊轨道）
 
 ## 关键组件
 
-- **Tab**：下划线式（底部 2px 赭橙线标示激活），无胶囊背景 —— deeptutor 导航气质
-- **主按钮**：赭橙实底 + 深字（hover 提亮 `#e08a5e`，深字 6.66:1）
-- **输入框**：近透明底 + 1px 暖边框 + 2px 圆角，focus 赭橙描边 —— deeptutor 极简 editorial
-- **次级按钮**：透明底 + 暖描边
-- **状态 chip**：透明底 + 描边，激活暖黑底
-- **对话气泡**：user = 赭橙浅底描边，ai = 暖黑卡片描边
-- **日期选择器**（`date-picker.js` 原生封装 + `date-picker-react.js` 日历本体）：
-  shadcn「Popover + Calendar」模式 —— 触发字段（只读按钮，日历图标 + **完整日期**）点开
-  日历弹层，点选即回填。
-  **弹层 = 暖「纸卡」**：在暖黑桌面上铺开一张米白卡片（`#faf6f0`），衬线月份标题、
-  深墨字、赭橙**圆日**选中、today 用赭橙**描边环**（选中日不叠加）、range 中段淡橙带，
-  柔和三层投影 + 轻微入场动画；整体 `color-scheme: light`。触发字段保持暗色控件，
-  悬停显清除 ×。
-  日历本体为 react-day-picker（`scripts/build-datepicker.mjs` 用 esbuild 打成 IIFE，
-  提交进仓库；改日历交互需 `npm run build:datepicker`），原生封装维护触发字段/定位/焦点/ARIA。
+- **一级模块**：白底 2px 主色框，标题行 = 模块编号 + 名称，底部 1px 分隔线；模块内不再堆同重量卡片
+- **模块编号**（`.mod-code`）：橙底 + 主色字的小方块，页标题 `NS-01`、卡片 `01/02/03`、列表 `05/06`。
+  它是 lshu 的版式签名，也是唯一允许的「橙底」用法之一。
+- **Tab**：一条**分段控制**（2px 黑框 + 1px 竖分隔），active 橙底黑字；不再是下划线式
+- **数据行**（`.entry-item`）：替代原来的「卡片 + 左色条」。
+  左 4px 条**留给交互**：hover 黄、定位高亮橙；行间 1px 细线，无圆角无阴影。
+  **状态改由 `entry-meta` 里的色底徽标承载**：已逾期/高优先级 = 橙底主色字，今天截止/中 = 黄底主色字，
+  低 = 弱描边，分类 = 主色描边。
+- **徽章**：矩形，不用胶囊；状态必须带文字或图标
+- **开关**：36×20 直角方块 + 16px 方形滑块，开启态橙底 —— **滑块也是深墨**（`--action-on-text`），
+  橙底黑块 6.66:1，比白滑块更贴「打印」的观感
+- **按钮**：Primary 橙底主色字 + 2px 硬边影；Secondary 白底主色字 + 1px 框；同视图只允许一个视觉主按钮
+- **对话气泡**：靠**对齐 + 边框**区分（user = 右对齐 2px 橙框，ai = 左对齐 1px 主色框），
+  **不用不同底色气泡**
+- **动效**：100–140ms，只改颜色/边框/1px 位移；进度条走 `steps()` 做出阶梯感；
+  淡出只做透明度 + 横向位移，**不做 scale**（点阵字一缩放就重采样发虚）
 
-## 日期约定（civil date）
+## 主题机制（三态）
 
-- **对外一律 `yyyy-mm-dd` 字符串**；仅在交给 react-day-picker 时用当地时区正午
-  `new Date(y, m-1, d, 12)` 构造，绝不 `new Date('yyyy-mm-dd')`（会被当 UTC，
-  UTC+8 地区会在 0–8 点差一天）。
-- 「今天」用 `getFullYear/getMonth/getDate` 拼本地日期（见各页 `localToday()`，
-  历史页/主页面已替换原 `toISOString().slice(0,10)` 的 UTC 隐患）。
-- 周起始随 locale：zh-CN（date-fns `zhCN`）→ 周一起始。
+- 入口：**主页面设置弹层**的「主题」分段控制（`跟随系统 / 亮色 / 暗色`），ARIA `radiogroup` + 方向键漫游焦点
+- 实现：`homepage.js` 保存时把 `theme` 并进 `saveConfig`；`main.js` 的 `save-config` 处理器调
+  `nativeTheme.themeSource = 'system' | 'light' | 'dark'`
+- **`nativeTheme` 一改，四个窗口的 `prefers-color-scheme` 一起翻转**，各页 CSS 的
+  `@media (prefers-color-scheme: dark)` 自动生效 —— 渲染层不需要主题 JS、不需要给每个窗口注入脚本，
+  也不会出现首帧闪白/闪黑
+- 启动时**先 `applyTheme(config.theme)` 再开窗**，晚一步第一帧会按系统默认主题画，闪一下
+- 面板内其余设置都是「保存才生效」，主题沿用同一约定：点选只记值，按「保存」才落库。
+  这样「取消」不需要回滚，少一类状态不一致的 bug。
 
-## 关键交互
+## 关键交互（沿革，多数仍适用）
 
-- **悬浮球**：暖灰球（`linear-gradient(#3a3734,#262421)`）；常驻呼吸（2.4s）；到期赭橙呼吸（1.8s）；逾期红脉冲（1.2s + 扩散光圈）；保存成功暖绿闪光；待办数角标
-- **双击展开**：面板从球方向 `scale(0.96)→1` + 透明度，`cubic-bezier(0.2,0.7,0.2,1)`；`Esc` 收起
-- **窗口缩放**（Win 透明窗 + `resizable:false`）：改尺寸必须用 `setBounds({x,y,width,height})` 一次性设置。若先 `setSize` 再 `setPosition`，位置会按旧的大尺寸被钳制——输入窗(420×190)收回小球(120×120)时会残留成大窗、球看似消失点不出（2026-09-04 修复）
+- **悬浮球**：**1-bit 圆**，不是玻璃球 —— 圆按行拆成水平游程（run-length）用 `<path>` 填充画出，
+  边缘天然阶梯状，这正是「点阵打印机画圆」；**不用 `border-radius:50%`**（那会画出抗锯齿的光滑坡面）。
+  20×20 网格显示 40px，外圆 R10 铺环色、面圆 R9 盖上 → 环恰好 1 格 = 2px，与 `--border-strong` 同重。
+  盘面与环互为反色（亮色白盘黑圈 / 暗色黑盘白圈），所以**贴在同色壁纸上也不会消失** ——
+  这正是透明窗上唯一能保证可见性的构造。
+  状态：常驻呼吸 2.4s（`steps(4,end)` 阶梯明暗）/ 到期盘面转黄 + 加速到 1.8s / 逾期转橙 + 1.2s 硬闪 /
+  保存成功**整球反相一拍**（盘=主色、环=实体底、勾=实体底）——lshu 没有「成功色」，用负片代替绿色闪光，
+  不新增第五种颜色。
+  **呼吸只改 `opacity`，不改 `scale`** —— 缩放会把点阵圆重采样，边缘立刻发虚；透明度只是合成，像素网格原样保留。
+  角标：直角方块 + 橙底深墨字（6.06:1），1px 实体底描边把圆环切出缺口，像贴上去的一枚标签。
+- **双击展开**：面板从下方 6px 升上来 + 透明度，`cubic-bezier(0.2,0.7,0.2,1)`；
+  **不再是 `scale(0.96)`** —— 那会把面板里的点阵字一起重采样。`Esc` 收起
+  （`prefers-reduced-motion` 下只留透明度过渡）
+- **输入面板**：铺满整窗且**脱离文档流**（`position:absolute`）。球在输入态只是透明、并未 `display:none`，
+  若与面板同为 body 的 flex item，40px 的球会把面板挤偏 38px 且底部越出 4px（实测）。
+  绝对定位后球退居其后，不参与布局。
+- **窗口缩放**（Win 透明窗 + `resizable:false`）：改尺寸必须用 `setBounds({x,y,width,height})` 一次性设置。若先 `setSize` 再 `setPosition`，位置会按旧的大尺寸被钳制——输入窗(420×190)收回小球(120×120)时会残留成大窗、球看似消失点不出（2026-09-04 修复）。
+  **同一个坑会换一副面孔再咬一次**：`input-expand`/`input-collapse` 漏改，2026-09-29 真机实测的表现是**位置回得来、尺寸回不去**——
+  关掉日历后输入窗滞留在 440×520、底部空一片，看起来就像「点截止日期」那条 bug 没修好。
+  展开方向是成功的，**只有反向收缩会静默失败**，所以读代码看不出来。凡是「改尺寸」的分支一律 `setBounds`，不写 `setSize`。
+- **面板拖拽会吞掉控件的 `click`**：输入面板整块可拖，`setupDrag` 在 `pointerdown` 里就
+  `setPointerCapture()`。**一旦捕获，该指针的 `pointerup`/`mouseup` 会改派给捕获元素，
+  而 `click` 落在 down 与 up 两个 target 的最近公共祖先上** —— 结果是控件自己的 `click` 根本收不到。
+  所以豁免判据必须是「按下点是否落在控件内部」，即
+  `e.target.closest('input, select, button, textarea')`，**不能看 `e.target.tagName`**：
+  日期字段是 `<button id="f-due-field"><span class="nsdp-field-value">…</span></button>`，
+  按在文字/图标上时 target 是内层 span，看 tag 会漏判 → 日历点不开
+  （只有按在按钮内边距上才碰巧生效，表现出来是「要点好几次」）。2026-09-29 修复。
+  四类控件里**只有这一个的可视内容不是控件本身**，所以只有它中招。
 - **输入**：快速记录（一句话 + AI 实时预览）与结构化表单双模式 Tab；`Enter` 保存。
   结构化表单截止日期 = 日期选择器；悬浮球小窗打开弹层时窗口临时加高
   （`resize-window` → `input-expand`/`input-collapse`），收起即还原。
 - **改期**：主页面待办与历史页每条待办均可改期 —— 点「改期」直接展开日期弹层，
   点选即暂存，按「确定」提交 `update-due-date`。触发字段显示完整日期（yyyy年M月d日），
   title 悬停附「今天/明天」语义。
-- **AI 预览**：赭橙浅底卡片
-- **列表操作**：hover 增亮；完成时卡片淡出；删除用内联双步确认条
+- **弹层 `display` 由 `openPop`/`closePop` 独占**（2026-09-29）：`positionPop()` 只写
+  `left/top/width`，**任何时刻都不碰 `display`**。旧实现用 `display:none` 收尾来做测量，
+  把「恢复可见」的责任推给调用方，而 `reposition()` 走的正是这条路径 ——
+  于是「窗口加高后重新定位」会把刚显示出来的日历又藏掉，且没有任何代码恢复它。
+  可见性只能有一个所有者。同理：**不要用固定延迟去等动画/渲染时序**（原 `setTimeout(reposition,30)`
+  在 240Hz 上晚于双 rAF、在 60Hz 上早于双 rAF，同一份代码得到相反结果），
+  改由 `ResizeObserver` 观察 `.nsdp-cal-host` + `window.resize` 驱动重定位。
+- **`aria-expanded` 必须跟着弹层开合**（2026-09-29）：`attach()` 建好时设 `"false"` 之后
+  全文件没有任何地方置 `"true"`，屏幕阅读器据此判断「弹层开没开」的唯一依据一直是错的。
+- **AI 预览**：主页面改为**黄底细框卡**（`--status-warning-bg` + 黄描边），不再是赭橙浅底
+- **列表操作**：hover 出黄左条；完成时淡出（透明度 + 横移）；删除用内联双步确认条
 - **Esc 分级收放**（2026-09-05 critique 修复）：Esc 从最内层逐层关 —— 设置弹层 → 改期行/日历 → 输入框（失焦）→ 无编辑面才真正收起窗口。绝不一步关掉整窗（原先任意处按 Esc 就 `closeHomepage`，正在输入/改期会丢草稿）。
 - **最近记录与待办事项不相交**（2026-09-05）：`getRecentEntries` 排除 `status==='pending'`，最新 5 条 non-pending（note/done）。同一待办不再一屏两处渲染、操作不冲突，`markDone` 淡出动效也就不会命中错卡。
 - **筛选栏如实隐藏**（2026-09-06 critique 修复）：`.filter-bar` 用 `:not([hidden])` 门控 `display:flex`，而非让作者样式覆盖 UA 的 `[hidden]{display:none}` —— 清除筛选/「下一件」跳转后，筛选条不被旧 tag 文字冒充已清（原来会残留一条「幽灵筛选栏」，展示与事实不符）。
-- **tab 计数对比度**（2026-09-08 critique P2轻修复）：tab 角标 `.count` 改 `color: var(--text-faint)`（`#9c9388`，≥4.5:1），弃用 `opacity:.6`（叠在 `--text-tertiary` 上仅 ~3.2:1，低于 AA）——用 token 色而非透明度，确保叠加层上仍达标。
-- **AI 状态兜底**（2026-09-06）：头部「AI 连接中」带脉冲点（`.loading::after` 省略动画）以示处理中；`getAiStatus` 若 4 秒未回包则兜底转「AI 离线」，避免状态永远悬置。兜底用布尔标记 `aiStatusResolved` 判据（由 `onAiStatus` 置位），而非比较 `textContent === 'AI 连接中…'`——省略号在 `.loading::after` 伪元素里，`textContent` 永远没有 `…`，字符串比较必失配，旧实现是整个兜底落空（死代码）。「思考中…」等瞬时态不受影响。
-- **对话空态**（2026-09-06 critique 修复；2026-09-08 修 `[hidden]` 被覆盖回归 + `h4` 降级）：对话 tab 无消息时展示「你的 nanoSecretary 在线」衬线标题（一个 `p.chat-empty-title`，**不用 `h4`**——否则 `h1→h2→h4` 跳级，P3 skipped-heading）+ 一行能力提示 + 3 个可点建议 chip（「我今天有什么安排？」/「我这个月逾期了哪些？」/「帮我整理今天的进度」），点击填入输入框并聚焦；首条消息出现即隐藏空态。修掉对话 tab 打开只剩空区+输入行的「空窗」（首次用户最高摩擦点）。空态容器用 `.chat-empty:not([hidden])` 门控 `display:flex`——否则作者样式会覆盖 UA 的 `[hidden]{display:none}`，首条消息后空态依旧显示（与筛选栏同类 bug，同型修复）。
-- **标签筛选与仪表盘脱同步**（2026-09-06 critique 修复）：`setTodoFilter(null)` 清除筛选时同步重置仪表盘 `activeTag` 与 tag 芯片 active 类、detail 行回到「全部标签 N 项待办」——原先只清列表 `todoFilterTag` 不管 `activeTag`，清除筛选返回仪表盘会留下一个仍点亮的芯片 + 断言旧 tag 计数（detail 说「#工作 7 项」但列表已 17，展示与事实不符）。
-- **下一件高亮稳定**（2026-09-06）：`focusEntry` 的 `.flash` 高亮改为 `focusFlashId` 状态驱动、在 `renderTodos` 渲染末尾落地，而非事后用 rAF poke DOM 加 class——列表因数据变更重渲染时，`innerHTML` 重建会把刚加上的 `.flash` 冲掉导致高亮丢失；状态驱动让 flash 在每次重渲染后重新落在目标上，1.4s 超时后清除。
-- **离线模型文案去重复**（2026-09-06）：设置弹层不可用时，模型下拉 option 简洁为「未检测到（使用默认 qwen2.5:3b）」，下方 desc「未检测到本地模型，请确认 Ollama 已启动」保留为唯一可操作引导——原先 option 也写「（未检测到，将用此默认值）」与 desc 语义重复，读起来像 bug。
-- **对话回包兜底**（2026-09-08 critique P1）：`sendChat` 置状态「思考中…」后，若本地模型离线/缺失致 `onChatReply` 永不回包，对话会永久卡死、后续输入堆积。加 30s 超时兜底：超时把状态复位为「AI 离线」并追加一句安抚文案「（本地模型似乎没有回应，请确认 Ollama 已启动后再试一次。）」；回包成功则清除定时器并回到「AI 在线」，避免超时兜底残留 offline class。首载的 4s `getAiStatus` 兜底只跑一次，不覆盖对话途中。
-- **低优先级不静默隐藏**（2026-09-08 critique P2）：待办优先级 badge 高→「高优先级🔥」/中→「中」/低→**「低」**（`--text-faint` 极弱色），三档齐全——原来低优先级整行消失，用户误以为「没标」。规则「无 badge=低」只在三档都显示时才无须自明。
-- **tab `aria-controls`**（2026-09-08 critique P2）：三个 tab（`role="tab"`）均补 `aria-controls="view-dashboard|view-records|view-chat"`，与 panel 的 `aria-labelledby` 形成双向关联，WAI-ARIA tablist 模式满足读屏「tab→面板」关联。
-- **危险双角色拆分**（2026-09-08 colorize）：**「逾期」一律用热红 `#f0716a`** —— 列表色条、`已逾期`/`高优先级` 徽标、环段、图例 swatch 同一色，对暖黑/卡片底 ≥5.49:1，远超标线 3:1；**深红 `#c53a2c` 仅作删除按钮填充**（浅字 `#f5f2ec` 叠其上 4.68:1 ≥4.5:1）。原 `--status-danger` 兼做色条 + 按钮填充，色条仅 3.03:1 贴线、且与 `--status-danger-text` 红意重复 —— 拆成「逾期=亮红、删除填充=暗红」两职，色条获得 1.8× 余量。
-- **设置**：主页面中央遮罩 + 暖黑弹层，switch（40×22）
+- **tab 计数对比度**（2026-09-08 critique P2轻修复，**2026-09-29 随主题重做**）：`.count` 走 token
+  （`--text-faint`），不用 `opacity` 叠透明度——激活 tab 上改用 `--action-on-text`（橙底上的主色字，6.06:1）。
+- **AI 状态兜底**（2026-09-06）：头部「AI 连接中」带脉冲点（`.ai-status.loading::before` 方块点闪烁）以示处理中；`getAiStatus` 若 4 秒未回包则兜底转「AI 离线」，避免状态永远悬置。兜底用布尔标记 `aiStatusResolved` 判据（由 `onAiStatus` 置位），而非比较 `textContent`——旧实现是整个兜底落空（死代码）。「思考中…」等瞬时态不受影响。
+- **对话空态**（2026-09-06 critique 修复；2026-09-08 修 `[hidden]` 被覆盖回归 + `h4` 降级）：对话 tab 无消息时展示「你的 nanoSecretary 在线」点阵标题（一个 `p.chat-empty-title`，**不用 `h4`**——否则 `h1→h2→h4` 跳级，P3 skipped-heading）+ 一行能力提示 + 3 个可点建议 chip，点击填入输入框并聚焦；首条消息出现即隐藏空态。空态容器用 `.chat-empty:not([hidden])` 门控 `display:flex`——否则作者样式会覆盖 UA 的 `[hidden]{display:none}`，首条消息后空态依旧显示（与筛选栏同类 bug，同型修复）。
+- **标签筛选与仪表盘脱同步**（2026-09-06 critique 修复）：`setTodoFilter(null)` 清除筛选时同步重置仪表盘 `activeTag` 与 tag 芯片 active 类、detail 行回到「全部标签 N 项待办」。
+- **下一件高亮稳定**（2026-09-06）：`focusEntry` 的 `.flash` 高亮改为 `focusFlashId` 状态驱动、在 `renderTodos` 渲染末尾落地，而非事后用 rAF poke DOM 加 class——列表重渲染时 `innerHTML` 重建会把 `.flash` 冲掉。闪动改用 `steps(4, end)` 做出阶梯感。
+- **离线模型文案去重复**（2026-09-06；**2026-09-29 补「无对话模型」态**）：设置弹层不可用时，模型下拉 option 简洁为「未检测到（使用默认 qwen2.5:3b）」，下方 desc「未检测到本地模型，请确认 Ollama 已启动」保留为唯一可操作引导。新增两种情形：服务可达但只有嵌入模型时，option 为「未检测到可对话的模型」、desc 给出 `ollama pull qwen2.5:7b`；配置的模型不能对话时，desc 点名「配置的 X 不能对话，已回退到 Y」。**下拉框只列能对话的模型** —— 把嵌入模型摆进去，用户选中它就等于亲手把对话打死（HTTP 400 `does not support chat`）。
+- **AI 状态三态**（2026-09-29）：`.ai-status` 由两态扩为三态 —— `online`（服务可达**且**有能对话的模型）/ `warn`（服务可达但没有能对话的模型 → 「无对话模型」）/ `offline`（服务不可达）。判据从 `isAvailable()`（只问服务活没活）改成 `listChatModels()`。`warn` 用「提醒」色（`--text-strong` + `--status-warning-bg` + `--px-mark` 描边），该色对在历史页徽标上已审计过。嵌入模型按 `/api/tags` 的 `capabilities` 含 `completion` 判定，旧版 Ollama 无此字段时退化为名字黑名单（含 `embed`）。
+- **对话回包兜底**（2026-09-08 critique P1；**2026-09-29 改为不谎报**）：`sendChat` 置状态「思考中…」后，若本地模型离线/缺失致 `onChatReply` 永不回包，对话会永久卡死，所以要一个 30s 定时器解卡。但**它不该下结论**：后端最坏预算是「解析 60s + 回复 120s」，30s 时什么都没失败，旧实现却把状态改成「AI 离线」并说「请确认 Ollama 已启动」—— 用户看到的正是「AI 在线」与「Ollama 未启动」同屏（截图实证）。现在定时器只说一句「还在生成中…」，**不改状态、不判离线**，最终态一律等主进程回包。
+- **失败原因透传，不再一律甩锅 Ollama**（2026-09-29）：`chatReply` 返回 `{ok, text, reason}`，`reason ∈ model_missing / no_chat_model / timeout / http / empty`，`main.js` 按 reason 给各自准确的文案（点名是哪个模型没装、还是本地压根没装能对话的模型）。旧实现把四种完全不同的失败压成一个 `null`，上层唯一能说的话就是「请确认 Ollama 已启动」—— 这句话在服务明明可达时是**自相矛盾的假信息**。
+- **失败提示不进对话历史**（2026-09-29）：回包带 `ok` 标记，`ok:false` 的提示只渲染不写进 `chatHistory` —— 否则下一轮模型会把「模型没安装」当成自己说过的话。
+- **思维链不进对话正文**（2026-09-29）：推理模型会把思维链当**普通文本**吐在 `message.content` 里（本机 `XiaomiMiMo_MiMo-VL-7B-RL-2508-Q4_K_M` 实测），剥壳前它直接显示成秘书的回复。这是上一条「AI 在线但没响应」修好后的**副作用**：兜底以前选 `models[0]`（嵌入模型）必然 400 直接失败，修对之后推理模型第一次真正跑起来，`<think>` 才浮到用户面前。两道防线：
+  - `think:false`（Ollama ≥0.9，`/api/chat`+`/api/generate`）从源头关掉真·思考模型（qwen3 / deepseek-r1 那类）的思维链 —— 顺带省掉它们吃掉 120s `CHAT_TIMEOUT` 预算的风险。**但它关不住全部**：MiMo 的思维链不归 Ollama 思考模板管，实测带上 `think:false` 后 `content` 里照样是 `<think>…</think>`。
+  - `stripThinking()` 是**主力**，判据是「有没有**配对**」而不是「有没有出现过 `<think` 字样」：成对块（跨行/大小写/`<thinking>`/带属性）整块删；删完整段**以没闭合的 `<think>` 开头**→ 思维链没写完就被掐断，返回 `''`（宁可回 `empty`，也不能把思维链当答案）；没闭合的标签**前面已有正文**→ 一个字不动，那多半是正文里真的在讨论这个标签。只有 `</think>` 无开标签的泄漏**不处理**（与「正文提到闭标签」在字符串上无法区分，本机 4 个模型实测都不产生这种形状）。
+- **「只想了没答」要换模型，不是判死**（2026-09-29）：`chatReply` 候选循环的进入条件从「第一个模型失败」放宽到「失败 **或** 答了但剥完思维链是空的」。旧写法在后者直接 `return empty`，等于让一次截断把整轮对话判死 —— 而隔壁 `glm-4-9b` 明明好好等着。`empty` 的文案也据此改写，把「换个模型」这条可操作的路指出来。
+- **`/api/generate` 同样要剥**（2026-09-29）：`parseEntry` / `extractTaskFromMessage` / `classifyEntry` / `generateReminder` 都走 `generate()`，剥壳放在 `generate()` 返回值这一处收口。不剥的后果按形状分两种，**旧的 `extractJson`（第一个 `{` 到最后一个 `}`）都会中招**：思维链+答案都在时，首 `{` 落在思维链里、末 `}` 落在答案里，跨段 `JSON.parse` 失败 → **AI 解析静默失效**，整条路径悄悄降级成正则兜底；思维链没写完就被掐断时，首末 `}` 都落在思维链复述的**提示词示例**上 → 抠出 `{"title":"开会","dueDate":null}`，**安静地写下一条假任务**。后者尤其危险：它不报错，只是把错数据存进库。剥完为空时 `generate()` 返回 `null`，让正则兜底接手（正则从原文能算出真实日期，结果反而对）。
+- **低优先级不静默隐藏**（2026-09-08 critique P2）：优先级 badge 高→「高优先级」/中→「中」/低→**「低」**（弱描边），三档齐全——原来低优先级整行消失，用户误以为「没标」。
+- **tab `aria-controls`**（2026-09-08 critique P2）：三个 tab 均补 `aria-controls`，与 panel 的 `aria-labelledby` 形成双向关联。
+- **设置**：主页面中央遮罩 + 2px 主色框弹层，switch 36×20 直角方块
 
 ## 图标系统
 
-- `icons.js` 暴露 `window.nanoIcons.ic(name)`：统一 24×24 线性 SVG（1.8px 描边、`currentColor` 继承）
+- `icons.js` 暴露 `window.nanoIcons.ic(name)`，返回统一规格的内联 SVG，颜色继承 `currentColor` 由使用处 CSS 控制。
+- 规格：**24×24 viewBox、`stroke-width: 2`、`stroke-linecap: square`、`stroke-linejoin: miter`、
+  `shape-rendering: crispEdges`**，坐标取整数且端点不贴边（方头会向外多出半个描边宽）。
+- **显示尺寸必须取 12 / 24 / 36px**：24 格映射到 12px 时 1 格 = 0.5px，2 格描边正好 1px，落在整数像素上才锐利；
+  14px 这类非整数倍会把描边重采样成 1.17px，糊。这是和点阵字体同一条网格纪律。
+  （`notes.html` 里 14px 的勾选框特意把内嵌图标锁到 12px，就是为了守这条。）
+- `shape-rendering: crispEdges` 关掉抗锯齿，圆弧因此呈阶梯状 —— 与悬浮球同一个理由，是想要的效果，不是缺陷。
 - 图标名：note/pin/todo/fire/clock/calendar/tag/chat/book/check/check-circle/restore/trash/edit/copy/close/diamond/chevron-right/settings/dots
 
-## 便签与仪表盘（2026-09-04 新增）
+## 便签与仪表盘
 
-- **仪表盘**（主页面默认视图，640×700）：暖黑 bento —— 单一主导指标 + 两张让位侧卡 + 底部 Top-3 标签格。
+- **仪表盘**（主页面默认视图，640×700）：白底 bento —— 单一主导指标 + 两张让位侧卡 + 底部 Top-3 标签格。
   环图手写 SVG（`stroke-dasharray`），不引图表库。**关注卡（hero）** = 大环 + 中心**唯一大数字 = 全部待处理**（诚实含无日期项）。
-  环分四段：**逾期**（热红 `#f0716a`，满宽）/ **今天**（赭橙 `#d4734b`，满宽，突出）/ **明后天**（浅橙 `#e0a06c`，**细分笔画**从属）/ **其余待办**（弱描边色），四段恒等于全部 pending（P0-1 不低报）。
+  环分四段：**逾期**（橙 `--chart-overdue`，满宽）/ **今天**（黄 `--chart-today`，满宽，突出）/ **明后天**（主色 `--chart-soon`，**细分笔画**从属）/ **其余待办**（`--chart-rest` 最弱段），四段恒等于全部 pending（P0-1 不低报）。
+  **2026-09-29 换色相 + 笔画权重双重编码**：新色板只有橙黄两专色，四段无法再靠四种色相区分；
+  「明后天」改用更细（5px vs 8px）的主色笔画从属，令「今天」成为环上唯一突出黄色。
+  环段两端 `stroke-linecap` 由 `round` 改 **`butt`**——点阵世界里圆弧切口是平的。
   「其余待办」在环上是单一弱段（远期与无日期都不紧迫，归一），但**图例拆成「远期」与「无日期」两行**（2026-09-08 critique P2）——无日期项用**空心框 swatch**（`background:transparent` + 1px 弱描边 + `box-sizing:border-box`，8×8 齐平；2026-09-08 由斜纹 `repeating-linear-gradient` 改为空框，因斜纹触发检测器 `repeating-stripes-gradient` 判定，且空框更贴合「无日期=空、共享弱段」的语义）；两者语义不同，不浑称「其余」。
   「近7天完成」是独立的**「已完成」轴**计数行（无 swatch + `axis-divider` 分隔线），明确分离于「待处理」环段，不混进环。
-  环段支持**每段覆盖笔画权重**（`seg.stroke`），用更细笔画让「今天」成为环上唯一突出赭橙、与「明后天」拉开对比。
-  右侧 **今日卡**（今日完成/待办小环 + 「下一件」点击**跳转到该目标记录**而非打开输入框，无到期显示「—」）与 **本周卡**（去环，压成一行进度 + 计数）。
+  右侧 **今日卡**（今日完成/待办小环 + 「下一件」点击**跳转到该目标记录**而非打开输入框，无到期显示「—」）与 **本周卡**（去环，压成一行 `steps()` 阶梯进度 + 计数）。
   本周卡为**单轴**：以**本周六天内到期**的项为 cohort（`dueDate` 落在周一→今/周末），分子=已完成、分母=应做总数；周六空则显「本周暂无」。
   关注/今日/本周三卡整卡可点（`role="button"`，键盘 Enter/Space）→ 进记录视图；**关注卡** 点击即筛到真实「关注集」= 逾期+今天+明后天（`setTodoFilter(null,'attention')`，filter-bar 显「关注」，与环图例同语义，非裸列表）；「下一件」是卡内子交互，点它不重复导航，鼠标/键盘（`keydown` Enter/Space）都调 `focusEntry(todoId)` 定位到该目标项并短暂高亮。
   标签格默认**不预选**（起始中性，`activeTag` 为空），只露 **Top-3** 芯片（`aria-pressed`），其余收进「更多标签 +N」reveal 展开；点芯片 → 进记录视图并按该 tag 筛选（action-first），再点一次取消（toggle 回中性），「清除」还原。
   芯片点击用**事件委托**绑定（`chipsEl` 挂一个 `click` 监听 + `closest('.tag-chip')`），expand 后的芯片也命中同一委托，不再逐颗绑 onclick。选中的外部标签会自动提入 Top-3 位置、相应芯片挤入 reveal，避免「选中但看不到芯片」。
-- **小便签**（notes.html 独立 frameless 窗，240×230）：纯单色暖黑（面板底 + 赭橙识别点 + serif 标题行），
+- **小便签**（notes.html 独立 frameless 窗，240×230）：透明窗上**唯一一层 2px 主色框**就是它的全部轮廓 ——
+  没有圆角也没有投影（浮在壁纸上的硬边比柔和影更读得出来；且透明窗上投影无处可落）。
+  亮色白纸黑框 / 暗色黑纸白框。
   自动保存（防抖 400ms 写 data.json 为 sticky:true 的 note 记录）、关闭即收起数据保留、置顶可切、
   时间戳。入口：托盘菜单「新建便签」+ 悬浮球右键 + 主页面底部「便签」。数据出现在历史页备忘区。
+  左上角「选入已有任务」浮层：键盘高亮行**整条填橙**，行内所有字（含右侧点阵日期）一并换深墨；
+  该行上的方框描边也改深墨 —— 橙底上留黑框会整块糊掉。勾选态 = 橙底深墨勾（不是白勾）。
 - **随手记→待办**：无日期的随手记按「备忘」归到主页面最近记录/历史页（README 语义：记得买牛奶 → 备忘）。
-  备忘卡提供**「转为待办」**（绿色 pin）一键升级为待办（`status: note→pending`，不设截止日期，
+  备忘卡提供**「转为待办」**（pin 图标）一键升级为待办（`status: note→pending`，不设截止日期，
   `make-pending` IPC），升级后进主页面「待办事项」并可勾选完成。（2026-09-04 按用户选择新增）
 - **补截止日期**：便签贴与快速记录进入主页面后，卡片上**始终显示「改期」**（含 note 与无日期的 pending）
   —— 点「改期」用日历选日期 → 确定，`update-due-date` 设 dueDate 并翻转 `note→pending`，该项带日期进待办。
@@ -138,21 +297,87 @@
 
 ## 平台注意
 
-- 无边框透明窗口：顶部 24px `-webkit-app-region: drag` 拖拽条；悬浮球/面板用 Pointer Events + `setPointerCapture` 防拖拽事件丢失
-- `select option` 强制 `#201e1c` 底暖白字，避免系统白底白字
-- `color-scheme: dark` 保证日期/下拉控件暗色原生控件
-- 无障碍：`prefers-reduced-motion` 停动画；悬浮球 `role="button"`（键盘 Enter/Space 打开）；对话输入框 focus outline 四向留白 ≥4px 防裁边
+- **四个窗口一律无边框**：`frame: false` + `autoHideMenuBar: true`，缺一不可。
+  这条是踩出来的 —— `historyWindow` 曾漏配两项，于是它比其他三窗多出**系统标题栏 + 默认菜单栏**
+  （File/Edit/View/Window/Help），和页面内的 `NS-02 历史记录` 叠成三层；
+  且全仓库没有任何 `Menu.setApplicationMenu()` 调用，Electron 就装上了默认菜单。
+  无边框窗渲染不出菜单栏，`autoHideMenuBar: true` 写上是为了**四个窗口配置一致、不再留特例**。
+- 拖拽条分两套，按窗口选：
+  - 便签窗（`notes.html`）用 `-webkit-app-region: drag`，交互子元素必须 `no-drag`。
+  - 主页面 / 历史页走 **JS Pointer Events + `setPointerCapture` + 主进程增量 `setBounds`**
+    （`drag-homepage-*` / `drag-history-*`）。**不用原生拖拽**：`frame:false` 的 Windows 窗上
+    它有时序上的位置钳制问题。增量模式 + `setBounds` 显式带尺寸，是为了避开
+    「Windows 高缩放下窗口逐次变大」与「先 `setSize` 再 `setPosition` 会被旧尺寸钳制」两个坑。
+- `select option` 走 token（`--surface-field` / `--text-primary`），**不再硬编码暖黑**——
+  否则亮色主题下会掉出一个黑底弹层
+- `color-scheme` 由 `tokens.css` 按主题给（亮 `light` / 暗 `dark`），保证日期/下拉控件跟随主题的原生控件
+- 无障碍：`prefers-reduced-motion` 停动画（含 `steps()` 进度与闪动）与 hover 位移；
+  悬浮球 `role="button"`（键盘 Enter/Space 打开）；对话输入框 focus outline 四向留白 ≥4px 防裁边；
+  主题分段控制是 ARIA `radiogroup` + 方向键漫游焦点（未选中项 `tabindex="-1"`）
 
 ## 实现安全基线
 
-- 三个 HTML 均带 CSP：`default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'`；`lang="zh-CN"`
+- 四个 HTML 均带 CSP：`default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'`；`lang="zh-CN"`
 - 脚本外置 + 事件委托（`data-action`/`data-id`），无内联 `onclick`
-- 全局 `:focus-visible` 焦点环（赭橙）；设置弹层 `role="dialog"` + 焦点圈定 + Esc；AI 开关 `role="switch"`
+- 全局 `:focus-visible` 焦点环（3px 橙 + 2px offset）；设置弹层 `role="dialog"` + 焦点圈定 + Esc；AI 开关 `role="switch"`
 - 呼吸动画 `matchMedia('(prefers-reduced-motion: reduce)')` 门控
-- `sandbox: true`；打包 `pack.bat` 拷贝 tokens.css/icons.js 及全部 JS
+- `sandbox: true`；打包 `pack.bat` 拷贝 `tokens.css` / `date-picker*.css` / `icons.js` 及全部 JS，
+  并把整个 `fonts/`（含 `OFL.txt` 与 `LICENSES/`）一起打进包——OFL 1.1 要求再分发时随附授权文件。
+  字体缺失时 `pack.bat` **直接报错退出**，不静默发一个字体退化的包。
 
-## 已知不一致（供后续 critique 引用）
+## 开发期预览器
 
-1. 空态文案风格不一（「没有待办，记点什么吧」「暂无记录」）
-2. 待补：设置页仍为占位实现；真实 Ollama 联调未做
-3. deeptutor 的中文界面是它自己的语言体系（主页/伙伴/智能体等），赛博秘书保留自身功能命名（速记/待办/对话），不照搬 deeptutor 的导航词汇
+四个窗口都是 Electron 无边框窗，浏览器预览工具够不着。`scripts/preview-server.mjs` +
+`scripts/preview-mock.js`（主页面/历史/便签）+ `scripts/preview-mock-index.js`（悬浮球窗）
+—— **整个 `scripts/` 不进 pack.bat，不随发行包发布** —— 起一个本地静态服务，做两件事：
+
+1. 发四个 HTML 时，在各自的页面脚本**之前**插一行同源 mock（同源才过得了页面 CSP 的 `script-src 'self'`），
+   给页面一个假的 `window.api`（含逾期/今天/明后天/远期/无日期/已完成/备忘各种假数据），
+   让环图、图例、数据行、标签、日历弹层全部渲染出真实形态。
+2. 发 `tokens.css` 时，把里面**亮/暗两套 token 原样抽出**各复制一份，挂到
+   `html[data-preview-theme="light"|"dark"]` 下。属性选择器优先级高于 `:root`，
+   所以设了属性就以属性为准，没设就照旧跟随系统 `prefers-color-scheme`。
+   色板只有一份（就是 `tokens.css` 里那份），预览不会自己漂移成第二套值。
+
+```
+node scripts/preview-server.mjs        # → http://localhost:3158
+```
+
+**磁盘上的 HTML / CSS 本身不含任何预览专用代码**，注入只发生在 HTTP 响应里，
+生产路径零污染。改主题相关 CSS 后用它截图验收，比改一处开一次 Electron 快得多。
+
+**验收怎么做（这轮四页全部跑过一遍）：** 在预览页里注入一个 `window.__audit(theme)`，
+遍历 `body *`，对每个元素做三件事 ——
+
+- **调色板**：把 `color` / `background-color` / 四边 `border-color` / `outline-color` / `box-shadow`
+  里出现的每个颜色，跟**四色 × 两主题共 6 个允许值**逐个比对（容差 ±2）。任何越界色直接报出来。
+- **对比度**：**沿祖先链把各级 `background-color` 逐层 `over` 合成**出该元素的实际底色，再算 WCAG 比值。
+  不能只量元素自己的 `color` 与 `backgroundColor` —— 半透明色和嵌套底色会让结果完全失真。
+  阈值 4.5:1（正文）/ 3:1（≥24px 或 ≥18.66px 粗体）。图标按图形算 3:1。
+- **溢出**：`scrollWidth - clientWidth`。
+
+还要**强制点亮只在交互/数据分支里出现的样式**（`data-active` 行、hover 填充、确认条、改期行、
+`checked` 勾选框），否则扫描会漏掉一半状态。
+
+**量之前必须先关掉 transition**（注入 `* { transition: none !important }`）。否则
+`prefers-color-scheme` 一翻，带 `transition` 的元素在**不重绘的页面上会永远停在旧值**，
+`getComputedStyle` 读到的是上一个主题的颜色，于是报出一堆假的对比度失败。这轮先被这个坑骗过一次。
+
+**已知的预览器盲区**：`preview_screenshot` 偶尔会对每一帧返回逐字节相同的缓存图像，
+即使切了主题、重载、换 URL 都不变（可用给它一个妖艳的临时内联色来验证截图管线是否还活着）。
+遇到这种情况**不要追这个坑**，改用 `getComputedStyle` 审计 —— 它读的是活 DOM，比截图更能说明问题。
+
+## 已知不一致 / 待办（供后续 critique 引用）
+
+1. **真 Electron 验收：部分已做（2026-09-29），仍有缺口。** 预览器没有 Electron 主进程，有几件事它验不了。
+   **已验：** 历史窗无系统描边 + 拖拽 + 关闭/重开（真机截图 + `outer−client=0`）、240Hz 下日期弹层的展开/收起与窗口伸缩、
+   `fonts/` 在 `file://` 下确实加载（真机截图里 `NS-02 历史记录` / `快速记录` 走的是点阵字体）、暗色主题下四窗的实际渲染。
+   **未验：** `nativeTheme.themeSource` 三态**切换**能否实时翻转四个窗口的 `prefers-color-scheme`
+   （只见到「跟随系统」下的暗色生效，没点过设置里的「亮色/暗色」）、便签透明窗上那圈 2px 边框的实际观感。
+   CSS 层面（配色/对比度/溢出/字体分工）已在预览器上跑满两主题、0 违规。
+2. 空态文案风格不一（「没有待办，记点什么吧」「暂无记录」）
+3. 待补：设置页仍为占位实现；真实 Ollama 联调未做
+4. deeptutor 的中文界面是它自己的语言体系（主页/伙伴/智能体等），赛博秘书保留自身功能命名（速记/待办/对话），不照搬 deeptutor 的导航词汇
+5. 主页面中心数字跳到 36px（3× 网格）后，11 以上的两位数会占掉环心大半宽度；三位数待办量需重新评估
+6. **两处有意保留的越界例外**（上文「色彩 token」已记）：暗色遮罩取 `#000`、日历日格焦点环用负偏移。
+   它们会被越界色扫描报出来，是**已知且已判定**的，不要当新 bug 修。

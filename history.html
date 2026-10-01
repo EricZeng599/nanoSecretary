@@ -11,146 +11,286 @@
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            background: #1a1918;
-            color: var(--text-strong);
+            /* 无边框窗（与另外三窗一致），窗口本身就是那张纸。
+               边界由 .container 的 2px 主色框给出 —— 无边框窗在浅色壁纸上会「没有边」，
+               主页面同样用这一层框解决。（旧注释写的是「系统描边窗」，
+               那是 frame:true 时代的前提，现在已不成立） */
+            background: var(--surface-main);
+            color: var(--text-primary);
             font-family: var(--font-stack);
             font-size: var(--text-body);
             height: 100vh;
             overflow: hidden;
         }
-        /* 无障碍：键盘焦点指示（赭橙） */
+        /* 无障碍：键盘焦点指示 —— 3px 橙 + 2px 留白（lshu 合同） */
         :focus-visible {
-            outline: 2px solid var(--action-focus);
+            outline: 3px solid var(--action-focus);
             outline-offset: 2px;
-            border-radius: 2px;
+            border-radius: 0;
         }
+        /* 表单控件继承 UA 的 font 简写（Arial），显式归位到 --font-stack；
+           像素字体在 tokens.css 的清单里按选择器覆盖单项 */
         button, input, select, textarea { font-family: var(--font-stack); }
         /* 统一线性图标 */
         .icon { display: inline-block; vertical-align: -2px; }
         .icon.inline { margin-right: 5px; }
 
-        .container { width: 100%; height: 100vh; display: flex; flex-direction: column; }
+        .container {
+            width: 100%; height: 100vh;
+            display: flex; flex-direction: column;
+            /* 无边框窗的边界 */
+            border: 2px solid var(--border-strong);
+        }
         .header {
-            padding: 16px 20px;
+            padding: 0 20px 12px;
             background: var(--surface-header);
-            border-bottom: 1px solid var(--border-subtle);
+            border-bottom: 2px solid var(--border-strong);
             position: sticky; top: 0; z-index: 10;
         }
-        /* 大标题：serif editorial */
+        /* 拖拽条 = 窗口唯一一行标题（NS-02 · 历史记录 · 关闭）。
+           无边框窗没有系统标题栏也没有菜单栏，移动窗口只能靠这里。
+           拖动实现跟主页面同款：不用 -webkit-app-region: drag 的原生拖拽，
+           走 JS 指针捕获 + 主进程增量 setBounds（drag-history-*）——
+           原生拖拽在 frame:false 的 Windows 窗上有位置钳制的时序问题，
+           主进程驱动是仓库里为主页面/悬浮球选定的做法。 */
+        .drag-bar {
+            display: flex; align-items: center;
+            gap: 8px;
+            padding: 12px 0;
+            cursor: grab;
+            /* 这是窗口外壳不是内容：拖动时不该选中标题文字 */
+            user-select: none;
+        }
+        .drag-bar:active { cursor: grabbing; }
         .header h1 {
             font-family: var(--font-display);
-            font-size: var(--text-title);
-            font-weight: 500;
-            letter-spacing: -0.015em;
-            margin-bottom: 12px;
+            font-size: var(--px-size-2x);
+            font-weight: 400;
+            letter-spacing: 0;
+            line-height: 1.2;
             color: var(--text-strong);
+            display: flex; align-items: center;
+            flex: 1; min-width: 0;
+            margin-bottom: 0;
         }
-        .filter-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-        .filter-group { display: flex; flex-wrap: wrap; gap: 4px; margin-right: 8px; }
-        .filter-group .label { font-size: var(--text-meta); color: var(--text-faint); align-self: center; margin-right: 2px; }
+        .close-btn {
+            background: none; border: none; cursor: pointer;
+            color: var(--text-faint); padding: 2px;
+            display: inline-flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+        }
+        /* 图标是图形不是文字，按 3:1 判；橙在亮底 3.12:1、暗底 6.0:1 都过 */
+        .close-btn:hover { color: var(--px-accent); }
+        /* 模块编号：lshu 的版式签名。橙底主色字，是唯一允许的橙底用法 */
+        .mod-code {
+            display: inline-block;
+            background: var(--action-primary);
+            color: var(--action-on-text);
+            font-family: var(--font-display);
+            font-size: var(--px-size);
+            line-height: 1.5;
+            padding: 0 6px;
+            margin-right: 8px;
+            flex-shrink: 0;
+        }
+
+        .filter-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+        .filter-group { display: flex; align-items: center; gap: 6px; }
+        .filter-group .label { font-size: var(--px-size); color: var(--text-tertiary); }
+        /* 分段控制：一条框 + 组内 1px 竖分隔（lshu 合同，不做漂浮胶囊） */
+        .seg {
+            display: inline-flex;
+            border: 1px solid var(--border-strong);
+        }
         .chip {
             padding: 4px 12px;
-            background: transparent;
-            color: var(--text-tertiary);
-            border: 1px solid var(--border-soft);
-            border-radius: var(--radius-chip);
-            cursor: pointer; font-size: var(--text-meta); transition: all var(--dur-fast);
+            background: var(--button-secondary);
+            color: var(--text-secondary);
+            border: none;
+            border-right: 1px solid var(--border-strong);
+            border-radius: 0;
+            cursor: pointer;
+            font-size: var(--px-size);
+            transition: background var(--dur-fast), color var(--dur-fast);
         }
-        .chip:hover { background: var(--button-secondary-hover); color: var(--text-strong); }
-        .chip.active { background: var(--surface-active); border-color: var(--border-strong); color: var(--text-strong); }
+        .chip:last-child { border-right: none; }
+        /* hover 填实底黄 → 必须配深墨，不能跟随 --text-strong 翻转（暗色下白压黄 1.44:1） */
+        .chip:hover { background: var(--button-secondary-hover); color: var(--ink-on-bright); }
+        /* 选中 = 橙底主色字（6.06:1）。原来是 --text-strong，暗色下就是白压橙 2.84:1 */
+        .chip.active { background: var(--surface-active); color: var(--action-on-text); }
 
-        .content { flex: 1; min-height: 0; overflow-y: auto; padding: 16px 20px; }
-        .entries-list { display: flex; flex-direction: column; gap: 8px; }
-        .entry-card {
-            background: var(--surface-card);
-            border-radius: var(--radius-card); padding: 12px 14px;
-            border-left: 2px solid var(--status-note);
+        .content { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 20px 16px; }
+        .count-line {
+            font-size: var(--px-size); color: var(--text-tertiary);
+            padding: 10px 0 6px; margin-bottom: 4px;
             border-bottom: 1px solid var(--border-subtle);
-            transition: background var(--dur-fast);
+            font-variant-numeric: tabular-nums;
         }
-        .entry-card:hover { background: var(--surface-card-hover); }
-        .entry-card.overdue { border-left-color: var(--status-danger-text); }
-        .entry-card.today { border-left-color: var(--status-warning-strong); }
-        .entry-card.done { border-left-color: var(--status-success); opacity: 0.6; }
-        .entry-card.note { border-left-color: var(--status-note); }
 
-        .entry-title { font-size: 0.875rem; font-weight: var(--weight-strong); margin-bottom: 6px; color: var(--text-strong); }
+        /* ===== 数据行（替代卡片 + 左色条） =====
+           左条留给交互：hover 黄、高亮橙。状态本身改由 entry-meta 里的
+           色底徽标承载 —— 橙/黄不做小字（白底 3.12:1 / 1.6:1，过不了 AA）。 */
+        .entries-list { display: flex; flex-direction: column; }
+        .entry-card {
+            position: relative;
+            background: transparent;
+            border-radius: 0; padding: 10px 12px;
+            border-left: 4px solid transparent;
+            border-bottom: 1px solid var(--border-subtle);
+            transition: border-color var(--dur-fast), background var(--dur-fast);
+        }
+        .entry-card:hover { border-left-color: var(--px-mark); }
+        .entry-card.done { opacity: 0.62; }
+
+        .entry-title { font-size: var(--text-body); font-weight: var(--weight-strong); margin-bottom: 5px; color: var(--text-strong); }
+        .entry-card.done .entry-title { text-decoration: line-through; }
         .entry-content { font-size: var(--text-body); color: var(--text-secondary); line-height: 1.5; margin-bottom: 8px; }
-        .entry-meta { display: flex; flex-wrap: wrap; gap: 8px; font-size: var(--text-meta); color: var(--text-tertiary); align-items: center; margin-bottom: 10px; }
-        .entry-meta .due { color: var(--status-warning-strong); }
-        .entry-meta .due.overdue { color: var(--status-danger-text); }
-        .entry-meta .cat { padding: 1px 8px; border-radius: var(--radius-chip); background: var(--surface-chip); color: var(--text-secondary); }
-        .entry-meta .priority-high { color: var(--status-danger-text); }
-        .entry-meta .tag { color: var(--action-on-strong); }
+        .entry-meta { display: flex; flex-wrap: wrap; gap: 6px; font-size: var(--text-meta); color: var(--text-tertiary); align-items: center; margin-bottom: 10px; }
+
+        /* ---- 状态徽标：一律「色底 + 主色字」，绝不做橙/黄小字 ---- */
+        .entry-meta .due {
+            background: var(--status-warning-bg);
+            border: 1px solid var(--px-mark);
+            color: var(--text-strong);
+            padding: 0 6px; font-size: var(--px-size); line-height: 1.6;
+        }
+        .entry-meta .due.overdue {
+            background: var(--action-primary);
+            border-color: var(--action-primary);
+            color: var(--action-on-text);
+        }
+        .entry-meta .priority-high {
+            background: var(--action-primary);
+            border: 1px solid var(--action-primary);
+            color: var(--action-on-text);
+            padding: 0 6px; font-size: var(--px-size); line-height: 1.6;
+        }
+        .entry-meta .priority-mid {
+            background: var(--status-warning-bg);
+            border: 1px solid var(--px-mark);
+            color: var(--text-strong);
+            padding: 0 6px; font-size: var(--px-size); line-height: 1.6;
+        }
+        .entry-meta .cat {
+            padding: 0 6px; border: 1px solid var(--border-strong);
+            background: transparent; color: var(--text-secondary);
+            font-size: var(--px-size); line-height: 1.6;
+        }
+        /* 标签用黄底（lshu 的「标记」色），与分类的透明描边区分开 */
+        .entry-meta .tag {
+            background: var(--status-warning-bg);
+            color: var(--text-strong);
+            padding: 0 6px; font-size: var(--px-size); line-height: 1.6;
+        }
+        .entry-meta .status {
+            padding: 0 6px; border: 1px solid var(--border-subtle);
+            color: var(--text-tertiary);
+            font-size: var(--px-size); line-height: 1.6;
+        }
+        .entry-meta .status.pending { border-color: var(--border-strong); color: var(--text-strong); }
+        .entry-meta .status.done { background: var(--status-success-bg); color: var(--text-strong); }
 
         .entry-actions { display: flex; gap: 6px; }
         .action-button {
             padding: 4px 12px;
             background: transparent;
             color: var(--text-secondary);
-            border: 1px solid var(--border-soft); border-radius: var(--radius-field);
-            cursor: pointer; font-size: var(--text-meta); transition: all var(--dur-fast);
+            border: 1px solid var(--border-strong);
+            border-radius: 0;
+            cursor: pointer;
+            font-size: var(--px-size);
+            transition: background var(--dur-fast), color var(--dur-fast);
         }
-        .action-button:hover { background: var(--button-secondary-hover); color: var(--text-strong); }
-        .action-button.done { background: rgba(111,168,107,0.14); border-color: rgba(111,168,107,0.35); color: var(--status-success-text); }
-        .action-button.done:hover { background: rgba(111,168,107,0.25); }
-        .action-button.delete { background: rgba(197,58,44,0.12); border-color: rgba(197,58,44,0.35); color: var(--status-danger-text); }
-        .action-button.delete:hover { background: rgba(197,58,44,0.22); }
-        .action-button.due-edit { background: rgba(212,115,75,0.1); border-color: rgba(212,115,75,0.3); color: var(--status-warning-strong); }
-        .action-button.promote { background: rgba(111,168,107,0.1); border-color: rgba(111,168,107,0.3); color: var(--status-success-text); }
-        .action-button.promote:hover { background: rgba(111,168,107,0.22); }
+        .action-button:hover { background: var(--button-secondary-hover); color: var(--ink-on-bright); }
+        /* 完成/恢复：lshu 没有「成功色」，绿一律换成主色勾 + 文字 */
+        .action-button.done { border-color: var(--border-strong); color: var(--text-strong); }
+        .action-button.done:hover { background: var(--status-success-bg); color: var(--text-strong); }
+        .action-button.promote:hover { background: var(--status-success-bg); color: var(--text-strong); }
+        /* 删除是唯一的破坏性动作，用橙描边标出来（实底留给确认条里的那个） */
+        .action-button.delete { border-color: var(--px-accent); color: var(--text-strong); }
+        .action-button.delete:hover { background: var(--status-danger-bg); border-color: var(--px-accent); }
 
         .due-edit-row { display: flex; gap: 6px; align-items: center; margin-top: 8px; }
         .due-edit-row > .nsdp-mount { flex: 1; min-width: 0; display: flex; }
         .due-edit-row > .nsdp-mount .nsdp-field-wrap { width: 100%; }
         .due-edit-row > button {
             padding: 4px 10px; background: var(--action-primary); color: var(--action-on-text);
-            border: none; border-radius: var(--radius-field); font-size: var(--text-meta); cursor: pointer; font-weight: 600;
+            border: 1px solid var(--action-primary); border-radius: 0;
+            font-size: var(--px-size); cursor: pointer;
         }
-        .due-edit-row > button:last-child { background: transparent; color: var(--text-secondary); border: 1px solid var(--border-soft); font-weight: 400; }
+        .due-edit-row > button:last-child {
+            background: transparent; color: var(--text-secondary); border: 1px solid var(--border-strong);
+        }
+        .due-edit-row > button:last-child:hover { background: var(--button-secondary-hover); color: var(--ink-on-bright); }
 
-        .empty-state { text-align: center; color: var(--text-faint); padding: 50px 0; font-size: 0.875rem; }
-        .count-line { font-size: var(--text-meta); color: var(--text-faint); margin-bottom: 10px; }
+        .empty-state {
+            text-align: center; color: var(--text-tertiary);
+            padding: 50px 0; font-size: var(--text-body);
+        }
 
-        /* 删除确认条 */
+        /* 删除确认条（内联） */
         .confirm-bar {
             margin-top: 8px; display: flex; gap: 8px; align-items: center;
             font-size: var(--text-meta); color: var(--text-secondary);
         }
         .confirm-bar .confirm-btns { display: flex; gap: 6px; }
+        /* 危险动作：橙底主色字。原来是 --text-strong，暗色下白压橙 2.84:1 */
         .confirm-bar button {
-            background: var(--status-danger); color: var(--text-strong);
-            border: none; padding: 4px 10px; border-radius: var(--radius-field);
-            font-size: var(--text-meta); cursor: pointer;
+            background: var(--action-primary); color: var(--action-on-text);
+            border: 1px solid var(--action-primary); padding: 4px 10px; border-radius: 0;
+            font-size: var(--px-size); cursor: pointer;
         }
-        .confirm-bar button.confirm-no { background: transparent; color: var(--text-secondary); border: 1px solid var(--border-soft); }
+        .confirm-bar button.confirm-no {
+            background: transparent; color: var(--text-secondary); border: 1px solid var(--border-strong);
+        }
+        .confirm-bar button.confirm-no:hover { background: var(--button-secondary-hover); color: var(--ink-on-bright); }
+
+        /* 轻量 toast（与主页面同一副样式；原来写在 history.js 的内联 cssText 里） */
+        .toast {
+            position: fixed; bottom: 18px; left: 50%;
+            transform: translateX(-50%) translateY(8px);
+            background: var(--surface-raised); color: var(--text-strong);
+            border: 2px solid var(--border-strong); border-radius: 0;
+            padding: 8px 14px; font-size: var(--text-meta);
+            box-shadow: none;
+            opacity: 0; pointer-events: none;
+            transition: opacity var(--dur-med), transform var(--dur-med);
+            z-index: 30; max-width: 90%; white-space: nowrap;
+        }
+        .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
         /* ---- 无障碍：减少动态 ---- */
         @media (prefers-reduced-motion: reduce) {
-            .chip, .entry-card, .action-button { transition: none; }
+            .chip, .entry-card, .action-button, .toast { transition: none; }
+            .toast { transform: translateX(-50%); }
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>历史记录</h1>
+            <div class="drag-bar">
+                <h1><span class="mod-code">NS-02</span>历史记录</h1>
+                <button class="close-btn" id="close-btn" type="button" title="收起" aria-label="收起历史记录"></button>
+            </div>
             <div class="filter-row" role="group" aria-label="筛选">
                 <div class="filter-group" role="group" aria-label="状态">
                     <span class="label">状态</span>
-                    <button class="chip active" type="button" data-filter="status" data-value="all">全部</button>
-                    <button class="chip" type="button" data-filter="status" data-value="pending">待办</button>
-                    <button class="chip" type="button" data-filter="status" data-value="done">已完成</button>
-                    <!-- 便签默认不出现在上面三个视图里，只有点这个 chip 才调出来 -->
-                    <button class="chip" type="button" data-filter="status" data-value="sticky">便签</button>
+                    <div class="seg" id="status-seg">
+                        <button class="chip active" type="button" data-filter="status" data-value="all">全部</button>
+                        <button class="chip" type="button" data-filter="status" data-value="pending">待办</button>
+                        <button class="chip" type="button" data-filter="status" data-value="done">已完成</button>
+                        <!-- 便签默认不出现在上面三个视图里，只有点这个 chip 才调出来 -->
+                        <button class="chip" type="button" data-filter="status" data-value="sticky">便签</button>
+                    </div>
                 </div>
-                <div class="filter-group" id="category-group" role="group" aria-label="分类">
+                <div class="filter-group" role="group" aria-label="分类">
                     <span class="label">分类</span>
-                    <button class="chip active" type="button" data-filter="category" data-value="all">全部</button>
+                    <div class="seg" id="category-group"></div>
                 </div>
-                <div class="filter-group" id="tag-group" role="group" aria-label="标签">
+                <div class="filter-group" role="group" aria-label="标签">
                     <span class="label">标签</span>
-                    <button class="chip active" type="button" data-filter="tag" data-value="all">全部</button>
+                    <div class="seg" id="tag-group"></div>
                 </div>
             </div>
         </div>

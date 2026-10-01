@@ -13,12 +13,12 @@ api.onEntries((entries) => {
     renderEntries();
 });
 
-// 渲染筛选 chips
+// 渲染筛选 chips（挂到各分段控制 .seg 里；标签文字在 HTML 上，不在组内）
 function renderChips() {
     // 分类
     const catGroup = document.getElementById('category-group');
     const cats = Array.from(new Set(allEntries.map((e) => e.category).filter(Boolean)));
-    catGroup.innerHTML = '<span class="label">分类</span><button class="chip active" type="button" data-filter="category" data-value="all">全部</button>';
+    catGroup.innerHTML = '<button class="chip active" type="button" data-filter="category" data-value="all">全部</button>';
     cats.forEach((c) => {
         const btn = document.createElement('button');
         btn.type = 'button';
@@ -30,7 +30,7 @@ function renderChips() {
     // 标签
     const tagGroup = document.getElementById('tag-group');
     const tags = Array.from(new Set(allEntries.flatMap((e) => e.tags || []))).slice(0, 15);
-    tagGroup.innerHTML = '<span class="label">标签</span><button class="chip active" type="button" data-filter="tag" data-value="all">全部</button>';
+    tagGroup.innerHTML = '<button class="chip active" type="button" data-filter="tag" data-value="all">全部</button>';
     tags.forEach((t) => {
         const btn = document.createElement('button');
         btn.type = 'button';
@@ -93,7 +93,10 @@ function renderEntries() {
         const isSticky = e.sticky === true; // 便签：自由记录区，不可升级、不可改期
         const overdue = e.status === 'pending' && e.dueDate && e.dueDate < today;
         const todayDue = e.status === 'pending' && e.dueDate === today;
-        const cls = e.status === 'done' ? 'done' : overdue ? 'overdue' : todayDue ? 'today' : e.dueDate ? '' : 'note';
+        // 只有「已完成」还需要一个类：它要压暗 + 标题划掉。
+        // 逾期/今天/备忘不再靠左色条上色 —— 状态都搬进 entry-meta 的徽标了，
+        // 左条留给交互（hover 黄）。
+        const cls = e.status === 'done' ? 'done' : '';
         const dueText = e.dueDate
             ? (overdue ? '已逾期 ' + e.dueDate : todayDue ? '今天截止' : '截止 ' + e.dueDate)
             : '';
@@ -108,16 +111,20 @@ function renderEntries() {
         // 便签不给「改期」：主进程已挡住它升级，留个按不出效果的按钮只是误导
         const dueEditBtn = isSticky
             ? ''
-            : '<button class="action-button due-edit" type="button" data-action="reschedule" data-id="' + e.id + '">' + ic('edit', 'inline') + '改期</button>';
+            : '<button class="action-button" type="button" data-action="reschedule" data-id="' + e.id + '">' + ic('edit', 'inline') + '改期</button>';
+        // 状态一律「色底/描边 + 文字」徽标，不做彩色小字
+        // （橙字白底 3.12:1、绿字白底也过不了；且新色板里根本没有绿）
         const statusLabel = isSticky
-            ? '<span>便签</span>'
-            : e.status === 'pending' ? '<span style="color:#ff8c42">待办</span>' : e.status === 'done' ? '<span style="color:#4caf50">已完成</span>' : '<span>备忘</span>';
+            ? '<span class="status">便签</span>'
+            : e.status === 'pending' ? '<span class="status pending">待办</span>'
+                : e.status === 'done' ? '<span class="status done">已完成</span>'
+                    : '<span class="status">备忘</span>';
         return `<div class="entry-card ${cls}" data-id="${e.id}">
             <div class="entry-title">${esc(e.title || '(无标题)')}</div>
             <div class="entry-content">${esc(e.content)}</div>
             <div class="entry-meta">
                 ${dueText ? `<span class="due ${overdue ? 'overdue' : ''}">${ic('clock', 'inline')}${esc(dueText)}</span>` : ''}
-                ${e.priority === '高' ? '<span class="priority-high">' + ic('fire', 'inline') + '高</span>' : e.priority === '中' ? '<span>中</span>' : ''}
+                ${e.priority === '高' ? '<span class="priority-high">' + ic('fire', 'inline') + '高</span>' : e.priority === '中' ? '<span class="priority-mid">中</span>' : ''}
                 ${e.category ? `<span class="cat">${esc(e.category)}</span>` : ''}
                 ${(e.tags || []).map((t) => `<span class="tag">${ic('tag', 'inline')}#${esc(t)}</span>`).join('')}
                 <span>${esc(formatTime(e.created))}</span>
@@ -201,10 +208,12 @@ function toggleDueEdit(id) {
         });
     } else {
         // 兜底：无日历本体时退化为原生 date 输入（理论不会出现）
+        // 高 2px / 直角 / 不硬编码 color-scheme —— 全部交给 token，
+        // 否则亮色主题下会掉出一个黑底原生控件
         const input = document.createElement('input');
         input.type = 'date';
         input.value = entry.dueDate || '';
-        input.style.cssText = 'flex:1;min-width:0;background:var(--surface-field);color:var(--text-primary);border:1px solid var(--border-soft);border-radius:var(--radius-field);padding:5px 8px;font-size:var(--text-meta);color-scheme:dark;';
+        input.style.cssText = 'flex:1;min-width:0;background:var(--surface-field);color:var(--text-primary);border:2px solid var(--border-strong);border-radius:0;padding:4px 7px;font-size:var(--text-meta);';
         mount.appendChild(input);
         saveBtn.addEventListener('click', () => {
             api.updateDueDate(id, input.value || null);
@@ -260,19 +269,23 @@ function formatTime(iso) {
     return d.toLocaleDateString('zh-CN', { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
-// 轻量 toast
+// 轻量 toast（样式在 history.html 的 .toast；不再往 JS 里塞内联 cssText）
 function showToast(msg) {
     let t = document.getElementById('toast');
     if (!t) {
         t = document.createElement('div');
         t.id = 'toast';
-        t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:rgba(40,40,48,0.95);color:white;padding:8px 18px;border-radius:8px;font-size: 0.8125rem;z-index:999;transition:opacity 0.3s;';
+        t.className = 'toast';
+        t.setAttribute('role', 'status');
         document.body.appendChild(t);
     }
     t.textContent = msg;
-    t.style.opacity = '1';
+    // 强制回流后再加 .show：元素刚插入时起点样式可能还没结算，
+    // 直接加会让过渡从「终态→终态」跑，看不见淡入
+    void t.offsetWidth;
+    t.classList.add('show');
     clearTimeout(t._timer);
-    t._timer = setTimeout(() => { t.style.opacity = '0'; }, 1600);
+    t._timer = setTimeout(() => { t.classList.remove('show'); }, 1600);
 }
 
 api.onEntryUpdated(() => setTimeout(loadEntries, 200));
@@ -285,3 +298,43 @@ api.onEntriesChanged((entries) => {
 });
 
 loadEntries();
+
+/* ================= 窗口外壳：无边框窗靠顶部那条 .drag-bar 移动 / 关闭 =================
+   对应 main.js 的 drag-history-* 与 close-history。
+   列表在无边框窗里，没有系统标题栏和菜单栏可用，这两个交互是仅有的窗口控制。 */
+const closeBtn = document.getElementById('close-btn');
+if (closeBtn) {
+    if (window.nanoIcons) closeBtn.innerHTML = window.nanoIcons.ic('close');
+    closeBtn.addEventListener('click', () => api.closeHistory());
+}
+
+const dragBar = document.querySelector('.drag-bar');
+if (dragBar) {
+    // 增量拖拽：记住按下时的屏幕坐标与窗口位置，之后只发 delta
+    // （与 homepage.js 的窗口拖拽同款；先 setSize 再 setPosition 会被旧尺寸钳制）
+    let isDrag = false, dragSX = 0, dragSY = 0;
+    dragBar.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0) return;
+        // 条里的按钮自己处理点击，不参与拖窗（否则点「关闭」会变成拖一下再关）
+        if (e.target.closest('button')) return;
+        isDrag = true;
+        dragSX = e.screenX;
+        dragSY = e.screenY;
+        // 指针捕获：拖快时指针会离开这个元素，没有捕获就会半路丢事件
+        try { dragBar.setPointerCapture(e.pointerId); } catch (_) {}
+        api.dragHistoryStart();
+    });
+    dragBar.addEventListener('pointermove', (e) => {
+        if (!isDrag) return;
+        api.dragHistoryMove(e.screenX - dragSX, e.screenY - dragSY);
+    });
+    const endDrag = (e) => {
+        if (!isDrag) return;
+        isDrag = false;
+        try { dragBar.releasePointerCapture(e.pointerId); } catch (_) {}
+        api.dragHistoryEnd();
+    };
+    dragBar.addEventListener('pointerup', endDrag);
+    dragBar.addEventListener('pointercancel', endDrag);
+}
+

@@ -98,6 +98,8 @@
     popEl.appendChild(hostEl);
 
     document.body.appendChild(popEl);
+    // 弹层是单例、长期存在，观测一次即可（不做 open/close 来回 connect）
+    if (hostObserver) hostObserver.observe(hostEl);
   }
 
   function renderCalendar() {
@@ -115,6 +117,16 @@
   }
 
   /* ================= 定位弹层 ================= */
+  /* 只写 left/top/width —— 绝不动 display。
+     旧实现在这里用 `display:none` 收尾来做测量，把「恢复可见」的责任推给调用方；
+     而 reposition() 走的正是这条路径，它由宿主在窗口扩张后调用，
+     执行时机在 openPop 的双 rAF **之后** —— 于是把刚显示出来的日历又藏掉，
+     且全文件再没有任何代码恢复它。
+     这台机器是 240Hz（单帧 4.2ms），双 rAF 约 8ms 就跑完，30ms 的定时器必然最后执行，
+     所以是「每次点必现」而不是偶发；60Hz 下 rAF #2 约 32ms 反而更晚，结果正常 ——
+     这正是此前测不出来的原因。
+     现在测量期间不遮挡（offsetHeight 在 display:block 下就是真值，不需要隐藏），
+     可见性完全由 openPop / closePop 独占。 */
   function positionPop() {
     const field = active.fieldEl;
     const r = field.getBoundingClientRect();
@@ -124,12 +136,8 @@
     popEl.style.width = popW + "px";
     let left = Math.round(r.left);
     if (left + popW > vw - 8) left = Math.max(8, vw - popW - 8);
-    // 先量出实际高度
-    popEl.style.visibility = "hidden";
-    popEl.style.display = "block";
+    // 调用方保证 display 已是 block（openPop 置的），否则量到 0
     const popH = popEl.offsetHeight;
-    popEl.style.display = "none";
-    popEl.style.visibility = "";
     const spaceBelow = vh - r.bottom;
     let top;
     if (spaceBelow >= popH + 6 || spaceBelow >= r.top) {
@@ -141,6 +149,22 @@
     popEl.style.top = top + "px";
   }
 
+  /* 弹层是 position:fixed —— 视口一变就必须重新定位（宿主把小窗临时加高就走这里） */
+  window.addEventListener("resize", () => {
+    if (active) positionPop();
+  });
+
+  /* 内容高度会变：React 是 createRoot().render() 异步提交的，双 rAF 时
+     .nsdp-cal-host 可能只是 min-height 的占位高；换月份、字体加载同样会变。
+     旧实现靠宿主猜一个固定延迟（setTimeout 30ms）去躲这件事，既躲不过双 rAF 的时序，
+     也躲不过 React 的提交时机。改成观测真实尺寸，尺寸一变就重定位，不再猜。 */
+  const hostObserver =
+    typeof ResizeObserver === "function"
+      ? new ResizeObserver(() => {
+          if (active) positionPop();
+        })
+      : null;
+
   /* ================= 开合 ================= */
   function openPop(inst) {
     ensurePopover();
@@ -148,12 +172,16 @@
     renderCalendar();
     // 告知宿主（例如悬浮球小窗需先临时扩大窗口，日历才放得下）
     if (inst.onOpenStateChange) inst.onOpenStateChange(true);
-    // 先保持隐藏，等宿主完成窗口扩张/布局后再定位并显示，避免被小窗裁剪闪烁
-    popEl.style.display = "none";
+    // display 归本函数独占：先置 block 让它可量，但用 visibility 遮住 ——
+    // 等宿主完成窗口扩张/布局后再揭晓，避免日历被小窗裁剪着闪一下。
+    // 绝不再写 display:none（那是旧的测量手法，会被 reposition 复用成「藏起来」）
+    popEl.style.display = "block";
+    popEl.style.visibility = "hidden";
+    inst.fieldEl.setAttribute("aria-expanded", "true");
     requestAnimationFrame(() => requestAnimationFrame(() => {
       if (active !== inst) return;
       positionPop();
-      popEl.style.display = "block";
+      popEl.style.visibility = "";
       // 焦点进日历
       const btn = popEl.querySelector(".rdp-day_button[tabindex='0'], .rdp-day_button");
       if (btn) btn.focus();
@@ -166,7 +194,11 @@
     if (!active) return;
     const inst = active;
     active = null;
-    if (popEl) popEl.style.display = "none";
+    if (popEl) {
+      popEl.style.display = "none";
+      popEl.style.visibility = "";   // 复位，否则下次 openPop 前的测量窗口会残留隐藏态
+    }
+    if (inst.fieldEl) inst.fieldEl.setAttribute("aria-expanded", "false");
     document.removeEventListener("keydown", onKeyDown, true);
     if (refocus && inst.fieldEl && inst.fieldEl.isConnected) inst.fieldEl.focus();
     if (inst.onOpenStateChange) inst.onOpenStateChange(false);
@@ -241,7 +273,7 @@
       clearEl.className = "nsdp-clear";
       clearEl.setAttribute("tabindex", "-1");
       clearEl.setAttribute("aria-label", "清除日期");
-      clearEl.innerHTML = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12 M18 6L6 18"/></svg>';
+      clearEl.innerHTML = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" shape-rendering="crispEdges" aria-hidden="true"><path d="M6 6l12 12 M18 6L6 18"/></svg>';
       clearEl.addEventListener("click", (e) => {
         e.stopPropagation();
         inst._apply(null);
@@ -286,6 +318,7 @@
       getValue() { return inst.value; },
       open() { openPop(inst); },
       close() { closePop(); },
+      // 幂等、安全：只重算 left/top，任何时刻调都不会改变弹层的可见性
       reposition() { if (active === inst) positionPop(); },
       destroy() {
         if (active === inst) closePop();
@@ -303,9 +336,12 @@
     return api;
   }
 
-  /* 图标：用与 icons.js 相同的日历线性路径（复制最小 SVG，避免依赖 icons.js 加载顺序） */
+  /* 图标：与 icons.js 同一套合同（24×24 / stroke-width 2 / 方头 / crispEdges），
+     复制最小 SVG 以避免依赖 icons.js 的加载顺序。
+     显示尺寸锁 12px —— 24 格映射到 12px 时 1 格 = 0.5px，2 格描边正好落在 1px 整数像素上；
+     原来的 14px + 1.8px 圆头是旧世界的残留，非整数倍会重采样发糊。 */
   function calIcon() {
-    return '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5z M8 3v4 M16 3v4 M4 10h16"/></svg>';
+    return '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter" shape-rendering="crispEdges" aria-hidden="true"><path d="M4 5h16v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5z M8 3v4 M16 3v4 M4 10h16"/></svg>';
   }
 
   window.NSDatePicker = {

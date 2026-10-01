@@ -1,145 +1,336 @@
 /* ============================================================
-   tokens.css — 赛博秘书 · 设计 token（无构建工具链，三页共享）
-   视觉世界：暖暗色 editorial（移植自 deeptutor 的暖色界面语言）
-   语义命名：surface / text / action / status / border
+   tokens.css — 赛博秘书 · 设计 token（无构建工具链，四页共享）
+
+   视觉世界：像素打印终端（设计语言移植自 lshu-workbench，MIT）
+     纯白底 / 黑结构 / 橙黄双专色 / 全直角 / 2px 硬边 / 模块编号。
+
+   明暗双主题靠 prefers-color-scheme 驱动，由主进程的
+   nativeTheme.themeSource 控制（跟随系统 / 亮色 / 暗色）——
+   渲染层不需要任何主题 JS，也就不会有首帧闪烁。
+
+   本文件原为「暖暗色 editorial」世界（移植自 deeptutor），
+   2026-09 起四页（主页 / 悬浮球 / 历史 / 便签）全部迁入新语言，
+   迁移期的覆盖层 pixel.css 已合并回来 —— 色板只此一份，
+   页面只需 link 本文件，不再有「两张表、顺序错就配色错」的坑。
    ============================================================ */
 
+/* ---- 像素字体（Fusion Pixel 12px Proportional，OFL 1.1） ----
+   本地托管，禁止 CDN。两个子集按 unicode-range 分流，
+   浏览器只下载命中的那一个。授权见 fonts/OFL.txt。
+
+   点阵字体有原生网格：只在 12px（1×）及其整数倍 24px（2×）、
+   36px（3×）上渲染才锐利。非整数倍（13/20/28px）会被浏览器
+   线性重采样，边缘发糊、笔画粗细不匀——所以下面所有像素字号
+   都锁在 12 的整数倍上，需要更大层级时直接跳到下一档。
+   正文字号不受此约束（正文走宋体，非点阵）。 */
+@font-face {
+    font-family: "Nano Pixel";
+    src: url("fonts/fusion-pixel-12px-proportional-latin.otf.woff2") format("woff2");
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F;
+}
+@font-face {
+    font-family: "Nano Pixel";
+    src: url("fonts/fusion-pixel-12px-proportional-zh_hans.otf.woff2") format("woff2");
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+    unicode-range: U+00B7, U+02C7, U+02C9, U+2013-2027, U+2E80-2FFF, U+3000-303F, U+31C0-31EF, U+3400-4DBF, U+4E00-9FFF, U+F900-FAFF, U+FF00-FFEF;
+}
+
+/* ============================================================
+   亮色（默认）：白底黑框 + 橙黄点缀
+
+   原始四色命名按**角色**而非明度 —— --px-base 是「实体底」，
+   --px-line 是「结构与文字」。暗色块里两者互换，所有下游语义
+   token 自动跟随，不需要在暗色块里重写一遍。
+   ============================================================ */
 :root {
-    /* ---- 表面（暖色阶） ---- */
-    --surface-ball-window: transparent;
-    --surface-main: #1a1918;                     /* 主页面底（暖近黑） */
-    --surface-panel: #201e1c;                    /* 输入面板底（略升） */
-    --surface-card: #242220;                     /* 列表卡片底 */
-    --surface-card-hover: #2c2926;
-    --surface-raised: #2a2725;                   /* 弹层（设置） */
-    --surface-header: #242220;                   /* 历史页顶栏 */
-    --surface-field: rgba(255, 255, 255, 0.04);  /* 输入/选择底（近透明） */
-    --surface-field-hover: rgba(255, 255, 255, 0.07);
-    --surface-chip: rgba(255, 255, 255, 0.06);
-    --surface-tab: rgba(255, 255, 255, 0.04);
-    --surface-scroll: rgba(232, 228, 222, 0.18);
-    --surface-scroll-thin: rgba(232, 228, 222, 0.14);
-    --surface-scrim: rgba(0, 0, 0, 0.55);        /* 遮罩 */
-    --surface-active: #302d2a;                   /* 激活导航/选中项（deeptutor 导航激活态） */
-    --surface-ball: linear-gradient(135deg, #3a3734, #262421); /* 悬浮球（暖灰） */
+    /* ---- 四色实体（全站只允许这四种实体颜色） ---- */
+    --px-base: #ffffff;   /* 实体底 */
+    --px-line: #111111;   /* 结构 / 文字 / 分隔 */
+    --px-accent: #ff5a1f; /* 强调：当前 / 选中 / 主按钮 / 高风险 */
+    --px-mark: #ffc928;   /* 提醒：优先级 / 今日标记 / hover */
 
-    /* ---- 文字（暖色，弱化 ≥ 4.5:1） ---- */
-    --text-primary: #e8e4de;                     /* 暖白 */
-    --text-secondary: #c2bbb2;                   /* 暖灰 */
-    --text-tertiary: #a39c93;                    /* 弱化 */
-    --text-faint: #9c9388;                       /* 更弱（≥4.5:1 全表面，critique P1） */
-    --text-strong: #f5f2ec;                      /* 强调 */
+    /* 次级文字用主色降透明度，不新建灰色实体（lshu 规则，
+       避免悄悄长出第五、第六种颜色）。62% 是实测下限：
+       白底上 #111@62% ≈ 5.6:1，过 AA。 */
+    --ink-secondary: rgba(17, 17, 17, 0.72);
+    --ink-tertiary: rgba(17, 17, 17, 0.62);
+    --ink-disabled: rgba(17, 17, 17, 0.38);
 
-    /* ---- 动作（赭橙，deeptutor 主色） ---- */
-    --action-primary: #d4734b;
-    --action-primary-hover: #e08a5e;             /* hover 提亮，深字 6.66:1 */
-    --action-focus: #d4734b;                     /* focus ring */
-    --action-on: rgba(212, 115, 75, 0.85);       /* switch 开启 */
-    --action-on-strong: #d4734b;
-    --action-on-text: #1a1918;                   /* 赭橙按钮上的深字（默认 5.31:1 / hover 6.66:1） */
+    /* 落在橙底上的字**永远是深墨**，不随主题翻转 —— 暗色块里
+       不重定义它。橙 #ff5a1f/#ff6b33 是亮色相，配白字只有 2.84:1
+       （连大字号的 3:1 都过不了），配 #111 是 6.06/6.66:1。
+       lshu 的词表里就没有「白字压橙底」这一格。 */
+    --ink-on-accent: #111111;
 
-    /* ---- 中性按钮（次级） ---- */
-    --button-secondary: rgba(255, 255, 255, 0.06);
-    --button-secondary-hover: rgba(255, 255, 255, 0.12);
-    --button-secondary-text: #e8e4de;
+    /* 同理落在**黄底**上的字。单列一个 token 是因为最容易踩的
+       不是静态态而是 hover：`.x:hover { background: var(--button-secondary-hover) }`
+       填的是实底黄，若文字仍写 --text-strong，亮色下是黑压黄（12.3:1）没问题，
+       暗色下 --text-strong 翻成白 —— 白压黄只有 **1.44:1**，肉眼几乎看不见。
+       这个坑静态审计扫不出来（:hover 不在计算样式里），只能靠写的时候守住。 */
+    --ink-on-bright: #111111;
 
-    /* ---- 状态语义（暖色化） ---- */
-    --status-danger: #c53a2c;                    /* 逾期/删除（deeptutor destructive） */
-    --status-danger-text: #f0716a;               /* 玻璃底上的红色小字（暖，较热红，拉开与预警橙亮度） */
-    --status-danger-bg: rgba(197, 58, 44, 0.22);
-    --status-warning: #e0a06c;                   /* 今天/到期（暖橙） */
-    --status-warning-strong: #d4734b;            /* 强调 */
-    --status-success: #6fa86b;                   /* 完成（暖绿） */
-    --status-success-text: #8cc488;
-    --status-success-bg: rgba(111, 168, 107, 0.2);
-    --status-note: #8a847c;                      /* 备忘（暖灰） */
-    --status-ai-online: #8cc488;
+    /* ---- 表面：实体底只有一种 ---- */
+    --surface-main: var(--px-base);
+    --surface-panel: var(--px-base);
+    --surface-card: var(--px-base);
+    --surface-card-hover: var(--px-base);   /* hover 走黄左条，不改底色 */
+    --surface-raised: var(--px-base);
+    --surface-header: var(--px-base);
+    --surface-field: var(--px-base);
+    --surface-field-hover: var(--px-base);
+    --surface-chip: var(--px-base);
+    --surface-tab: var(--px-base);
+    --surface-active: var(--px-accent);
+    --surface-scrim: rgba(17, 17, 17, 0.52);
 
-    /* ---- 分隔 / 描边（暖） ---- */
-    --border-subtle: #2e2b28;
-    --border-soft: #3a3634;                      /* deeptutor 边框 */
-    --border-strong: #4a453f;
-    --border-card: #2e2b28;
-    --border-field: #d4734b;                     /* 输入聚焦（赭橙） */
+    /* ---- 文字 ---- */
+    --text-primary: var(--px-line);
+    --text-strong: var(--px-line);
+    --text-secondary: var(--ink-secondary);
+    --text-tertiary: var(--ink-tertiary);
+    --text-faint: var(--ink-tertiary);
 
-    /* ---- 深度（柔和，非玻璃） ---- */
-    --shadow-panel: 0 8px 30px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.04);
-    --shadow-card: 0 8px 40px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.03);
-    --shadow-dialog: 0 12px 40px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.05);
-    --shadow-ball: 0 3px 14px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+    /* ---- 动作 ---- */
+    --action-primary: var(--px-accent);
+    --action-primary-hover: var(--px-accent);  /* hover 不换色，只压 1px 位移 */
+    --action-focus: var(--px-accent);
+    --action-on: var(--px-accent);
+    --action-on-strong: var(--px-accent);
+    --action-on-text: var(--ink-on-accent);    /* 橙底黑字 6.06:1（暗色 6.66:1） */
+    --button-secondary: var(--px-base);
+    --button-secondary-hover: var(--px-mark);
 
-    /* ---- 圆角（极简 editorial，接近 0） ---- */
-    --radius-field: 2px;
-    --radius-btn: 6px;
-    --radius-card: 8px;
-    --radius-panel: 10px;
-    --radius-chip: 6px;
+    /* ---- 状态语义 ----
+       关键约束：橙与黄**只做底、框、条、角标，不做小字**。
+       橙字白底仅 3.12:1、黄字白底 1.6:1，都过不了 AA；
+       橙底黑字 6.06:1、黄底黑字 12.3:1，都过。
+       所以一切状态表达走「色底 + 主色字」的徽标，而不是彩色小字。 */
+    --status-danger: var(--px-accent);         /* 逾期 = lshu 的高风险色 */
+    --status-danger-text: var(--px-accent);    /* 仅供描边/色条，禁止当文字色 */
+    --status-danger-bg: rgba(255, 90, 31, 0.14);
+    --status-warning: var(--px-mark);          /* 今天 / 到期 */
+    --status-warning-strong: var(--px-mark);
+    --status-warning-bg: rgba(255, 201, 40, 0.32);
+    --status-success: var(--px-line);          /* 完成用主色勾 + 文字，不用绿 */
+    --status-success-text: var(--px-line);
+    --status-success-bg: rgba(17, 17, 17, 0.08);
+    --status-note: var(--ink-tertiary);        /* 备忘 */
+    --status-ai-online: var(--px-line);
 
-    /* ---- 排版尺度 ---- */
+    /* ---- 分隔 / 描边 ---- */
+    --border-subtle: rgba(17, 17, 17, 0.18);   /* 弱分隔：行间细线 */
+    --border-soft: var(--px-line);
+    --border-strong: var(--px-line);           /* 一级框：2px 主色实线 */
+    --border-card: var(--px-line);
+    --border-field: var(--px-accent);          /* 聚焦描边 */
+    --border-hairline: rgba(17, 17, 17, 0.18);
+
+    /* ---- 深度：全站无柔和阴影，唯一例外是主按钮的硬边影 ---- */
+    --shadow-panel: none;
+    --shadow-card: none;
+    --shadow-dialog: none;
+    --shadow-ball: none;
+    --shadow-action: 2px 2px 0 var(--px-line);
+
+    /* ---- 圆角：全直角 ---- */
+    --radius-field: 0px;
+    --radius-btn: 0px;
+    --radius-card: 0px;
+    --radius-panel: 0px;
+    --radius-chip: 0px;
+
+    /* ---- 环图（四段靠色相 + 笔画权重双重编码） ---- */
+    --chart-overdue: var(--px-accent);         /* 逾期：橙，满宽 */
+    --chart-today: var(--px-mark);             /* 今天：黄，满宽 */
+    --chart-soon: var(--px-line);              /* 明后天：主色，细分笔画从属 */
+    --chart-rest: rgba(17, 17, 17, 0.34);      /* 其余：最弱段 */
+    --chart-track: rgba(17, 17, 17, 0.12);
+
+    /* ---- 排版 ----
+       像素字体只做标题 / 编号 / 数字 / 按钮；长中文正文继续走
+       --font-stack（宋体）。lshu 明文禁止用点阵字体排长段中文。 */
+    --font-pixel: "Nano Pixel", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    --font-display: var(--font-pixel);
+    --px-size: 12px;          /* 点阵原生网格 */
+    --px-size-2x: 24px;
+    --px-size-3x: 36px;
+    --text-title: 1.125rem;
+    --text-body: 0.8125rem;
+    --text-meta: 0.8125rem;   /* 12px → 13px：lshu 正文级下限 */
+    --text-tiny: 0.75rem;     /* 12px：非正文的编号 / 角标 */
+    --weight-strong: 600;
+
     /* 中文字体 → 宋体（现代宋优先，逐级回退到 SimSun）：
        拉丁/数字沿用系统无衬线，中文按字形落入宋体栈。
        现代宋：思源宋体 Noto Serif CJK SC / Source Han Serif SC（需安装）、
-       macOS 自带 Songti SC / STSong；Windows 兜底 SimSun。 */
+       macOS 自带 Songti SC / STSong；Windows 兜底 SimSun。
+       正文与用户自己写的内容（笔记标题、对话正文、表单输入）都用它。 */
     --font-stack: system-ui, -apple-system, "Segoe UI",
                   "Noto Serif CJK SC", "Source Han Serif SC",
                   "Songti SC", "STSong", "SimSun", serif;
-    --font-display: Georgia, "Times New Roman",
-                    "Noto Serif CJK SC", "Source Han Serif SC",
-                    "Songti SC", "STSong", "SimSun", serif; /* 拉丁衬线标题 + 中文宋体 */
-    --text-title: 1.125rem;      /* 18px · 500 serif */
-    --text-body: 0.8125rem;      /* 13px · 400 */
-    --text-meta: 0.75rem;        /* 12px · 400 */
-    --text-tiny: 0.6875rem;      /* 11px · 400 */
-    --weight-strong: 600;
 
-    /* ---- 动效 ---- */
+    /* ---- 动效：lshu 的 100–140ms，只改颜色/边框/1px 位移 ---- */
     --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
-    --dur-fast: 0.18s;
-    --dur-med: 0.25s;
-    --dur-slow: 0.4s;
+    --dur-fast: 0.12s;
+    --dur-med: 0.14s;
+    --dur-slow: 0.18s;
 
-    /* ---- 滚动条（华为设计指南 Scrollbar 样式） ----
-       暗色主题：浅色半透明滑块 #FFFFFF40 + 深灰胶囊轨道；
-       轨道比滑块宽 4px 形成内边距，滑块两端圆角完全吻合 */
-    --scrollbar-track: rgba(255, 255, 255, 0.06);
-    --scrollbar-thumb: rgba(255, 255, 255, 0.25);
-    --scrollbar-thumb-hover: rgba(255, 255, 255, 0.4);
-    --scrollbar-thumb-active: rgba(255, 255, 255, 0.5);
-    --scrollbar-track-width: 10px;
-    --scrollbar-thumb-width: 6px;
+    /* ---- 滚动条：直角窄条，随主题 ---- */
+    --scrollbar-track: rgba(17, 17, 17, 0.06);
+    --scrollbar-thumb: rgba(17, 17, 17, 0.28);
+    --scrollbar-thumb-hover: rgba(17, 17, 17, 0.45);
+    --scrollbar-thumb-active: rgba(17, 17, 17, 0.6);
+    --scrollbar-track-width: 8px;
+    --scrollbar-thumb-width: 8px;
+
+    color-scheme: light;
 }
 
-/* ---- 全局滚动条：华为设计指南样式（胶囊轨道 + 半透明滑块 + 内边距） ---- */
+/* ============================================================
+   暗色：底与线互换，橙黄提亮保对比度
+   （亮 = 白底黑框 / 暗 = 黑底白框；同一套几何与字体，只翻颜色）
+   实测：#FFF on #111 = 18.9:1；#FF6B33 on #111 ≈ 6.0:1；
+        #FFD24D on #111 ≈ 12.3:1；#111 on #FF6B33 ≈ 6.0:1 —— 均达 AA。
+   ============================================================ */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --px-base: #111111;
+        --px-line: #ffffff;
+        --px-accent: #ff6b33;
+        --px-mark: #ffd24d;
+
+        --ink-secondary: rgba(255, 255, 255, 0.72);
+        --ink-tertiary: rgba(255, 255, 255, 0.62);
+        --ink-disabled: rgba(255, 255, 255, 0.38);
+
+        --surface-scrim: rgba(0, 0, 0, 0.62);
+
+        --status-danger-bg: rgba(255, 107, 51, 0.18);
+        --status-warning-bg: rgba(255, 210, 77, 0.22);
+        --status-success-bg: rgba(255, 255, 255, 0.12);
+
+        --border-subtle: rgba(255, 255, 255, 0.22);
+        --border-hairline: rgba(255, 255, 255, 0.22);
+
+        --chart-rest: rgba(255, 255, 255, 0.38);
+        --chart-track: rgba(255, 255, 255, 0.14);
+
+        --scrollbar-track: rgba(255, 255, 255, 0.06);
+        --scrollbar-thumb: rgba(255, 255, 255, 0.28);
+        --scrollbar-thumb-hover: rgba(255, 255, 255, 0.45);
+        --scrollbar-thumb-active: rgba(255, 255, 255, 0.6);
+
+        color-scheme: dark;
+    }
+}
+
+/* ============================================================
+   像素字体应用清单
+   规则：font-weight 恒为 400 + font-synthesis: none ——
+   不用浏览器合成粗体造层级，那是点阵字变形的主要来源。
+   收录范围严格限定在「非正文的短元素」：
+     模块编号 / 页标题 / 卡片标签 / 数字指标 / Tab / 按钮 / Chip / 徽标 / 短状态码。
+   长段中文正文、笔记标题与内容、对话正文、表单输入一律不进此清单。
+   ============================================================ */
+.header h1,
+.mod-code,
+.card-label,
+.ring-center .big,
+.ring-center .sub,
+.tab,
+.tab .count,
+.legend,
+.legend .n,
+.week-block,
+.ai-status,
+.save-btn,
+.footer-button,
+.tag-chip,
+.tag-chip .cnt,
+.tag-reveal,
+.filter-clear,
+.entry-meta .due,
+.entry-meta .priority-high,
+.entry-meta .priority-mid,
+.entry-meta .cat,
+.entry-actions button,
+.confirm-bar button,
+.due-edit-row > button,
+.chat-suggest button,
+.chat-input-row button,
+.chat-empty .chat-empty-title,
+.list-section h2,
+.dash-tags .tag-detail .big,
+.dash-tags .tags-label,
+#settings-panel h3,
+.settings-actions button,
+.theme-seg button,
+/* index.html —— 悬浮球 + 输入窗 */
+#save-button,
+#save-button-form,
+#save-error,
+#badge,
+#ai-preview .ai-title,
+#ai-preview .ai-edit,
+/* history.html —— 历史记录 */
+.chip,
+.count-line,
+.action-button,
+.entry-meta .tag,
+.entry-meta .status,
+/* notes.html —— 便签（标题与正文是用户写的内容，走宋体，不进此清单） */
+.drag-bar .title,
+.drag-bar .meta,
+.pick-item .d,
+.status-bar,
+/* 日期选择器（homepage.html / history.html 共用；字号在 date-picker.css 里定） */
+.nsdp-cal-host .rdp-month_caption,
+.nsdp-cal-host .rdp-weekday,
+.nsdp-cal-host .rdp-day_button {
+    font-family: var(--font-pixel);
+    font-weight: 400;
+    font-synthesis: none;
+    -webkit-font-smoothing: none;
+}
+
+/* 数字一律表格对齐，避免计数变化时逐位跳动 */
+.ring-center .big,
+.legend .n,
+.tab .count,
+.week-block,
+.tag-chip .cnt,
+.dash-tags .tag-detail .big {
+    font-variant-numeric: tabular-nums;
+}
+
+/* ============================================================
+   滚动条：直角窄条（原来是华为设计指南的胶囊轨道，与全直角冲突）
+   ============================================================ */
 ::-webkit-scrollbar {
     width: var(--scrollbar-track-width);
     height: var(--scrollbar-track-width);
 }
 ::-webkit-scrollbar-track {
     background: var(--scrollbar-track);
-    border-radius: calc(var(--scrollbar-track-width) / 2);
+    border-radius: 0;
 }
 ::-webkit-scrollbar-thumb {
     background: var(--scrollbar-thumb);
-    border-radius: calc(var(--scrollbar-thumb-width) / 2);
-    /* 轨道 10px / 滑块 6px：上下各留 2px 内边距，滑块视觉居中 */
-    border: 2px solid transparent;
-    background-clip: padding-box;
+    border-radius: 0;
+    border: none;
+    background-clip: border-box;
 }
 ::-webkit-scrollbar-thumb:hover {
     background: var(--scrollbar-thumb-hover);
-    background-clip: padding-box;
 }
 ::-webkit-scrollbar-thumb:active {
     background: var(--scrollbar-thumb-active);
-    background-clip: padding-box;
 }
 ::-webkit-scrollbar-corner {
     background: transparent;
-}
-
-/* 高缩放 / 弱视：正文级下限 12px，元信息下限 11px */
-@media (min-resolution: 2dppx) {
-    :root {
-        --text-meta: 0.8125rem;
-    }
 }

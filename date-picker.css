@@ -1,35 +1,39 @@
 /* ============================================================
    date-picker.css — nanoSecretary 日期选择器（Popover + Calendar）
-   · 触发字段：暗色 UI 里的控制件（radius-btn，暖色描边）
-   · 日历弹层：暖「纸卡」——在暖黑桌面上铺开一张米白卡片
-     （衬线月份标题 + 深墨字 + 赭橙圆日 + today 描边环 + 柔和深影）
-   参考：NameThatUI / shadcn Popover+Calendar 的视觉语言，
-   但色板取自本 app 的暖 editorial 世界（纸=--text-strong 一族）。
-   依赖：date-picker-react.css（react-day-picker 基础样式）先加载，本文件在后覆盖。
+   · 触发字段：白底 2px 主色框的控件，聚焦时套 3px 橙环
+   · 日历弹层：同一张纸 —— 白底 2px 黑框、全直角、无投影
+     （原来是「暖黑桌面上摊开一张米白纸卡」：自带一套硬编码的
+      亮色纸卡色板 + 14px 圆角 + 三层柔和深影。新语言是黑白像素
+      打印终端，且已有明暗两套主题 —— 弹层必须跟随主题，不能
+      自带一份写死的亮色。）
+   色板不再本地定义，全部走 pixel.css 的全局 token，两处只此一份。
+   依赖：date-picker-react.css（react-day-picker 基础样式）先加载，
+   本文件在后覆盖。
    ============================================================ */
 
 /* ============================================================
-   1 · 触发字段（暗色控件）
+   1 · 触发字段
    ============================================================ */
 .nsdp-field-wrap {
   display: inline-flex;
   align-items: stretch;
   min-width: 0;
-  border: 1px solid var(--border-soft, #3a3634);
-  border-radius: var(--radius-btn, 6px);
-  background: var(--surface-field, rgba(255, 255, 255, 0.04));
+  border: 2px solid var(--border-strong);
+  border-radius: 0;
+  background: var(--surface-field);
   overflow: hidden;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
-  transition: border-color var(--dur-fast, 0.18s), background var(--dur-fast, 0.18s),
-              box-shadow var(--dur-fast, 0.18s);
+  box-shadow: none;
+  transition: border-color var(--dur-fast), background var(--dur-fast);
 }
-.nsdp-field-wrap:hover {
-  background: var(--surface-field-hover, rgba(255, 255, 255, 0.08));
-  border-color: var(--border-strong, #4a453f);
-}
+/* hover 用黄：lshu 里黄就是「提醒 / 悬停」，且只动描边不动底 ——
+   不改文字色就没有「白字压黄底 1.44:1」那一格的风险 */
+.nsdp-field-wrap:hover { border-color: var(--px-mark); }
+/* 聚焦：框本身不变，套 3px 橙环 + 2px 留白（全站统一的焦点合同）。
+   原来那圈 rgba(212,115,75,.18) 光晕既是第五种颜色，也是柔和影。 */
 .nsdp-field-wrap:focus-within {
-  border-color: var(--action-primary, #d4734b);
-  box-shadow: 0 0 0 3px rgba(212, 115, 75, 0.18);
+  border-color: var(--border-strong);
+  outline: 3px solid var(--action-focus);
+  outline-offset: 2px;
 }
 
 .nsdp-field {
@@ -39,21 +43,23 @@
   flex: 1;
   min-width: 0;
   background: transparent;
-  color: var(--text-primary, #e8e4de);
+  color: var(--text-primary);
   border: none;
+  border-radius: 0;
   padding: 6px 4px 6px 10px;
-  font-size: var(--text-body, 0.8125rem);
+  font-size: var(--text-body);
   font-family: inherit;
   cursor: pointer;
   text-align: left;
   line-height: 1.3;
 }
+/* 焦点环交给外层 wrap，内层不重复画一圈 */
 .nsdp-field:focus-visible { outline: none; }
 .nsdp-field .nsdp-field-icon {
   display: inline-flex;
   flex-shrink: 0;
-  color: var(--text-tertiary, #a39c93);
-  transition: color var(--dur-fast, 0.18s);
+  color: var(--text-tertiary);
+  transition: color var(--dur-fast);
 }
 .nsdp-field .nsdp-field-value {
   flex: 1;
@@ -64,10 +70,12 @@
   letter-spacing: 0.01em;
 }
 /* 空值占位：弱化 */
-.nsdp-field .nsdp-field-value.empty { color: var(--text-faint, #8a837a); font-weight: 400; }
-/* 有值：暖白 + 略强 */
-.nsdp-field-wrap.has-value .nsdp-field { color: var(--text-strong, #f5f2ec); font-weight: 500; }
-.nsdp-field-wrap.has-value .nsdp-field-icon { color: var(--action-on-strong, #d4734b); }
+.nsdp-field .nsdp-field-value.empty { color: var(--text-faint); font-weight: 400; }
+/* 有值：主色字 + 略强。图标转橙是「有值」的次要信号 ——
+   图标算图形按 3:1 判，橙在白底 3.12:1、暗底 6.0:1 都过；
+   文字本身仍是主色，不靠橙读。 */
+.nsdp-field-wrap.has-value .nsdp-field { color: var(--text-strong); font-weight: var(--weight-strong); }
+.nsdp-field-wrap.has-value .nsdp-field-icon { color: var(--px-accent); }
 
 /* 清除 ×：hover 显现 */
 .nsdp-clear {
@@ -78,14 +86,15 @@
   flex-shrink: 0;
   background: transparent;
   border: none;
-  color: var(--text-tertiary, #a39c93);
+  color: var(--text-tertiary);
   cursor: pointer;
   padding: 0;
-  transition: background var(--dur-fast, 0.18s), color var(--dur-fast, 0.18s);
+  transition: background var(--dur-fast), color var(--dur-fast);
 }
-.nsdp-clear:hover { color: var(--text-strong, #f5f2ec); background: rgba(255, 255, 255, 0.1); }
+/* 填实底黄 → 必须配深墨（暗色下 --text-strong 是白的，白压黄 1.44:1） */
+.nsdp-clear:hover { color: var(--ink-on-bright); background: var(--button-secondary-hover); }
 .nsdp-field-wrap.has-value:hover .nsdp-clear { display: inline-flex; }
-.nsdp-clear:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--action-focus, #d4734b); }
+.nsdp-clear:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--action-focus); }
 
 /* 挂载点 */
 .nsdp-mount { display: flex; min-width: 0; flex: 1; }
@@ -93,143 +102,129 @@
 .form-row .nsdp-field-wrap { flex: 1; }
 
 /* ============================================================
-   2 · 日历弹层 — 暖「纸卡」
-   （弹层内自成体系，不依赖外层暗色 token，全部本地化）
+   2 · 日历弹层
    ============================================================ */
 .nsdp-pop {
-  /* 纸卡色板 */
-  --paper: #faf6f0;            /* 卡底：暖米白 */
-  --paper-hi: #fffdf9;         /* 更高（按钮悬停底） */
-  --ink: #332d27;              /* 主文字：暖墨 */
-  --ink-2: #6f675c;            /* 次文字 */
-  --ink-3: #a69d90;            /* 弱文字（星期/外部日） */
-  --line: #e6ded2;             /* 卡内细线 */
-  --line-soft: #efe8dd;
-  --accent: #d4734b;           /* 赭橙（沿用 app 主色） */
-  --accent-deep: #b45f3a;      /* hover 加深 */
-  --accent-tint: rgba(212, 115, 75, 0.14);   /* range 中段淡橙 */
-  --accent-tint-hover: rgba(212, 115, 75, 0.2);
-
   position: fixed;
   z-index: 300;
   display: none;
-  background: var(--paper);
-  color: var(--ink);
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  border-radius: 14px;
-  box-shadow:
-    0 1px 2px rgba(60, 40, 20, 0.06),
-    0 8px 16px -4px rgba(60, 40, 20, 0.16),
-    0 24px 48px -12px rgba(60, 40, 20, 0.32);
+  background: var(--surface-panel);
+  color: var(--text-primary);
+  border: 2px solid var(--border-strong);
+  border-radius: 0;
+  box-shadow: none;
   padding: 12px;
-  color-scheme: light;
-  /* 入场微动画 */
+  /* color-scheme 从 :root 继承（pixel.css 里按主题设），
+     不再写死 light —— 写死会让原生日历控件的下拉在暗色下变白 */
+  /* 入场只做透明度 + 整数位移：scale 会重采样，点阵字当场发糊 */
   animation: nsdp-in 0.14s ease-out;
   transform-origin: top center;
 }
 @keyframes nsdp-in {
-  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 .nsdp-cal-host { min-height: 260px; }
 
 /* ============================================================
-   3 · react-day-picker — 纸卡主题覆盖
+   3 · react-day-picker 覆盖
+   字体族不在这里写 —— pixel.css 的「像素字体应用清单」是唯一登记处。
    ============================================================ */
 .nsdp-cal-host .rdp-root {
-  --rdp-accent-color: var(--accent);
-  --rdp-accent-background-color: var(--accent-tint);
+  --rdp-accent-color: var(--px-accent);
+  --rdp-accent-background-color: var(--status-warning-bg);
   --rdp-day-height: 36px;
   --rdp-day-width: 36px;
   --rdp-day_button-height: 34px;
   --rdp-day_button-width: 34px;
-  --rdp-day_button-border-radius: 999px;   /* 圆日 */
+  --rdp-day_button-border-radius: 0;       /* 直角方块，不是圆日 */
   --rdp-selected-border: 2px solid transparent;
-  --rdp-today-color: var(--accent);
+  --rdp-today-color: var(--text-primary);
   --rdp-nav_button-height: 28px;
   --rdp-nav_button-width: 28px;
   --rdp-nav-height: 2.5rem;
-  --rdp-outside-opacity: 0.38;
-  --rdp-disabled-opacity: 0.32;
+  /* 邻月日**不是禁用日**，它可点，得读得出来。
+     原来在 --ink-3(62%) 之上再乘 0.38，实得 ≈1.7:1，等于没画。
+     弱化交给 --ink-tertiary 一层就够（62% ≈ 5.6:1）。 */
+  --rdp-outside-opacity: 1;
+  --rdp-disabled-opacity: 1;
   --rdp-weekday-opacity: 1;
-  /* range 端点/中段文字颜色：端点实心圆用深字，中段沿用墨字 */
-  --rdp-range_start-color: #1c1917;
-  --rdp-range_end-color: #1c1917;
-  --rdp-range_start-date-background-color: var(--accent);
-  --rdp-range_end-date-background-color: var(--accent);
-  --rdp-range_middle-background-color: var(--accent-tint);
-  --rdp-range_middle-color: var(--ink);
+  /* range 端点用深墨（橙底不是白底） */
+  --rdp-range_start-color: var(--ink-on-accent);
+  --rdp-range_end-color: var(--ink-on-accent);
+  --rdp-range_start-date-background-color: var(--px-accent);
+  --rdp-range_end-date-background-color: var(--px-accent);
+  --rdp-range_middle-background-color: var(--status-warning-bg);
+  --rdp-range_middle-color: var(--text-primary);
   width: fit-content;
   margin: 0 auto;
-  font-family: var(--font-stack, system-ui, sans-serif);
-  color: var(--ink);
+  font-family: var(--font-stack);
+  color: var(--text-primary);
   background: transparent;
 }
 
-/* ---- 月份标题：衬线 editorial ---- */
+/* ---- 月份标题：24px 点阵（2× 原生网格） ---- */
 .nsdp-cal-host .rdp-month_caption {
-  font-family: var(--font-display, Georgia, "Times New Roman", "Songti SC", serif);
-  font-size: 0.9375rem;                 /* 15px，比正文略大 */
-  font-weight: 500;
-  color: var(--ink);
-  letter-spacing: 0.01em;
+  font-size: var(--px-size-2x);
+  line-height: 1.2;
+  color: var(--text-strong);
+  letter-spacing: 0;
   height: var(--rdp-nav-height);
 }
 .nsdp-cal-host .rdp-caption_label { padding: 0 4px; }
 
-/* ---- 月份切换按钮 ---- */
+/* ---- 月份切换按钮：直角，hover 填黄配深墨 ---- */
 .nsdp-cal-host .rdp-button_previous,
 .nsdp-cal-host .rdp-button_next {
-  border-radius: 999px;
-  color: var(--ink-2);
-  transition: background var(--dur-fast, 0.15s), color var(--dur-fast, 0.15s);
+  border-radius: 0;
+  color: var(--text-secondary);
+  transition: background var(--dur-fast), color var(--dur-fast);
 }
 .nsdp-cal-host .rdp-button_previous:hover,
 .nsdp-cal-host .rdp-button_next:hover {
-  background: var(--line-soft);
-  color: var(--accent);
+  background: var(--button-secondary-hover);
+  color: var(--ink-on-bright);
 }
 .nsdp-cal-host .rdp-chevron { fill: currentColor; }
 
 /* ---- 星期表头：单字，弱化 ---- */
 .nsdp-cal-host .rdp-weekday {
-  color: var(--ink-3);
-  font-size: var(--text-tiny, 0.6875rem);
-  font-weight: 600;
-  letter-spacing: 0.02em;
+  color: var(--text-tertiary);
+  font-size: var(--px-size);
   padding: 0.25rem 0 0.5rem;
 }
 
-/* ---- 日格 ---- */
+/* ---- 日格：12px 点阵数字，直角 ---- */
 .nsdp-cal-host .rdp-day_button {
-  font-size: 0.8125rem;                 /* 13px */
-  color: var(--ink);
+  font-size: var(--px-size);
+  color: var(--text-primary);
   font-variant-numeric: tabular-nums;
-  border-radius: 999px;
-  transition: background var(--dur-fast, 0.12s), color var(--dur-fast, 0.12s),
-              box-shadow var(--dur-fast, 0.12s), transform var(--dur-fast, 0.12s);
+  border-radius: 0;
+  transition: background var(--dur-fast), color var(--dur-fast), box-shadow var(--dur-fast);
 }
 .nsdp-cal-host .rdp-day_button:hover:not(:disabled) {
-  background: var(--line-soft);
-  color: var(--ink);
+  background: var(--button-secondary-hover);
+  color: var(--ink-on-bright);
 }
-.nsdp-cal-host .rdp-day_button:active:not(:disabled) { transform: scale(0.92); }
+/* 「按下」= 压 1px 位移（整数位移不重采样）；原来用 scale(0.92)，
+   会把这格里的点阵数字一起缩放，正是点阵字发糊的经典来源 */
+.nsdp-cal-host .rdp-day_button:active:not(:disabled) { transform: translateY(1px); }
 
-/* 外部月 / 禁用 */
-.nsdp-cal-host .rdp-outside { opacity: var(--rdp-outside-opacity); }
-.nsdp-cal-host .rdp-outside .rdp-day_button { color: var(--ink-3); }
-.nsdp-cal-host .rdp-outside .rdp-day_button:hover { background: transparent; }
-.nsdp-cal-host .rdp-disabled .rdp-day_button { cursor: default; opacity: var(--rdp-disabled-opacity); }
-.nsdp-cal-host .rdp-disabled .rdp-day_button:hover { background: transparent; }
+/* 邻月 / 禁用 */
+.nsdp-cal-host .rdp-outside .rdp-day_button { color: var(--text-tertiary); }
+/* 邻月日 hover 不铺黄，保持退让 —— 但文字仍走深墨，压在底上可读 */
+.nsdp-cal-host .rdp-outside .rdp-day_button:hover { background: transparent; color: var(--text-strong); }
+.nsdp-cal-host .rdp-disabled .rdp-day_button { cursor: default; color: var(--ink-disabled); }
+.nsdp-cal-host .rdp-disabled .rdp-day_button:hover { background: transparent; color: var(--ink-disabled); }
 
-/* ---- 今天：赭橙描边环（独立于选中） ---- */
+/* ---- 今天：实底黄 + 深墨（lshu 里黄就是「今日标记」） ---- */
 .nsdp-cal-host .rdp-today:not(.rdp-outside) .rdp-day_button {
-  box-shadow: inset 0 0 0 1.5px var(--accent);
-  color: var(--ink);
-  font-weight: 600;
+  background: var(--px-mark);
+  color: var(--ink-on-bright);   /* 黄底黑字 12.3:1（暗色 14.6:1） */
+  box-shadow: none;
 }
 
-/* ---- 选中（单日）：赭橙圆 + 深字 ---- */
+/* ---- 选中（单日）：实底橙 + 深墨 ---- */
 .nsdp-cal-host .rdp-selected {
   font-weight: normal;      /* 覆盖 RDP 默认 font-weight:bold / font-size:large */
   font-size: inherit;
@@ -237,51 +232,49 @@
 .nsdp-cal-host .rdp-selected .rdp-day_button,
 .nsdp-cal-host .rdp-range_start .rdp-day_button,
 .nsdp-cal-host .rdp-range_end .rdp-day_button {
-  background: var(--accent);
-  color: #1c1917;
-  font-weight: 700;
+  background: var(--px-accent);
+  color: var(--ink-on-accent);   /* 橙底黑字 6.06:1（暗色 6.66:1） */
   border: none;
-  box-shadow: none;         /* 选中日不叠加「今天」描边环 */
+  box-shadow: none;              /* 选中日不叠加「今天」的黄底 */
 }
+/* 橙没有「更深一档」—— 加深就是第五种颜色。hover 只压 1px 位移 */
 .nsdp-cal-host .rdp-selected .rdp-day_button:hover,
 .nsdp-cal-host .rdp-range_start .rdp-day_button:hover,
 .nsdp-cal-host .rdp-range_end .rdp-day_button:hover {
-  background: var(--accent-deep);
-}
-/* 今天若恰为选中日：去掉描边环（实心圆本身已标示） */
-.nsdp-cal-host .rdp-today.rdp-selected .rdp-day_button,
-.nsdp-cal-host .rdp-today.rdp-range_start .rdp-day_button,
-.nsdp-cal-host .rdp-today.rdp-range_end .rdp-day_button {
-  box-shadow: none;
+  background: var(--px-accent);
+  color: var(--ink-on-accent);
+  transform: translateY(1px);
 }
 
-/* ---- 区间：中段淡橙带，端点实心圆（去掉默认斜切渐变） ---- */
+/* ---- 区间：中段淡黄带，端点实底橙（去掉默认斜切渐变） ---- */
 .nsdp-cal-host .rdp-range_start,
 .nsdp-cal-host .rdp-range_end {
   background: none;         /* 覆盖 RDP 默认的半格渐变 */
 }
 .nsdp-cal-host .rdp-range_middle {
-  background-color: var(--accent-tint);
+  background-color: var(--status-warning-bg);
 }
 .nsdp-cal-host .rdp-range_middle:hover {
-  background-color: var(--accent-tint-hover);
+  background-color: var(--status-warning-bg);
 }
-.nsdp-cal-host .rdp-range_middle .rdp-day_button {
-  border-radius: 0;
-}
-.nsdp-cal-host .rdp-range_start .rdp-day_button { border-radius: 999px 0 0 999px; }
-.nsdp-cal-host .rdp-range_end .rdp-day_button { border-radius: 0 999px 999px 0; }
+.nsdp-cal-host .rdp-range_middle .rdp-day_button { border-radius: 0; }
+.nsdp-cal-host .rdp-range_start .rdp-day_button,
+.nsdp-cal-host .rdp-range_end .rdp-day_button { border-radius: 0; }
 
-/* ---- 焦点环：赭橙 ---- */
+/* ---- 焦点环：橙，内缩 3px。
+   日格是 34px 方块、格与格只有 1px 间隙，外扩的环会压到邻格上，
+   所以这里用负 offset 把环画进格子内部（全站合同里唯一的例外，
+   原因是网格排布而非样式偏好）。 ---- */
 .nsdp-cal-host .rdp-day_button:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-  background: var(--line-soft);
+  outline: 3px solid var(--action-focus);
+  outline-offset: -3px;
+  background: var(--button-secondary-hover);
+  color: var(--ink-on-bright);
 }
 .nsdp-cal-host .rdp-button_previous:focus-visible,
 .nsdp-cal-host .rdp-button_next:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
+  outline: 3px solid var(--action-focus);
+  outline-offset: -3px;
 }
 
 /* ============================================================

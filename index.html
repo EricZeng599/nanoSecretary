@@ -6,48 +6,54 @@
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'">
     <title>nanoSecretary</title>
     <link rel="stylesheet" href="tokens.css">
-    <!-- 日期选择器：react-day-picker 日历基础样式 + 暖暗主题 -->
+    <!-- 日期选择器：react-day-picker 日历基础样式 + 主题适配 -->
     <link rel="stylesheet" href="date-picker-react.css">
     <link rel="stylesheet" href="date-picker.css">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         /* html 需占满窗口高度，body 的 height:100% 才有依据；
-           否则 body 收缩到内容高度，球不居中，呼吸动画顶部溢出被裁 */
+           否则 body 收缩到内容高度，球不居中、面板顶部溢出被裁 */
         html, body { width: 100%; height: 100%; }
         body {
             background: transparent;
             width: 100%;
             height: 100%;
+            position: relative; /* #input-container 绝对定位的锚点 */
             display: flex;
             align-items: center;
             justify-content: center;
             overflow: hidden;
+            /* 显式声明墨色：不设的话继承 UA 的黑，暗色主题下会有一片没被
+               token 接管的默认黑（越界色扫描会把它们全报出来） */
+            color: var(--text-primary);
             font-family: var(--font-stack);
             font-size: var(--text-body);
         }
         button, input, select, textarea { font-family: var(--font-stack); }
 
-        /* 无障碍：键盘焦点指示（赭橙） */
+        /* 无障碍：键盘焦点指示（3px 橙环 + 2px 留白，全直角） */
         :focus-visible {
-            outline: 2px solid var(--action-focus);
+            outline: 3px solid var(--action-focus);
             outline-offset: 2px;
-            border-radius: 2px;
-        }
-        .tab:focus-visible,
-        #save-button:focus-visible,
-        #save-button-form:focus-visible {
-            outline-offset: 1px;
+            border-radius: 0;
         }
 
-        /* 统一线性图标 */
+        /* 统一线性图标（2px 方头整数网格，见 icons.js 头部说明） */
         .icon { display: inline-block; vertical-align: -2px; }
 
-        /* ---- 悬浮球 ---- */
-        /* 外层：透明点击区，负责 hover/按下反馈 */
+        /* ============================================================
+           悬浮球 —— 点阵打印机的圆，不是玻璃球
+           ------------------------------------------------------------
+           1-bit 圆按行拆成水平游程（run-length）画出来，边缘天然是
+           阶梯状，这正是想要的「打印机画圆」；不用 border-radius:50%
+           ——那会画出抗锯齿的光滑坡面，两种语言不能混。
+           网格：viewBox 0 0 20 20 显示 40px，1 格 = 2px，
+           外圆 R10 / 面 R9 → 环恰好 1 格 = 2px，与 --border-strong 同重。
+           描边与填充都不带模糊，因此也不需要投影：环本身就是轮廓。
+           ============================================================ */
         #floating-ball {
             width: 40px;
             height: 40px;
-            border-radius: 50%;
             cursor: pointer;
             display: flex;
             align-items: center;
@@ -61,74 +67,93 @@
             border: none;
             padding: 0;
         }
-        #floating-ball:hover { transform: scale(1.08); }
-        #floating-ball:active { transform: scale(0.94); }
-        /* 内层：暖灰玻璃球（无冷蓝） */
+        /* 内层：1-bit 圆。面与环是两块填充，环永远 = 主色，
+           所以亮色下是白盘黑圈、暗色下是黑盘白圈，橙黄只改盘面。
+           透明窗口浮在桌面之上，盘面可能和壁纸同色 —— 但环与盘
+           互为反色，两者不会同时消失，圆始终读得出来。 */
         #ball-core {
             position: absolute;
             inset: 0;
-            border-radius: 50%;
             pointer-events: none;
-            background: var(--surface-ball);
-            box-shadow: var(--shadow-ball);
-            transition: background 0.5s ease, box-shadow 0.5s ease;
+            shape-rendering: crispEdges;
         }
-        /* 常驻呼吸动画 */
-        #floating-ball.breathe #ball-core { animation: breathe 2.4s ease-in-out infinite; }
-        @keyframes breathe {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-        }
-        /* 有截止提醒：暖橙呼吸 */
-        #floating-ball.due #ball-core {
-            background: linear-gradient(135deg, #d4734b, #b05e38);
-            animation: breathe 1.8s ease-in-out infinite;
-        }
-        /* 临近截止：红脉冲 */
-        #floating-ball.urgent #ball-core {
-            background: linear-gradient(135deg, #c53a2c, #9e2d22);
-            animation: pulse 1.2s ease-in-out infinite;
-        }
-        @keyframes pulse {
-            0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(197,58,44,0.5); }
-            50% { transform: scale(1.08); box-shadow: 0 0 0 10px rgba(197,58,44,0); }
-        }
+        .ball-ring { fill: var(--px-line); transition: fill var(--dur-med); }
+        .ball-face { fill: var(--px-base); transition: fill var(--dur-med); }
 
-        /* 角标：待办数量 */
+        #ball-icon {
+            position: relative;
+            display: flex;
+            color: var(--px-line);
+            pointer-events: none;
+            line-height: 0;
+        }
+        /* 24px = 24 格 viewBox 的 1×，2 格描边正好 2px，落在整数网格上 */
+        #ball-icon svg { width: 24px; height: 24px; display: block; }
+
+        /* 常驻呼吸：整体阶梯式明暗。
+           **不用 scale** —— 点阵圆一缩放就被重采样，边缘立刻发虚；
+           透明度只是合成，像素网格原样保留。62% 即 --ink-tertiary。 */
+        #floating-ball.breathe #ball-core { animation: breathe 2.4s steps(4, end) infinite; }
+        @keyframes breathe {
+            0%, 100% { opacity: 1; }
+            50%      { opacity: 0.62; }
+        }
+        /* 有截止提醒：盘面转黄（lshu 的「今日/优先级」色），呼吸加快 */
+        #floating-ball.due .ball-face { fill: var(--px-mark); }
+        #floating-ball.due #ball-icon { color: var(--ink-on-accent); }
+        #floating-ball.due #ball-core { animation: breathe 1.8s steps(4, end) infinite; }
+        /* 临近截止：盘面转橙 + 硬闪。
+           橙黄都是亮色相，落在它们上面的字一律深墨（--ink-on-accent） */
+        #floating-ball.urgent .ball-face { fill: var(--px-accent); }
+        #floating-ball.urgent #ball-icon { color: var(--ink-on-accent); }
+        #floating-ball.urgent #ball-core { animation: alarm 1.2s steps(2, end) infinite; }
+        @keyframes alarm {
+            0%, 100% { opacity: 1; }
+            50%      { opacity: 0.45; }
+        }
+        /* 保存成功：整球反相一拍（盘=主色、环=实体底、勾=实体底）。
+           lshu 没有「成功色」，用负片代替绿色闪光，不新增第五种颜色。
+           反相靠类切换的静态规则，不做 keyframes —— 切回来就是硬切。 */
+        #floating-ball.saved #ball-core { animation: none; }
+        #floating-ball.saved .ball-face { fill: var(--px-line); }
+        #floating-ball.saved .ball-ring { fill: var(--px-base); }
+        #floating-ball.saved #ball-icon { color: var(--px-base); }
+
+        /* hover：盘面转黄（lshu 的 hover 信号），不放大 —— 同样为了不重采样 */
+        #floating-ball:hover .ball-face { fill: var(--px-mark); }
+        #floating-ball:hover #ball-icon { color: var(--ink-on-accent); }
+        /* 按下：1px 位移，不是缩放 */
+        #floating-ball:active { transform: translate(1px, 1px); }
+
+        /* 角标：待办数量。全直角方块 + 橙底深墨字（6.06:1），
+           1px 实体底描边把圆环切出一个缺口，读起来像贴上去的一枚标签 */
         #badge {
             position: absolute;
             top: -2px;
             right: -2px;
             min-width: 16px;
             height: 16px;
-            padding: 0 4px;
-            border-radius: 8px;
-            background: var(--status-danger);
-            color: #fff;
+            padding: 0 3px;
+            border-radius: 0;
+            background: var(--px-accent);
+            color: var(--ink-on-accent);
             font-size: var(--text-tiny);
-            font-weight: 700;
+            line-height: 1;
             display: none;
             align-items: center;
             justify-content: center;
-            border: 1px solid rgba(255,255,255,0.5);
-        }
-        /* 保存成功：暖绿闪光 */
-        #floating-ball.saved #ball-core {
-            background: linear-gradient(135deg, #6fa86b, #4c8048);
-            animation: flash-save 0.5s ease-out;
-        }
-        @keyframes flash-save {
-            0% { transform: scale(0.6); opacity: 0.4; }
-            30% { transform: scale(1.1); opacity: 1; }
-            100% { transform: scale(1); opacity: 1; }
+            border: 1px solid var(--px-base);
         }
 
-        /* ---- 输入面板（极简 editorial） ---- */
+        /* ---- 输入面板：一张打印出来的表单 ---- */
+        /* 铺满整窗。**必须脱离文档流**：球在输入态只是透明、并未 display:none，
+           若与面板同为 body 的 flex item，40px 的球会把面板挤到 x=38、宽 380，
+           且底部越出 4px（改前实测）。绝对定位后球退居其后，不参与布局。 */
         #input-container {
             display: none;
-            width: 100%;
-            height: 100%;
-            padding: 6px;
+            position: absolute;
+            inset: 0;
+            padding: 2px;
         }
         #input-wrapper {
             width: 100%;
@@ -136,27 +161,29 @@
             display: flex;
             flex-direction: column;
             background: var(--surface-panel);
-            border-radius: var(--radius-panel);
-            padding: 12px;
-            box-shadow: var(--shadow-panel);
-            border: 1px solid var(--border-soft);
+            border-radius: 0;
+            padding: 10px 12px;
+            box-shadow: none;
+            border: 2px solid var(--px-line);
             transform-origin: 50% 100%;
             opacity: 0;
-            transform: scale(0.96);
+            /* 进场面板从下方 6px 升上来。
+               原来是 scale(0.96)，但那会把面板里的点阵字一起重采样 */
+            transform: translateY(6px);
             transition: opacity 0.18s ease-out, transform 0.22s var(--ease-out);
         }
         #input-wrapper.show {
             opacity: 1;
-            transform: scale(1);
+            transform: none;
         }
         #text-input {
             flex: 1;
             width: 100%;
             border: none;
-            border-bottom: 1px solid var(--border-soft);
+            border-bottom: 2px solid var(--px-line);
             background: transparent;
             color: var(--text-primary);
-            padding: 4px 2px 8px;
+            padding: 3px 2px 7px;
             border-radius: 0;
             font-size: var(--text-body);
             outline: none;
@@ -165,32 +192,30 @@
         #text-input:focus { border-bottom-color: var(--border-field); }
         #text-input::placeholder { color: var(--text-faint); }
 
-        /* 保存失败内联提示 */
+        /* 保存失败：色底徽标，不是橙字 —— 橙字白底只有 3.12:1，过不了 AA */
         #save-error {
             display: none;
-            color: var(--status-danger-text);
-            font-size: var(--text-meta);
-            margin-top: 6px;
-            padding: 4px 8px;
-            border-radius: var(--radius-field);
-            background: var(--status-danger-bg);
+            color: var(--ink-on-accent);
+            background: var(--px-accent);
+            font-size: var(--px-size);
+            padding: 5px 8px;
+            border-radius: 0;
         }
 
         .row { display: flex; gap: 6px; align-items: center; }
+        /* 表单控件：2px 主色框（打印表格式），内边距各减 1px 抵消线宽，行高不变 */
         .row select {
             background: var(--surface-field);
             color: var(--text-primary);
-            border: 1px solid var(--border-soft);
-            border-radius: var(--radius-field);
-            padding: 5px 8px;
+            border: 2px solid var(--px-line);
+            border-radius: 0;
+            padding: 4px 7px;
             font-size: var(--text-meta);
             outline: none;
-            color-scheme: dark;
         }
         .row select:focus { border-color: var(--border-field); }
-        .row label { color: var(--text-tertiary); font-size: var(--text-meta); }
 
-        /* 次级保存按钮（输入面板）：极简描边 */
+        /* 主按钮：橙底深墨字 + 2px 硬边影；hover/active 一路压下去 */
         #save-button,
         #save-button-form {
             height: 30px;
@@ -198,21 +223,30 @@
             background: var(--action-primary);
             color: var(--action-on-text);
             border: none;
-            border-radius: var(--radius-btn);
+            border-radius: 0;
+            box-shadow: var(--shadow-action);
             cursor: pointer;
-            font-size: var(--text-body);
-            font-weight: 600;
+            font-size: var(--px-size);
             margin-left: auto;
         }
         #save-button:hover,
-        #save-button-form:hover { background: var(--action-primary-hover); }
+        #save-button-form:hover {
+            background: var(--action-primary-hover);
+            transform: translate(1px, 1px);
+            box-shadow: 1px 1px 0 var(--px-line);
+        }
+        #save-button:active,
+        #save-button-form:active {
+            transform: translate(2px, 2px);
+            box-shadow: none;
+        }
 
-        /* AI 解析结果预览 */
+        /* AI 解析结果预览：黄底细框卡（与主页面同一张卡）*/
         #ai-preview {
             display: none;
-            background: rgba(212,115,75,0.08);
-            border: 1px solid rgba(212,115,75,0.22);
-            border-radius: var(--radius-field);
+            background: var(--status-warning-bg);
+            border: 1px solid var(--px-mark);
+            border-radius: 0;
             padding: 8px 10px;
             font-size: var(--text-meta);
             color: var(--text-primary);
@@ -220,32 +254,41 @@
             line-height: 1.5;
         }
         #ai-preview .ai-title { font-weight: var(--weight-strong); }
+        /* 橙不做小字，链接式操作改走主色下划线 */
         #ai-preview .ai-edit {
             float: right;
             background: none;
             border: none;
-            color: var(--action-on-strong);
+            padding: 0;
+            color: var(--px-line);
+            text-decoration: underline;
+            text-underline-offset: 2px;
             cursor: pointer;
             font-size: var(--text-meta);
         }
 
-        /* 模式切换 Tab（极简下划线式） */
-        .tabs { display: flex; gap: 4px; margin-bottom: 8px; border-bottom: 1px solid var(--border-subtle); }
+        /* 模式切换 Tab：一条分段控制（2px 框 + 1px 竖分隔），不是下划线式 */
+        .tabs {
+            display: flex;
+            width: fit-content;
+            margin-bottom: 8px;
+            border: 2px solid var(--px-line);
+        }
         .tab {
-            padding: 3px 10px 6px;
-            font-size: var(--text-meta);
+            padding: 4px 12px;
+            font-size: var(--px-size);
             border: none;
-            background: transparent;
+            border-right: 1px solid var(--px-line);
+            background: var(--px-base);
             color: var(--text-tertiary);
-            border-bottom: 2px solid transparent;
-            margin-bottom: -1px;
             cursor: pointer;
-            transition: color var(--dur-fast), border-color var(--dur-fast);
+            transition: color var(--dur-fast), background var(--dur-fast);
         }
-        .tab:hover { color: var(--text-secondary); }
-        .tab.active { color: var(--text-strong); border-bottom-color: var(--action-primary); }
+        .tab:last-child { border-right: none; }
+        .tab:hover { color: var(--text-primary); }
+        .tab.active { background: var(--px-accent); color: var(--action-on-text); }
 
-        .form-row { display: flex; gap: 6px; margin-bottom: 6px; align-items: center; }
+        .form-row { display: flex; gap: 6px; margin-bottom: 5px; align-items: center; }
         /* 截止日期选择器的挂载点：占满行内剩余宽度 */
         #f-due { flex: 1; display: flex; min-width: 0; }
         #f-due .nsdp-field-wrap { width: 100%; }
@@ -253,9 +296,9 @@
             flex: 1;
             background: var(--surface-field);
             color: var(--text-primary);
-            border: 1px solid var(--border-soft);
-            border-radius: var(--radius-field);
-            padding: 6px 10px;
+            border: 2px solid var(--px-line);
+            border-radius: 0;
+            padding: 5px 9px;
             font-size: var(--text-meta);
             outline: none;
         }
@@ -263,22 +306,23 @@
         .form-row select {
             background: var(--surface-field);
             color: var(--text-primary);
-            border: 1px solid var(--border-soft);
-            border-radius: var(--radius-field);
-            padding: 6px 8px;
+            border: 2px solid var(--px-line);
+            border-radius: 0;
+            padding: 5px 7px;
             font-size: var(--text-meta);
-            color-scheme: dark;
         }
+        .form-row select:focus { border-color: var(--border-field); }
         /* 输入面板子面板 */
         #quick-panel, #form-panel {
             flex: 1;
             min-height: 0;
             overflow-y: auto;
         }
-        /* 下拉选项强制暖黑底 */
+        /* 下拉选项走 token（color-scheme 由 tokens.css 按主题给），
+           不再硬编码暖黑 —— 否则亮色主题下会掉出一个黑底弹层 */
         select option {
-            background-color: #201e1c;
-            color: #e8e4de;
+            background-color: var(--surface-field);
+            color: var(--text-primary);
         }
 
         .hint { color: var(--text-faint); font-size: var(--text-meta); margin-top: 6px; text-align: center; }
@@ -287,12 +331,11 @@
         @media (prefers-reduced-motion: reduce) {
             #floating-ball.breathe #ball-core,
             #floating-ball.due #ball-core,
-            #floating-ball.urgent #ball-core,
-            #floating-ball.saved #ball-core {
+            #floating-ball.urgent #ball-core {
                 animation: none;
             }
-            #floating-ball:hover { transform: none; }
-            #floating-ball:active { transform: scale(0.97); }
+            #floating-ball:hover .ball-face { fill: var(--px-base); }
+            #floating-ball:active { transform: none; }
             #input-wrapper {
                 transition: opacity 0.15s ease-out;
                 transform: none;
@@ -303,8 +346,14 @@
 <body>
     <!-- 悬浮球：role="button" + tabindex，键盘可操作 -->
     <div id="floating-ball" role="button" tabindex="0" aria-label="打开速记输入" title="双击输入">
-        <div id="ball-core"></div>
-        <span id="ball-icon" style="position:relative;color:white;font-size: 1.125rem;pointer-events:none;line-height:0;"></span>
+        <!-- 1-bit 圆：外圆 R10 铺环色，面圆 R9 盖在上面，环宽恰好 1 格（2px）。
+             每一行写成**闭合的 1 格高矩形**（h→v1→h-→z），不是裸的 `h` 线段 ——
+             零高度的子路径没有面积，`fill` 什么也画不出来（踩过）。 -->
+        <svg id="ball-core" viewBox="0 0 20 20" width="40" height="40" aria-hidden="true" focusable="false">
+            <path class="ball-ring" d="M9 0h2v1h-2zM6 1h8v1h-8zM4 2h12v1h-12zM3 3h14v1h-14zM2 4h16v1h-16zM1 5h18v1h-18zM1 6h18v1h-18zM0 7h20v1h-20zM0 8h20v1h-20zM0 9h20v1h-20zM0 10h20v1h-20zM0 11h20v1h-20zM0 12h20v1h-20zM0 13h20v1h-20zM1 14h18v1h-18zM1 15h18v1h-18zM2 16h16v1h-16zM3 17h14v1h-14zM4 18h12v1h-12zM6 19h8v1h-8zM9 20h2v1h-2z"/>
+            <path class="ball-face" d="M9 1h2v1h-2zM6 2h8v1h-8zM4 3h12v1h-12zM3 4h14v1h-14zM3 5h14v1h-14zM2 6h16v1h-16zM2 7h16v1h-16zM1 8h18v1h-18zM1 9h18v1h-18zM1 10h18v1h-18zM1 11h18v1h-18zM1 12h18v1h-18zM2 13h16v1h-16zM2 14h16v1h-16zM3 15h14v1h-14zM3 16h14v1h-14zM4 17h12v1h-12zM6 18h8v1h-8zM9 19h2v1h-2z"/>
+        </svg>
+        <span id="ball-icon"></span>
         <span id="badge">0</span>
     </div>
 
